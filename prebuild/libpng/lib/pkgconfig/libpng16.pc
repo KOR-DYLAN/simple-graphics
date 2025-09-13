@@ -1,0 +1,12 @@
+prefix=/home/dylan7h/workspace/simple-graphics/prebuild/libpng
+exec_prefix=/home/dylan7h/workspace/simple-graphics/prebuild/libpng
+libdir=/home/dylan7h/workspace/simple-graphics/prebuild/libpng/lib
+includedir=/home/dylan7h/workspace/simple-graphics/prebuild/libpng/include/libpng16
+
+Name: libpng
+Description: Loads and saves PNG files
+Version: 1.6.51
+Requires.private: zlib
+Libs: -L${libdir} -lpng16
+Libs.private: -lz -lm
+Cflags: -I${includedir}
