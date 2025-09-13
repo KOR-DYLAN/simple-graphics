@@ -1,1 +1,1 @@
-add_subdirectory(samplelib)
+add_subdirectory(sgl-core)

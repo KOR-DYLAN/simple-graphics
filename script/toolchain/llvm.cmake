@@ -14,6 +14,7 @@ set(CMAKE_STRIP         llvm-strip)
 set(CMAKE_SIZE          llvm-size)
 set(CMAKE_C_COMPILER_TARGET ${TARGET_TRIPLE})
 set(CMAKE_CXX_COMPILER_TARGET ${TARGET_TRIPLE})
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Get And Apply sysroot
 execute_process(

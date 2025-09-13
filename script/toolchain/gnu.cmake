@@ -12,6 +12,7 @@ set(CMAKE_OBJDUMP       ${TRIPLE}objdump)
 set(CMAKE_RANLIB        ${TRIPLE}ranlib)
 set(CMAKE_STRIP         ${TRIPLE}strip)
 set(CMAKE_SIZE          ${TRIPLE}size)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Get sysroot
 execute_process(

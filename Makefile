@@ -25,6 +25,8 @@ ifneq ($(V),0)
     VERBOSE	:=-v
 endif
 
+all: build
+
 phony+=config
 config:
 	$(CMAKE) $(CMAKE_FLAGS) -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) -S$(WORKSPACE) -B$(BUILD)
