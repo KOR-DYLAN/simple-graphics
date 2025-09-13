@@ -1,0 +1,5 @@
+set(CMAKE_SYSTEM_NAME Linux)
+set(CMAKE_SYSTEM_PROCESSOR aarch64)
+set(TRIPLE "aarch64-none-linux-gnu-")
+string(REGEX REPLACE "-$" "" TARGET_TRIPLE "${TRIPLE}")
+include(${CMAKE_CURRENT_LIST_DIR}/llvm.cmake)

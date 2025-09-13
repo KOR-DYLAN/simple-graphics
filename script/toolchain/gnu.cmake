@@ -1,0 +1,59 @@
+include(${CMAKE_CURRENT_LIST_DIR}/../misra/gnu.cmake)
+
+# Set Toolchin
+set(CMAKE_ASM_COMPILER  ${TRIPLE}gcc)
+set(CMAKE_C_COMPILER    ${TRIPLE}gcc)
+set(CMAKE_CXX_COMPILER  ${TRIPLE}g++)
+set(CMAKE_LINKER        ${TRIPLE}ld)
+set(CMAKE_PP            ${TRIPLE}cpp)
+set(CMAKE_AR            ${TRIPLE}ar)
+set(CMAKE_OBJCOPY       ${TRIPLE}objcopy)
+set(CMAKE_OBJDUMP       ${TRIPLE}objdump)
+set(CMAKE_RANLIB        ${TRIPLE}ranlib)
+set(CMAKE_STRIP         ${TRIPLE}strip)
+set(CMAKE_SIZE          ${TRIPLE}size)
+
+# Get sysroot
+execute_process(
+    COMMAND ${CMAKE_C_COMPILER} -print-sysroot
+    OUTPUT_VARIABLE GCC_SYSROOT
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+# Apply sysroot
+if(GCC_SYSROOT)
+    set(CMAKE_SYSROOT "${GCC_SYSROOT}" CACHE PATH "Sysroot path" FORCE)
+    file(WRITE ${CMAKE_BINARY_DIR}/sysroot.txt "${GCC_SYSROOT}\n")
+    message(STATUS "Sysroot detected: ${CMAKE_SYSROOT}")
+else()
+    message(WARNING "Failed to detect sysroot from ${CMAKE_C_COMPILER}")
+endif()
+
+set(MISRA_C_WARN_LIST "${MISRA_COMMON} ${MISRA_COMMON_C} ${MISRA_GCC}")
+set(MISRA_CXX_WARN_LIST "${MISRA_COMMON} ${MISRA_COMMON_CXX}")
+list(JOIN MISRA_C_WARN_LIST " " MISRA_C_WARN)
+list(JOIN MISRA_CXX_WARN_LIST " " MISRA_CXX_WARN)
+
+# Debug
+set(CMAKE_ASM_FLAGS_DEBUG           "-O0 -g")
+set(CMAKE_C_FLAGS_DEBUG             "-O0 -g ${MISRA_C_WARN}")
+set(CMAKE_CXX_FLAGS_DEBUG           "-O0 -g ${MISRA_CXX_WARN}")
+
+# MinSizeRel
+set(CMAKE_ASM_FLAGS_MINSIZEREL      "-Os -DNDEBUG")
+set(CMAKE_C_FLAGS_MINSIZEREL        "-Os -DNDEBUG ${MISRA_C_WARN}")
+set(CMAKE_CXX_FLAGS_MINSIZEREL      "-Os -DNDEBUG ${MISRA_CXX_WARN}")
+
+# Release
+set(CMAKE_ASM_FLAGS_RELEASE         "-O2 -DNDEBUG")
+set(CMAKE_C_FLAGS_RELEASE           "-O2 -DNDEBUG ${MISRA_C_WARN}")
+set(CMAKE_CXX_FLAGS_RELEASE         "-O2 -DNDEBUG ${MISRA_CXX_WARN}")
+
+# RelWithDebInfo
+set(CMAKE_ASM_FLAGS_RELWITHDEBINFO  "-O2 -g -DNDEBUG")
+set(CMAKE_C_FLAGS_RELWITHDEBINFO    "-O2 -g -DNDEBUG ${MISRA_C_WARN}")
+set(CMAKE_CXX_FLAGS_RELWITHDEBINFO  "-O2 -g -DNDEBUG ${MISRA_CXX_WARN}")
+
+set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)

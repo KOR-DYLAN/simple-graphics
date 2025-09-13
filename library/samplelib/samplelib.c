@@ -1,0 +1,4 @@
+void samplelib(void)
+{
+
+}
