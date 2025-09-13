@@ -1,1 +1,3 @@
 build/*
+3rd-party/build-zlib/*
+3rd-party/build-libpng/*
