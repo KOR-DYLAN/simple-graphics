@@ -16,6 +16,7 @@ BUILD_TYPE		:=Debug
 
 # Target Name
 TARGET			:=sample
+ARGS			:=$(TOPDIR)/resource/sample.png
 
 ifneq ($(TOOLCHAIN),)
     CMAKE_FLAGS	+=-DCMAKE_TOOLCHAIN_FILE=$(TOPDIR)/script/toolchain/$(TOOLCHAIN).cmake
@@ -46,6 +47,6 @@ distclean:
 phony+=run
 run: build
 	$(eval SYSROOT := $(shell cat $(BUILD)/sysroot.txt))
-	$(QEMU) -L $(SYSROOT) $(BUILD)/$(BUILD_TYPE)/bin/$(TARGET)
+	$(QEMU) -L $(SYSROOT) $(BUILD)/$(BUILD_TYPE)/bin/$(TARGET) $(ARGS)
 
 .PHONY: $(phony)

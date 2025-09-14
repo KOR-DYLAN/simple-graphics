@@ -6,4 +6,4 @@ project(sample
 list(APPEND SRC main.c)
 
 add_executable(${PROJECT_NAME} ${SRC})
-target_link_libraries(${PROJECT_NAME} PRIVATE sgl-core)
+target_link_libraries(${PROJECT_NAME} PRIVATE test-util sgl-core)
