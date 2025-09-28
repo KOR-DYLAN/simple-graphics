@@ -6,4 +6,5 @@ project(sgl-core
 add_library(${PROJECT_NAME})
 add_subdirectory(convert)
 add_subdirectory(crop)
+add_subdirectory(resize)
 add_subdirectory(rotate)

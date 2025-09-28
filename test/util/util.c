@@ -1,6 +1,8 @@
 #include <png.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <unistd.h>
+#include <time.h>
 #include "util.h"
 
 typedef struct {
@@ -286,4 +288,19 @@ static void sgl_test_png_write_deinit(png_t *handle)
 
         free(handle);
     }
+}
+
+uint64_t sgl_test_get_timestamp_us(uint64_t start_us)
+{
+    struct timespec timespec;
+    uint64_t val;
+
+    (void)clock_gettime(CLOCK_MONOTONIC, &timespec);
+    val = (timespec.tv_sec * 1000000ULL) + (timespec.tv_nsec / 1000ULL);
+
+    if (0ULL < start_us) {
+        val -= start_us;
+    }
+
+    return val;
 }

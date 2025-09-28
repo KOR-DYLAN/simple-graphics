@@ -15,7 +15,7 @@ TOOLCHAIN		:=aarch64-none-linux-llvm
 BUILD_TYPE		:=Debug
 
 # Target Name
-TARGET			:=sample
+TARGET			:=resize
 ARGS			:=$(TOPDIR)/resource/sample.png
 
 ifneq ($(TOOLCHAIN),)
