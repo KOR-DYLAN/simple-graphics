@@ -296,7 +296,7 @@ uint64_t sgl_test_get_timestamp_us(uint64_t start_us)
     uint64_t val;
 
     (void)clock_gettime(CLOCK_MONOTONIC, &timespec);
-    val = (timespec.tv_sec * 1000000ULL) + (timespec.tv_nsec / 1000ULL);
+    val = ((uint64_t)timespec.tv_sec * 1000000ULL) + ((uint64_t)timespec.tv_nsec / 1000ULL);
 
     if (0ULL < start_us) {
         val -= start_us;
