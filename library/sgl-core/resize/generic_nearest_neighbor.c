@@ -29,7 +29,7 @@ sgl_result_t sgl_generic_resize_nearest(uint8_t *dst, int32_t d_width, int32_t d
     }
 
     if (errcnt == 0) {
-        x_lookup = (int32_t *)malloc(sizeof(int32_t) * d_width);
+        x_lookup = (int32_t *)malloc(sizeof(int32_t) * (size_t)d_width);
         if (x_lookup != NULL) {
             /* create 'column' lookup table */
             for (col = 0; col < d_width; ++col) {
