@@ -44,7 +44,24 @@ sgl_result_t sgl_generic_resize_nearest(uint8_t *dst, int32_t d_width, int32_t d
 sgl_result_t sgl_generic_resize_bilinear(uint8_t *dst, int32_t d_width, int32_t d_height, uint8_t *src, int32_t s_width, int32_t s_height, int32_t bpp);
 sgl_result_t sgl_generic_resize_cubic(uint8_t *dst, int32_t d_width, int32_t d_height, uint8_t *src, int32_t s_width, int32_t s_height, int32_t bpp);
 
+/*******************************************************************
+ *                          Util
+ *******************************************************************/
+static inline uint8_t sgl_clamp_u8_i32(int32_t val)
+{
+    uint8_t u8_val = (uint8_t)val;
 
+    if ((val & ~0xFF) != 0) { 
+        if (val < 0) {
+            u8_val = 0U;
+        }
+        else {
+            u8_val = 255U;
+        }
+    }
+
+    return u8_val;
+}
 
 #if defined(__cplusplus)
 }

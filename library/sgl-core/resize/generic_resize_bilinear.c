@@ -1,61 +1,30 @@
 #include <stdint.h>
 #include <stdlib.h>
+#include "sgl-fixed_point.h"
 #include "sgl.h"
-
-#define FP_BITS 15
-#define FP_ONE  (1 << FP_BITS)
-#define FP_MASK (FP_ONE - 1)
 
 typedef struct {
     int32_t x1_off, x2_off;
-    int32_t p, inv_p;   /* Q15 */
+    sgl_q15_t p, inv_p;   /* Q15 */
 } bilinear_column_lookup_t;
 
 typedef struct {
     int32_t y1, y2;
-    int32_t q, inv_q;   /* Q15 */
+    sgl_q15_t q, inv_q;   /* Q15 */
 } bilinear_row_lookup_t;
-
-static inline int32_t mul_q15(int32_t a, int32_t b)
-{
-    /* Avoid UB(Undefined Behavior) by changing 'signed' to 'unsigned'. */
-    uint32_t ua = (uint32_t)a;
-    uint32_t ub = (uint32_t)b;
-    uint32_t prod = ua * ub;                /* Q30 */
-
-    prod += (uint32_t)(1 << (FP_BITS - 1)); /* Rounding */
-
-    return (int32_t)(prod >> FP_BITS);      /* Q15 */
-}
-
-static inline uint8_t clamp_u8_i32(int32_t val)
-{
-    uint8_t u8_val = (uint8_t)val;
-
-    if ((val & ~0xFF) != 0) { 
-        if (val < 0) {
-            u8_val = 0U;
-        }
-        else {
-            u8_val = 255U;
-        }
-    }
-
-    return u8_val;
-}
 
 sgl_result_t sgl_generic_resize_bilinear(uint8_t *dst, int32_t d_width, int32_t d_height, uint8_t *src, int32_t s_width, int32_t s_height, int32_t bpp)
 {
     sgl_result_t result = SGL_SUCCESS;
     int32_t row, col;
-    int32_t x_step, y_step;
-    int32_t rx, ry;
+    sgl_q15_t x_step, y_step;
+    sgl_q15_t rx, ry;
     int32_t x1, y1;
     int32_t x1_off, x2_off;
     int32_t x2, y2;
-    int32_t p, inv_p;
-    int32_t q, inv_q;
-    int32_t w00, w01, w10, w11;
+    sgl_q15_t p, inv_p;
+    sgl_q15_t q, inv_q;
+    sgl_q15_t w00, w01, w10, w11;
     int32_t acc, value;
     bilinear_column_lookup_t *column_lookup;
     bilinear_row_lookup_t *row_lookup;
@@ -86,10 +55,10 @@ sgl_result_t sgl_generic_resize_bilinear(uint8_t *dst, int32_t d_width, int32_t 
         column_lookup = (bilinear_column_lookup_t *)malloc(sizeof(bilinear_column_lookup_t) * (size_t)d_width);
         if ((column_lookup != NULL) && (row_lookup != NULL)) {
             /* create 'row' lookup table */
-            y_step = ((s_height - 1) << FP_BITS) / (d_height - 1);
+            y_step = SGL_INT_TO_Q15(s_height - 1) / (d_height - 1);
             for (row = 0; row < d_height; ++row) {
                 ry = row * y_step;  /* Q15 */
-                y1 = ry >> FP_BITS;
+                y1 = SGL_Q15_GET_INT_PART(ry);
                 if (y1 >= (s_height - 1)) {
                     y1 = s_height - 1;
                 }
@@ -97,7 +66,7 @@ sgl_result_t sgl_generic_resize_bilinear(uint8_t *dst, int32_t d_width, int32_t 
                 if (y2 >= s_height) {
                     y2 = s_height - 1;
                 }
-                q = ry & FP_MASK;
+                q = SGL_Q15_GET_FRAC_PART(ry);
                 if (y1 == (s_height - 1)) {
                     q = 0;
                 }
@@ -105,14 +74,14 @@ sgl_result_t sgl_generic_resize_bilinear(uint8_t *dst, int32_t d_width, int32_t 
                 row_lookup[row].y1 = y1;
                 row_lookup[row].y2 = y2;
                 row_lookup[row].q = q;
-                row_lookup[row].inv_q = FP_ONE - q;
+                row_lookup[row].inv_q = SGL_Q15_ONE - q;
             }
 
             /* create 'column' lookup table */
-            x_step = ((s_width - 1) << FP_BITS) / (d_width - 1);
+            x_step = SGL_INT_TO_Q15(s_width - 1) / (d_width - 1);
             for (col = 0; col < d_width; ++col) {
                 rx = col * x_step;
-                x1 = rx >> FP_BITS;
+                x1 = SGL_Q15_GET_INT_PART(rx);
                 if (x1 >= (s_width - 1)) {
                     x1 = s_width - 1;
                 }
@@ -120,7 +89,7 @@ sgl_result_t sgl_generic_resize_bilinear(uint8_t *dst, int32_t d_width, int32_t 
                 if (x2 >= s_width) {
                     x2 = s_width - 1;
                 }
-                p = rx & FP_MASK;
+                p = SGL_Q15_GET_FRAC_PART(rx);
                 if (x1 == (s_width - 1)) {
                     p = 0;
                 }
@@ -128,7 +97,7 @@ sgl_result_t sgl_generic_resize_bilinear(uint8_t *dst, int32_t d_width, int32_t 
                 column_lookup[col].x1_off = x1 * bpp;
                 column_lookup[col].x2_off = x2 * bpp;
                 column_lookup[col].p = p;
-                column_lookup[col].inv_p = FP_ONE - p;
+                column_lookup[col].inv_p = SGL_Q15_ONE - p;
             }
 
             /* resize */
@@ -148,10 +117,10 @@ sgl_result_t sgl_generic_resize_bilinear(uint8_t *dst, int32_t d_width, int32_t 
                     p = column_lookup[col].p;
                     inv_p = column_lookup[col].inv_p;
 
-                    w00 = mul_q15(inv_p, inv_q); /* Q15 */
-                    w01 = mul_q15(    p, inv_q); /* Q15 */
-                    w10 = mul_q15(inv_p,     q); /* Q15 */
-                    w11 = mul_q15(    p,     q); /* Q15 */
+                    w00 = sgl_q15_mul(inv_p, inv_q); /* Q15 */
+                    w01 = sgl_q15_mul(    p, inv_q); /* Q15 */
+                    w10 = sgl_q15_mul(inv_p,     q); /* Q15 */
+                    w11 = sgl_q15_mul(    p,     q); /* Q15 */
 
                     src_y1x1 = src_y1_buf + x1_off;
                     src_y1x2 = src_y1_buf + x2_off;
@@ -162,10 +131,10 @@ sgl_result_t sgl_generic_resize_bilinear(uint8_t *dst, int32_t d_width, int32_t 
                               (w01 * src_y1x2[ch]) +
                               (w10 * src_y2x1[ch]) + 
                               (w11 * src_y2x2[ch]);
-                        value = (acc + (1 << (FP_BITS - 1))) >> FP_BITS; /* Rounding */
+                        value = SGL_Q15_SHIFTDOWN(SGL_Q15_ROUNDUP(acc));
 
                         /* Q15 -> u8 */
-                        dst_buf[ch] = clamp_u8_i32(value);
+                        dst_buf[ch] = sgl_clamp_u8_i32(value);
                     }
                     dst_buf += bpp;
                 }
