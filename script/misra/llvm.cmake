@@ -4,6 +4,7 @@ set(MISRA_LLVM
     -Wcovered-switch-default # Warn if switch default is unnecessary
     -Wreserved-id-macro      # Warn on use of reserved identifiers in macros
     -Wnewline-eof            # Warn if file does not end with newline
+    -Wno-language-extension-token
 )
 
 set(MISRA_C_WARN_LIST "${MISRA_COMMON} ${MISRA_COMMON_C} ${MISRA_LLVM}")

@@ -4,7 +4,7 @@ BUILD			:=$(TOPDIR)/build
 CMAKE			:=cmake
 NPROC			?=$(shell nproc)
 V				?=0
-HOSTENV			:FALSE
+HOSTENV			:=FALSE
 
 # qemu-aarch64
 QEMU			:=qemu-aarch64
