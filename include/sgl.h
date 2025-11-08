@@ -36,12 +36,16 @@ typedef enum {
     SGL_ERROR_MEMORY_ALLOCATION,
 } sgl_result_t;
 
+typedef struct sgl_bilinear_lookup_table sgl_bilinear_lookup_t;
+
 
 /*******************************************************************
  *                          Resize
  *******************************************************************/
+sgl_bilinear_lookup_t *sgl_generic_create_bilinear_lut(int32_t d_width, int32_t d_height, int32_t s_width, int32_t s_height);
+void sgl_generic_destroy_bilinear_lut(sgl_bilinear_lookup_t *lut);
 sgl_result_t sgl_generic_resize_nearest(uint8_t *dst, int32_t d_width, int32_t d_height, uint8_t *src, int32_t s_width, int32_t s_height, int32_t bpp);
-sgl_result_t sgl_generic_resize_bilinear(uint8_t *dst, int32_t d_width, int32_t d_height, uint8_t *src, int32_t s_width, int32_t s_height, int32_t bpp);
+sgl_result_t sgl_generic_resize_bilinear(sgl_bilinear_lookup_t *ext_lut, uint8_t *dst, int32_t d_width, int32_t d_height, uint8_t *src, int32_t s_width, int32_t s_height, int32_t bpp);
 sgl_result_t sgl_generic_resize_cubic(uint8_t *dst, int32_t d_width, int32_t d_height, uint8_t *src, int32_t s_width, int32_t s_height, int32_t bpp);
 
 /*******************************************************************

@@ -87,7 +87,7 @@ static void sgl_run_resize_test_vector(sgl_test_resize_source_t *src)
             (void)sgl_generic_resize_nearest(dst, resize_test_vector[i].width, resize_test_vector[i].height, src->buf, src->width, src->height, src->bpp);
             break;
         case SGL_TEST_RESIZE_BILINEAR:
-            (void)sgl_generic_resize_bilinear(dst, resize_test_vector[i].width, resize_test_vector[i].height, src->buf, src->width, src->height, src->bpp);
+            (void)sgl_generic_resize_bilinear(NULL, dst, resize_test_vector[i].width, resize_test_vector[i].height, src->buf, src->width, src->height, src->bpp);
             break;
         }
         elapsed_us = sgl_test_get_timestamp_us(timestamp_us);
