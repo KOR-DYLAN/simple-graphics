@@ -32,8 +32,8 @@ sgl_bilinear_lookup_t *sgl_generic_create_bilinear_lut(int32_t d_width, int32_t 
 
     lut = (sgl_bilinear_lookup_t *)malloc(sizeof(sgl_bilinear_lookup_t));
     if (lut != NULL) {
-        lut->col_lookup = (bilinear_column_lookup_t *)malloc(sizeof(bilinear_column_lookup_t));
-        lut->row_lookup = (bilinear_row_lookup_t *)malloc(sizeof(bilinear_row_lookup_t));
+        lut->col_lookup = (bilinear_column_lookup_t *)malloc(sizeof(bilinear_column_lookup_t) * (size_t)d_width);
+        lut->row_lookup = (bilinear_row_lookup_t *)malloc(sizeof(bilinear_row_lookup_t) * (size_t)d_height);
 
         if ((lut->col_lookup != NULL) && (lut->row_lookup != NULL)) {
             /* create 'row' lookup table */
@@ -199,7 +199,7 @@ sgl_result_t sgl_generic_resize_bilinear(sgl_bilinear_lookup_t *ext_lut, uint8_t
             }
 
             if (temp_lut != NULL) {
-                sgl_generic_destroy_bilinear_lut(lut);
+                sgl_generic_destroy_bilinear_lut(temp_lut);
             }
         }
     }
