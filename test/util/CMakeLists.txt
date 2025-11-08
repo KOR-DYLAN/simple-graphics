@@ -3,8 +3,8 @@ project(test-util
     LANGUAGES C CXX
 )
 
-find_package(ZLIB CONFIG REQUIRED)
-find_package(PNG  CONFIG REQUIRED)
+find_package(ZLIB REQUIRED)
+find_package(PNG  REQUIRED)
 
 list(APPEND SRC util.c)
 

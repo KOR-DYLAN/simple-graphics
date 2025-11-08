@@ -4,12 +4,15 @@ BUILD			:=$(TOPDIR)/build
 CMAKE			:=cmake
 NPROC			?=$(shell nproc)
 V				?=0
+HOSTENV			:FALSE
 
 # qemu-aarch64
 QEMU			:=qemu-aarch64
 
-# aarch64-none-linux-llvm | aarch64-none-linux-gnu
-TOOLCHAIN		:=aarch64-none-linux-llvm
+# aarch64-none-linux-llvm | aarch64-none-linux-gnu |
+# llvm | gnu
+# TOOLCHAIN		:=aarch64-none-linux-llvm
+TOOLCHAIN		:=llvm
 
 # Debug | Release | RelWithDebInfo | MinSizeRel
 BUILD_TYPE		:=Debug
@@ -24,6 +27,14 @@ endif
 
 ifneq ($(V),0)
     VERBOSE	:=-v
+endif
+
+ifeq ($(TOOLCHAIN),gnu)
+    HOSTENV=TRUE
+endif
+
+ifeq ($(TOOLCHAIN),llvm)
+    HOSTENV=TRUE
 endif
 
 all: build
@@ -46,7 +57,11 @@ distclean:
 
 phony+=run
 run: build
+ifeq ($(HOSTENV),TRUE)
+	$(BUILD)/$(BUILD_TYPE)/bin/$(TARGET) $(ARGS)
+else
 	$(eval SYSROOT := $(shell cat $(BUILD)/sysroot.txt))
 	$(QEMU) -L $(SYSROOT) $(BUILD)/$(BUILD_TYPE)/bin/$(TARGET) $(ARGS)
+endif
 
 .PHONY: $(phony)

@@ -14,20 +14,22 @@ set(CMAKE_STRIP         ${TRIPLE}strip)
 set(CMAKE_SIZE          ${TRIPLE}size)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Get sysroot
-execute_process(
-    COMMAND ${CMAKE_C_COMPILER} -print-sysroot
-    OUTPUT_VARIABLE GCC_SYSROOT
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
+if(TRIPLE)
+    # Get sysroot
+    execute_process(
+        COMMAND ${CMAKE_C_COMPILER} -print-sysroot
+        OUTPUT_VARIABLE GCC_SYSROOT
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
 
-# Apply sysroot
-if(GCC_SYSROOT)
-    set(CMAKE_SYSROOT "${GCC_SYSROOT}" CACHE PATH "Sysroot path" FORCE)
-    file(WRITE ${CMAKE_BINARY_DIR}/sysroot.txt "${GCC_SYSROOT}\n")
-    message(STATUS "Sysroot detected: ${CMAKE_SYSROOT}")
-else()
-    message(WARNING "Failed to detect sysroot from ${CMAKE_C_COMPILER}")
+    # Apply sysroot
+    if(GCC_SYSROOT)
+        set(CMAKE_SYSROOT "${GCC_SYSROOT}" CACHE PATH "Sysroot path" FORCE)
+        file(WRITE ${CMAKE_BINARY_DIR}/sysroot.txt "${GCC_SYSROOT}\n")
+        message(STATUS "Sysroot detected: ${CMAKE_SYSROOT}")
+    else()
+        message(WARNING "Failed to detect sysroot from ${CMAKE_C_COMPILER}")
+    endif()
 endif()
 
 set(MISRA_C_WARN_LIST "${MISRA_COMMON} ${MISRA_COMMON_C} ${MISRA_GCC}")
@@ -55,7 +57,9 @@ set(CMAKE_ASM_FLAGS_RELWITHDEBINFO  "-O2 -g -DNDEBUG")
 set(CMAKE_C_FLAGS_RELWITHDEBINFO    "-O2 -g -DNDEBUG ${MISRA_C_WARN}")
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO  "-O2 -g -DNDEBUG ${MISRA_CXX_WARN}")
 
-list(APPEND CMAKE_FIND_ROOT_PATH "${CMAKE_SOURCE_DIR}/prebuild/libpng")
-list(APPEND CMAKE_FIND_ROOT_PATH "${CMAKE_SOURCE_DIR}/prebuild/zlib")
-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+if(TRIPLE)
+    list(APPEND CMAKE_FIND_ROOT_PATH "${CMAKE_SOURCE_DIR}/prebuild/libpng")
+    list(APPEND CMAKE_FIND_ROOT_PATH "${CMAKE_SOURCE_DIR}/prebuild/zlib")
+    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+endif()
