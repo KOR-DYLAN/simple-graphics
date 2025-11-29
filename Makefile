@@ -4,7 +4,7 @@ BUILD			:=$(TOPDIR)/build
 CMAKE			:=cmake
 NPROC			?=$(shell nproc)
 V				?=0
-HOSTENV			:=FALSE
+HOSTENV			:=TRUE
 
 # qemu-aarch64
 QEMU			:=qemu-aarch64
@@ -18,7 +18,7 @@ TOOLCHAIN		:=llvm
 BUILD_TYPE		:=Debug
 
 # Target Name
-TARGET			:=resize
+TARGET			:=queue
 ARGS			:=$(TOPDIR)/resource/sample.png
 
 ifneq ($(TOOLCHAIN),)
