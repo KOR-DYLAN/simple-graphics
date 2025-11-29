@@ -20,6 +20,7 @@ extern "C" {
  *                          DEFINES
  *******************************************************************
  */
+#define SGL_UNUSED_PARAM(p)     (void)(p)
 #define SGL_DIV_ROUNDUP(n, d)   (((n) + (d) - 1) / (d))
 #define SGL_SAFE_FREE(p)        if ((p) != NULL) { free(p); (p) = NULL; }
 
@@ -34,10 +35,14 @@ typedef enum {
     SGL_FAILURE,
     SGL_ERROR_INVALID_ARGUMENTS,
     SGL_ERROR_MEMORY_ALLOCATION,
+    SGL_QUEUE_IS_EMPTY,
+    SGL_QUEUE_IS_NOT_EMPTY,
+    SGL_QUEUE_IS_FULL,
+    SGL_QUEUE_IS_NOT_FULL,
 } sgl_result_t;
 
-typedef struct sgl_bilinear_lookup_table sgl_bilinear_lookup_t;
-
+typedef struct sgl_bilinear_lookup_table    sgl_bilinear_lookup_t;
+typedef struct sgl_queue                    sgl_queue_t;
 
 /*******************************************************************
  *                          Resize
@@ -47,6 +52,16 @@ void sgl_generic_destroy_bilinear_lut(sgl_bilinear_lookup_t *lut);
 sgl_result_t sgl_generic_resize_nearest(uint8_t *dst, int32_t d_width, int32_t d_height, uint8_t *src, int32_t s_width, int32_t s_height, int32_t bpp);
 sgl_result_t sgl_generic_resize_bilinear(sgl_bilinear_lookup_t *ext_lut, uint8_t *dst, int32_t d_width, int32_t d_height, uint8_t *src, int32_t s_width, int32_t s_height, int32_t bpp);
 sgl_result_t sgl_generic_resize_cubic(uint8_t *dst, int32_t d_width, int32_t d_height, uint8_t *src, int32_t s_width, int32_t s_height, int32_t bpp);
+
+/*******************************************************************
+ *                          Queue
+ *******************************************************************/
+sgl_queue_t *sgl_queue_create(size_t capacity);
+void sgl_queue_destroy(sgl_queue_t **queue);
+sgl_result_t sgl_queue_enqueue(sgl_queue_t *queue, const void *data);
+const void *sgl_queue_dequeue(sgl_queue_t *queue);
+const void *sgl_queue_peek(sgl_queue_t *queue);
+
 
 /*******************************************************************
  *                          Util
@@ -66,6 +81,7 @@ static inline uint8_t sgl_clamp_u8_i32(int32_t val)
 
     return u8_val;
 }
+
 
 #if defined(__cplusplus)
 }
