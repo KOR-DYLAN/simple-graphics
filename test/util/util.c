@@ -255,12 +255,8 @@ static png_t *sgl_test_png_write_init(const char *path)
 static void sgl_test_png_read_deinit(png_t *handle)
 {
     if (handle != NULL) {
-        if (handle->info != NULL) {
+        if ((handle->png != NULL) || (handle->info != NULL)) {
             png_destroy_read_struct(&handle->png, &handle->info, NULL);
-        }
-
-        if (handle->info != NULL) {
-            png_destroy_read_struct(&handle->png, NULL, NULL);
         }
 
         if (handle->fp != NULL) {
@@ -274,12 +270,8 @@ static void sgl_test_png_read_deinit(png_t *handle)
 static void sgl_test_png_write_deinit(png_t *handle)
 {
     if (handle != NULL) {
-        if (handle->info != NULL) {
+        if ((handle->png != NULL) || (handle->info != NULL)) {
             png_destroy_write_struct(&handle->png, &handle->info);
-        }
-
-        if (handle->info != NULL) {
-            png_destroy_write_struct(&handle->png, NULL);
         }
 
         if (handle->fp != NULL) {
