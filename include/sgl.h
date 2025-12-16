@@ -43,6 +43,9 @@ typedef enum {
 
 typedef struct sgl_bilinear_lookup_table    sgl_bilinear_lookup_t;
 typedef struct sgl_queue                    sgl_queue_t;
+typedef struct sgl_threadpool               sgl_threadpool_t;
+typedef void(*sgl_threadpool_routine_t)(void *current, void *cookie);
+
 
 /*******************************************************************
  *                          Resize
@@ -53,6 +56,7 @@ sgl_result_t sgl_generic_resize_nearest(uint8_t *dst, int32_t d_width, int32_t d
 sgl_result_t sgl_generic_resize_bilinear(sgl_bilinear_lookup_t *ext_lut, uint8_t *dst, int32_t d_width, int32_t d_height, uint8_t *src, int32_t s_width, int32_t s_height, int32_t bpp);
 sgl_result_t sgl_generic_resize_cubic(uint8_t *dst, int32_t d_width, int32_t d_height, uint8_t *src, int32_t s_width, int32_t s_height, int32_t bpp);
 
+
 /*******************************************************************
  *                          Queue
  *******************************************************************/
@@ -61,6 +65,18 @@ void sgl_queue_destroy(sgl_queue_t **queue);
 sgl_result_t sgl_queue_enqueue(sgl_queue_t *queue, const void *data);
 const void *sgl_queue_dequeue(sgl_queue_t *queue);
 const void *sgl_queue_peek(sgl_queue_t *queue);
+sgl_result_t sgl_queue_is_empty(sgl_queue_t *queue);
+sgl_result_t sgl_queue_is_full(sgl_queue_t *queue);
+size_t sgl_queue_get_capacity(sgl_queue_t *queue);
+size_t sgl_queue_get_count(sgl_queue_t *queue);
+
+
+/*******************************************************************
+ *                          Threadpool
+ *******************************************************************/
+sgl_threadpool_t *sgl_threadpool_create(size_t num_threads, size_t max_routine_lists, const char *base_name);
+sgl_result_t sgl_threadpool_destroy(sgl_threadpool_t *pool);
+sgl_result_t sgl_threadpool_attach_routine(sgl_threadpool_t *pool, sgl_threadpool_routine_t routine, sgl_queue_t *operations, void *cookie);
 
 
 /*******************************************************************

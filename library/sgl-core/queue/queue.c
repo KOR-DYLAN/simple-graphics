@@ -12,9 +12,6 @@ struct sgl_queue {
     sgl_osal_mutex_t lock;
 };
 
-static sgl_result_t sgl_queue_is_empty(sgl_queue_t *queue);
-static sgl_result_t sgl_queue_is_full(sgl_queue_t *queue);
-
 sgl_queue_t *sgl_queue_create(size_t capacity)
 {
     sgl_queue_t *queue = NULL;
@@ -121,12 +118,22 @@ const void *sgl_queue_peek(sgl_queue_t *queue)
     return data;
 }
 
-static sgl_result_t sgl_queue_is_empty(sgl_queue_t *queue)
+sgl_result_t sgl_queue_is_empty(sgl_queue_t *queue)
 {
     return (queue->count == 0) ? SGL_QUEUE_IS_EMPTY : SGL_QUEUE_IS_NOT_EMPTY;
 }
 
-static sgl_result_t sgl_queue_is_full(sgl_queue_t *queue)
+sgl_result_t sgl_queue_is_full(sgl_queue_t *queue)
 {
     return (queue->count == queue->capacity) ? SGL_QUEUE_IS_FULL : SGL_QUEUE_IS_NOT_FULL;
+}
+
+size_t sgl_queue_get_capacity(sgl_queue_t *queue)
+{
+    return (queue != NULL) ? queue->capacity : 0;
+}
+
+size_t sgl_queue_get_count(sgl_queue_t *queue)
+{
+    return (queue != NULL) ? queue->count : 0;
 }
