@@ -20,9 +20,10 @@ extern "C" {
  *                          DEFINES
  *******************************************************************
  */
-#define SGL_UNUSED_PARAM(p)     (void)(p)
-#define SGL_DIV_ROUNDUP(n, d)   (((n) + (d) - 1) / (d))
-#define SGL_SAFE_FREE(p)        if ((p) != NULL) { free(p); (p) = NULL; }
+#define SGL_UNUSED_PARAM(p)                         (void)(p)
+#define SGL_DIV_ROUNDUP(n, d)                       (((n) + (d) - 1) / (d))
+#define SGL_SAFE_FREE(p)                            if ((p) != NULL) { free(p); (p) = NULL; }
+#define SGL_THREADPOOL_DEFAULT_MAX_ROUTINE_LISTS    (4U)
 
 
 /*
@@ -53,7 +54,11 @@ typedef void(*sgl_threadpool_routine_t)(void *current, void *cookie);
 sgl_bilinear_lookup_t *sgl_generic_create_bilinear_lut(int32_t d_width, int32_t d_height, int32_t s_width, int32_t s_height);
 void sgl_generic_destroy_bilinear_lut(sgl_bilinear_lookup_t *lut);
 sgl_result_t sgl_generic_resize_nearest(uint8_t *dst, int32_t d_width, int32_t d_height, uint8_t *src, int32_t s_width, int32_t s_height, int32_t bpp);
-sgl_result_t sgl_generic_resize_bilinear(sgl_bilinear_lookup_t *ext_lut, uint8_t *dst, int32_t d_width, int32_t d_height, uint8_t *src, int32_t s_width, int32_t s_height, int32_t bpp);
+sgl_result_t sgl_generic_resize_bilinear(
+                sgl_threadpool_t *pool, sgl_bilinear_lookup_t *ext_lut, 
+                uint8_t *dst, int32_t d_width, int32_t d_height, 
+                uint8_t *src, int32_t s_width, int32_t s_height, 
+                int32_t bpp);
 sgl_result_t sgl_generic_resize_cubic(uint8_t *dst, int32_t d_width, int32_t d_height, uint8_t *src, int32_t s_width, int32_t s_height, int32_t bpp);
 
 

@@ -120,11 +120,16 @@ void sgl_generic_destroy_bilinear_lut(sgl_bilinear_lookup_t *lut)
     }
 }
 
-sgl_result_t sgl_generic_resize_bilinear(sgl_bilinear_lookup_t *ext_lut, uint8_t *dst, int32_t d_width, int32_t d_height, uint8_t *src, int32_t s_width, int32_t s_height, int32_t bpp)
+sgl_result_t sgl_generic_resize_bilinear(
+                sgl_threadpool_t *pool, sgl_bilinear_lookup_t *ext_lut, 
+                uint8_t *dst, int32_t d_width, int32_t d_height, 
+                uint8_t *src, int32_t s_width, int32_t s_height, 
+                int32_t bpp)
 {
     sgl_result_t result = SGL_SUCCESS;
-    sgl_bilinear_current_t cur;
+    sgl_bilinear_current_t cur, *currents;
     sgl_bilinear_data_t data;
+    sgl_queue_t *operations = NULL;
     sgl_bilinear_lookup_t *lut = NULL, *temp_lut = NULL;
     int32_t errcnt = 0;
 
@@ -169,9 +174,31 @@ sgl_result_t sgl_generic_resize_bilinear(sgl_bilinear_lookup_t *ext_lut, uint8_t
             data.src_stride = s_width * bpp;
             data.dst_stride = d_width * bpp;
 
-            /* resize */
-            for (cur.row = 0; cur.row < d_height; ++cur.row) {
-                sgl_generic_resize_bilinear_line_stripe((void *)&cur, (void *)&data);
+            if (pool == NULL) {
+                /* single-threaded resize */
+                for (cur.row = 0; cur.row < d_height; ++cur.row) {
+                    sgl_generic_resize_bilinear_line_stripe((void *)&cur, (void *)&data);
+                }
+            }
+            else {
+                operations = sgl_queue_create((size_t)d_height);
+                currents = (sgl_bilinear_current_t *)malloc(sizeof(sgl_bilinear_current_t) * (size_t)d_height);
+                if ((operations != NULL) && (currents != NULL)) {
+                    for (cur.row = 0; cur.row < d_height; ++cur.row) {
+                        currents[cur.row].row = cur.row;
+                        sgl_queue_enqueue(operations, (const void *)&currents[cur.row]);
+                    }
+
+                    /* multi-threaded resize */
+                    sgl_threadpool_attach_routine(pool, sgl_generic_resize_bilinear_line_stripe, operations, (void *)&data);
+                    sgl_queue_destroy(&operations);
+                }
+                else {
+                    result = SGL_ERROR_MEMORY_ALLOCATION;
+                }
+
+                SGL_SAFE_FREE(currents);
+                SGL_SAFE_FREE(operations);
             }
 
             if (temp_lut != NULL) {
