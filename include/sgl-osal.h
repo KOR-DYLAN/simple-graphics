@@ -78,4 +78,9 @@ static inline void sgl_osal_cond_destroy(sgl_osal_cond_t *cond)
     pthread_cond_destroy(cond);
 }
 
+static inline void sgl_osal_yield_thread(void)
+{
+    sched_yield();
+}
+
 #endif  /* !SGL_OSAL_H_ */
