@@ -145,4 +145,8 @@ static void sgl_run_resize_test_vector(sgl_test_resize_source_t *src)
         sgl_test_save_png(&resize_png, path);
         free(dst);
     }
+
+    for (num_threads = SGL_TEST_THREADPOOL_COUNT_2; num_threads < MAX_SGL_TEST_THREADPOOL_COUNT; ++num_threads) {
+        sgl_threadpool_destroy(pool[num_threads]);
+    }
 }

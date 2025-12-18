@@ -103,12 +103,47 @@ exit_function:
 
 sgl_result_t sgl_threadpool_destroy(sgl_threadpool_t *pool)
 {
-    if (pool == NULL) {
-        return SGL_ERROR_INVALID_ARGUMENTS;
+    sgl_result_t result = SGL_SUCCESS;
+
+    if (pool != NULL) {
+        /* Set exit flag so worker threads can break out of their loop */
+        pool->is_exit_threadpool = true;
+    
+        /* Wake up all worker threads that might be waiting on the condition variable */
+        sgl_osal_mutex_lock(&pool->lock);
+        sgl_osal_cond_broadcast(&pool->cond);
+        sgl_osal_mutex_unlock(&pool->lock);
+    
+       /* Join all worker threads to ensure they have finished execution */
+        for (size_t i = 0; i < pool->num_threads; ++i) {
+            if (pool->threads[i] != NULL_THREAD) {
+                sgl_osal_thread_join(pool->threads[i]);
+            }
+        }
+    
+        /* Destroy the routine list queue */
+        if (pool->routine_lists != NULL) {
+            sgl_queue_destroy(&pool->routine_lists);
+        }
+    
+        /* Destroy synchronization primitives */
+        sgl_osal_mutex_destroy(&pool->lock);
+        sgl_osal_cond_destroy(&pool->cond);
+    
+        /* Free thread array */
+        SGL_SAFE_FREE(pool->threads);
+    
+        /* Free the pool object itself */
+        free(pool);
+    }
+    else {
+        result = SGL_ERROR_INVALID_ARGUMENTS;
     }
 
-    return SGL_SUCCESS;
+    return result;
 }
+
+
 
 sgl_result_t sgl_threadpool_attach_routine(sgl_threadpool_t *pool, sgl_threadpool_routine_t routine, sgl_queue_t *operations, void *cookie)
 {
