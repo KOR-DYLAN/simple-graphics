@@ -186,7 +186,7 @@ sgl_result_t sgl_generic_resize_bilinear(
                 if ((operations != NULL) && (currents != NULL)) {
                     for (cur.row = 0; cur.row < d_height; ++cur.row) {
                         currents[cur.row].row = cur.row;
-                        sgl_queue_enqueue(operations, (const void *)&currents[cur.row]);
+                        sgl_queue_unsafe_enqueue(operations, (const void *)&currents[cur.row]);
                     }
 
                     /* multi-threaded resize */

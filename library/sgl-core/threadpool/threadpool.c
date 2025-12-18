@@ -21,7 +21,6 @@ struct sgl_threadpool {
     sgl_osal_mutex_t lock;
     sgl_osal_cond_t cond;
     sgl_queue_t *routine_lists;
-    volatile bool is_idle_threadpool;
     volatile bool is_exit_threadpool;
 };
 
@@ -142,8 +141,6 @@ sgl_result_t sgl_threadpool_destroy(sgl_threadpool_t *pool)
 
     return result;
 }
-
-
 
 sgl_result_t sgl_threadpool_attach_routine(sgl_threadpool_t *pool, sgl_threadpool_routine_t routine, sgl_queue_t *operations, void *cookie)
 {

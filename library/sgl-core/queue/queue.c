@@ -72,6 +72,30 @@ sgl_result_t sgl_queue_copy(sgl_queue_t *dst, sgl_queue_t *src)
     return result;
 }
 
+sgl_result_t sgl_queue_unsafe_enqueue(sgl_queue_t *queue, const void *data)
+{
+    sgl_result_t result = SGL_SUCCESS;
+    size_t head;
+
+    if ((queue != NULL) && (data != NULL)) {
+        result = sgl_queue_is_full(queue);
+        if (result == SGL_QUEUE_IS_NOT_FULL) {
+            head = queue->head;
+            queue->data[head] = data;
+            if (queue->capacity <= ++head) {
+                head = 0;
+            }
+            queue->head = head;
+            queue->count++;
+        }
+    }
+    else {
+        result = SGL_ERROR_INVALID_ARGUMENTS;
+    }
+
+    return result;
+}
+
 sgl_result_t sgl_queue_enqueue(sgl_queue_t *queue, const void *data)
 {
     sgl_result_t result = SGL_SUCCESS;
