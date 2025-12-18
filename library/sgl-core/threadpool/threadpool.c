@@ -47,11 +47,7 @@ static inline void sgl_threadpool_routine_handle_deinitialize(sgl_threadpool_rou
     size_t i, count;
     const void *current;
 
-    count = sgl_queue_get_count(routine_handle->out);
-    for (i = 0; i < count; ++i) {
-        current = sgl_queue_dequeue(routine_handle->out);
-        sgl_queue_enqueue(routine_handle->in, current);
-    }
+    sgl_queue_copy(routine_handle->in, routine_handle->out);
     sgl_queue_destroy(&routine_handle->out);
 
     sgl_osal_mutex_destroy(&routine_handle->lock);

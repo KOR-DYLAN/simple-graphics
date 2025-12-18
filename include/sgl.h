@@ -36,6 +36,7 @@ typedef enum {
     SGL_FAILURE,
     SGL_ERROR_INVALID_ARGUMENTS,
     SGL_ERROR_MEMORY_ALLOCATION,
+    SGL_ERROR_MISSMATCHED_CAPACITY,
     SGL_QUEUE_IS_EMPTY,
     SGL_QUEUE_IS_NOT_EMPTY,
     SGL_QUEUE_IS_FULL,
@@ -67,6 +68,7 @@ sgl_result_t sgl_generic_resize_cubic(uint8_t *dst, int32_t d_width, int32_t d_h
  *******************************************************************/
 sgl_queue_t *sgl_queue_create(size_t capacity);
 void sgl_queue_destroy(sgl_queue_t **queue);
+sgl_result_t sgl_queue_copy(sgl_queue_t *dst, sgl_queue_t *src);
 sgl_result_t sgl_queue_enqueue(sgl_queue_t *queue, const void *data);
 const void *sgl_queue_dequeue(sgl_queue_t *queue);
 const void *sgl_queue_peek(sgl_queue_t *queue);

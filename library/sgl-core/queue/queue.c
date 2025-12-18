@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 #include "sgl.h"
 #include "sgl-osal.h"
 
@@ -47,6 +48,28 @@ void sgl_queue_destroy(sgl_queue_t **queue)
             *queue = NULL;
         }
     }
+}
+
+sgl_result_t sgl_queue_copy(sgl_queue_t *dst, sgl_queue_t *src)
+{
+    sgl_result_t result = SGL_SUCCESS;
+
+    if ((dst != NULL) && (src != NULL)) {
+        if (src->capacity <= dst->capacity) {
+            dst->count = src->count;
+            dst->head = src->head;
+            dst->tail = src->tail;
+            memcpy(dst->data, src->data, sizeof(const void *) * src->capacity);
+        }
+        else {
+            result = SGL_ERROR_MISSMATCHED_CAPACITY;
+        }
+    }
+    else {
+        result = SGL_ERROR_INVALID_ARGUMENTS;
+    }
+
+    return result;
 }
 
 sgl_result_t sgl_queue_enqueue(sgl_queue_t *queue, const void *data)
