@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 #include "sgl.h"
 #include "sgl-osal.h"
 
@@ -9,7 +10,7 @@ struct sgl_queue {
     size_t count;
     size_t head;
     size_t tail;
-    sgl_osal_mutex_t lock;
+    sgl_osal_spinlock_t lock;
 };
 
 sgl_queue_t *sgl_queue_create(size_t capacity)
@@ -25,7 +26,7 @@ sgl_queue_t *sgl_queue_create(size_t capacity)
                 queue->tail = 0;
                 queue->count = 0;
                 queue->capacity = capacity;
-                sgl_osal_mutex_init(&queue->lock);
+                sgl_osal_spinlock_init(&queue->lock);
             }
             else {
                 free(queue);
@@ -41,12 +42,34 @@ void sgl_queue_destroy(sgl_queue_t **queue)
 {
     if (queue != NULL) {
         if (*queue != NULL) {
-            sgl_osal_mutex_destroy(&(*queue)->lock);
+            sgl_osal_spinlock_destroy(&(*queue)->lock);
             free((*queue)->data);
             free(*queue);
             *queue = NULL;
         }
     }
+}
+
+sgl_result_t sgl_queue_copy(sgl_queue_t *dst, sgl_queue_t *src)
+{
+    sgl_result_t result = SGL_SUCCESS;
+
+    if ((dst != NULL) && (src != NULL)) {
+        if (src->capacity <= dst->capacity) {
+            dst->count = src->count;
+            dst->head = src->head;
+            dst->tail = src->tail;
+            memcpy(dst->data, src->data, sizeof(const void *) * src->capacity);
+        }
+        else {
+            result = SGL_ERROR_MISSMATCHED_CAPACITY;
+        }
+    }
+    else {
+        result = SGL_ERROR_INVALID_ARGUMENTS;
+    }
+
+    return result;
 }
 
 sgl_result_t sgl_queue_enqueue(sgl_queue_t *queue, const void *data)
@@ -55,7 +78,7 @@ sgl_result_t sgl_queue_enqueue(sgl_queue_t *queue, const void *data)
     size_t head;
 
     if ((queue != NULL) && (data != NULL)) {
-        sgl_osal_mutex_lock(&queue->lock);
+        sgl_osal_spinlock_lock(&queue->lock);
         result = sgl_queue_is_full(queue);
         if (result == SGL_QUEUE_IS_NOT_FULL) {
             head = queue->head;
@@ -66,7 +89,7 @@ sgl_result_t sgl_queue_enqueue(sgl_queue_t *queue, const void *data)
             queue->head = head;
             queue->count++;
         }
-        sgl_osal_mutex_unlock(&queue->lock);
+        sgl_osal_spinlock_unlock(&queue->lock);
     }
     else {
         result = SGL_ERROR_INVALID_ARGUMENTS;
@@ -82,7 +105,7 @@ const void *sgl_queue_dequeue(sgl_queue_t *queue)
     size_t tail;
 
     if (queue != NULL) {
-        sgl_osal_mutex_lock(&queue->lock);
+        sgl_osal_spinlock_lock(&queue->lock);
         result = sgl_queue_is_empty(queue);
         if (result == SGL_QUEUE_IS_NOT_EMPTY) {
             tail = queue->tail;
@@ -93,7 +116,7 @@ const void *sgl_queue_dequeue(sgl_queue_t *queue)
             queue->tail = tail;
             queue->count--;
         }
-        sgl_osal_mutex_unlock(&queue->lock);
+        sgl_osal_spinlock_unlock(&queue->lock);
     }
 
     return data;
@@ -106,13 +129,13 @@ const void *sgl_queue_peek(sgl_queue_t *queue)
     size_t tail;
 
     if (queue != NULL) {
-        sgl_osal_mutex_lock(&queue->lock);
+        sgl_osal_spinlock_lock(&queue->lock);
         result = sgl_queue_is_empty(queue);
         if (result == SGL_QUEUE_IS_NOT_EMPTY) {
             tail = queue->tail;
             data = queue->data[tail];
         }
-        sgl_osal_mutex_unlock(&queue->lock);
+        sgl_osal_spinlock_unlock(&queue->lock);
     }
 
     return data;

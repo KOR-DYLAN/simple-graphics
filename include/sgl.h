@@ -20,9 +20,10 @@ extern "C" {
  *                          DEFINES
  *******************************************************************
  */
-#define SGL_UNUSED_PARAM(p)     (void)(p)
-#define SGL_DIV_ROUNDUP(n, d)   (((n) + (d) - 1) / (d))
-#define SGL_SAFE_FREE(p)        if ((p) != NULL) { free(p); (p) = NULL; }
+#define SGL_UNUSED_PARAM(p)                         (void)(p)
+#define SGL_DIV_ROUNDUP(n, d)                       (((n) + (d) - 1) / (d))
+#define SGL_SAFE_FREE(p)                            if ((p) != NULL) { free(p); (p) = NULL; }
+#define SGL_THREADPOOL_DEFAULT_MAX_ROUTINE_LISTS    (4U)
 
 
 /*
@@ -35,6 +36,7 @@ typedef enum {
     SGL_FAILURE,
     SGL_ERROR_INVALID_ARGUMENTS,
     SGL_ERROR_MEMORY_ALLOCATION,
+    SGL_ERROR_MISSMATCHED_CAPACITY,
     SGL_QUEUE_IS_EMPTY,
     SGL_QUEUE_IS_NOT_EMPTY,
     SGL_QUEUE_IS_FULL,
@@ -53,7 +55,11 @@ typedef void(*sgl_threadpool_routine_t)(void *current, void *cookie);
 sgl_bilinear_lookup_t *sgl_generic_create_bilinear_lut(int32_t d_width, int32_t d_height, int32_t s_width, int32_t s_height);
 void sgl_generic_destroy_bilinear_lut(sgl_bilinear_lookup_t *lut);
 sgl_result_t sgl_generic_resize_nearest(uint8_t *dst, int32_t d_width, int32_t d_height, uint8_t *src, int32_t s_width, int32_t s_height, int32_t bpp);
-sgl_result_t sgl_generic_resize_bilinear(sgl_bilinear_lookup_t *ext_lut, uint8_t *dst, int32_t d_width, int32_t d_height, uint8_t *src, int32_t s_width, int32_t s_height, int32_t bpp);
+sgl_result_t sgl_generic_resize_bilinear(
+                sgl_threadpool_t *pool, sgl_bilinear_lookup_t *ext_lut, 
+                uint8_t *dst, int32_t d_width, int32_t d_height, 
+                uint8_t *src, int32_t s_width, int32_t s_height, 
+                int32_t bpp);
 sgl_result_t sgl_generic_resize_cubic(uint8_t *dst, int32_t d_width, int32_t d_height, uint8_t *src, int32_t s_width, int32_t s_height, int32_t bpp);
 
 
@@ -62,6 +68,7 @@ sgl_result_t sgl_generic_resize_cubic(uint8_t *dst, int32_t d_width, int32_t d_h
  *******************************************************************/
 sgl_queue_t *sgl_queue_create(size_t capacity);
 void sgl_queue_destroy(sgl_queue_t **queue);
+sgl_result_t sgl_queue_copy(sgl_queue_t *dst, sgl_queue_t *src);
 sgl_result_t sgl_queue_enqueue(sgl_queue_t *queue, const void *data);
 const void *sgl_queue_dequeue(sgl_queue_t *queue);
 const void *sgl_queue_peek(sgl_queue_t *queue);

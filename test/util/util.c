@@ -101,55 +101,50 @@ sgl_test_png_t *sgl_test_load_png(const char *path)
 
 int32_t sgl_test_save_png(sgl_test_png_t *png, const char *path)
 {
-    int32_t result = 0;
-    png_t *handle;
-    int32_t rowbytes;
-    int32_t color_type;
-    png_bytep *row_pointers;
-    int32_t row;
-
-    if ((png != NULL) && (path != NULL)) {
-        if ((png->channels == 3) || (png->channels == 4)) {
-            handle = sgl_test_png_write_init(path);
-            if (handle != NULL) {
-                color_type = (png->channels == 4) ? PNG_COLOR_TYPE_RGBA : PNG_COLOR_TYPE_RGB;
-                png_set_IHDR(handle->png, handle->info, (png_uint_32)png->width, (png_uint_32)png->height,
-                             8, color_type, PNG_INTERLACE_NONE,
-                             PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
-                png_write_info(handle->png, handle->info);
-
-                rowbytes = png->width * png->channels;
-                row_pointers = (png_bytep*)malloc(sizeof(png_bytep) * (size_t)png->height);
-                if (row_pointers != NULL) {
-                    for (row = 0; row < png->height; row++) {
-                        row_pointers[row] = (png_bytep)(png->data + (row * rowbytes));
-                    }
-
-                    png_write_image(handle->png, row_pointers);
-                    png_write_end(handle->png, NULL);
-
-                    sgl_test_png_write_deinit(handle);
-                    free(row_pointers);
-                }
-                else {
-                    sgl_test_png_write_deinit(handle);
-                    result = -1;
-                }
-            }
-            else {
-                result = -1;
-            }
-        }
-        else {
-            result = -1;
-        }
+    if ((png == NULL) || (path == NULL)) {
+        return -1;
     }
-    else {
-        result = -1;
+    if (png->channels != 3 && png->channels != 4) {
+        return -1;
     }
 
-    return result;
+    png_t *handle = sgl_test_png_write_init(path);
+    if (!handle) {
+        return -1;
+    }
+
+    if (setjmp(png_jmpbuf(handle->png))) {
+        sgl_test_png_write_deinit(handle);
+        return -1;
+    }
+
+    int color_type = (png->channels == 4) ? PNG_COLOR_TYPE_RGBA : PNG_COLOR_TYPE_RGB;
+    png_set_IHDR(handle->png, handle->info,
+                 (png_uint_32)png->width, (png_uint_32)png->height,
+                 8, color_type, PNG_INTERLACE_NONE,
+                 PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
+    png_write_info(handle->png, handle->info);
+
+    /* rowbytes in bytes per row, check overflow */
+    size_t rowbytes = (size_t)png->width * (size_t)png->channels;
+    png_bytep *row_pointers = (png_bytep*)malloc(sizeof(png_bytep) * (size_t)png->height);
+    if (row_pointers == NULL) {
+        sgl_test_png_write_deinit(handle);
+        return -1;
+    }
+
+    for (int32_t row = 0; row < png->height; row++) {
+        row_pointers[row] = (png_bytep)(png->data + (size_t)row * rowbytes);
+    }
+
+    png_write_image(handle->png, row_pointers);
+    png_write_end(handle->png, NULL);
+
+    sgl_test_png_write_deinit(handle);
+    free(row_pointers);
+    return 0;
 }
+
 
 void sgl_test_release_png(sgl_test_png_t *png)
 {
@@ -217,40 +212,39 @@ static png_t *sgl_test_png_read_init(const char *path)
 
 static png_t *sgl_test_png_write_init(const char *path)
 {
-    png_t *handle = NULL;
-    int32_t result;
-
-    handle = (png_t *)malloc(sizeof(png_t));
-    if (handle != NULL) {
-        handle->png = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-        if (handle->png != NULL) {
-            handle->info = png_create_info_struct(handle->png);
-            if (handle->info != NULL) {
-                result = setjmp(png_jmpbuf(handle->png));
-                if (result == 0) {
-                    handle->fp = fopen(path, "wb");
-                    if (handle->fp != NULL) {
-                        png_init_io(handle->png, handle->fp);
-                    }
-                    else {
-                        sgl_test_png_read_deinit(handle);
-                    }
-                }
-                else {
-                    sgl_test_png_read_deinit(handle);
-                }
-            }
-            else {
-                sgl_test_png_read_deinit(handle);
-            }
-        }
-        else {
-            sgl_test_png_read_deinit(handle);
-        }
+    png_t *handle = (png_t *)malloc(sizeof(png_t));
+    if (!handle) {
+        return NULL;
     }
+
+    handle->png = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+    if (!handle->png) {
+        sgl_test_png_write_deinit(handle);
+        return NULL;
+    }
+
+    handle->info = png_create_info_struct(handle->png);
+    if (!handle->info) {
+        sgl_test_png_write_deinit(handle);
+        return NULL;
+    }
+
+    if (setjmp(png_jmpbuf(handle->png))) {
+        sgl_test_png_write_deinit(handle);
+        return NULL;
+    }
+
+    handle->fp = fopen(path, "wb");
+    if (!handle->fp) {
+        sgl_test_png_write_deinit(handle);
+        return NULL;
+    }
+
+    png_init_io(handle->png, handle->fp);
 
     return handle;
 }
+
 
 static void sgl_test_png_read_deinit(png_t *handle)
 {
