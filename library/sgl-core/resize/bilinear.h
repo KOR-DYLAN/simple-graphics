@@ -1,0 +1,36 @@
+#ifndef SGL_BILINEAR_H_
+#define SGL_BILINEAR_H_
+
+#include "sgl-fixed_point.h"
+
+typedef struct {
+    int32_t x1, x2;
+    sgl_q15_t p, inv_p;   /* Q15 */
+} bilinear_column_lookup_t;
+
+typedef struct {
+    int32_t y1, y2;
+    sgl_q15_t q, inv_q;   /* Q15 */
+} bilinear_row_lookup_t;
+
+typedef struct  {
+    sgl_bilinear_lookup_t *lut;
+    uint8_t *src;
+    uint8_t *dst;
+    int32_t bpp;
+    int32_t src_stride;
+    int32_t dst_stride;
+} sgl_bilinear_data_t;
+
+typedef struct  {
+    int32_t row;
+} sgl_bilinear_current_t;
+
+struct sgl_bilinear_lookup_table {
+    int32_t d_width, d_height;
+    int32_t s_width, s_height;
+    bilinear_column_lookup_t *col_lookup;
+    bilinear_row_lookup_t *row_lookup;
+};
+
+#endif /* SGL_BILINEAR_H_ */
