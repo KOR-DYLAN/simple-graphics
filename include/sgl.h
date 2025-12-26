@@ -60,6 +60,11 @@ sgl_result_t sgl_generic_resize_bilinear(
                 uint8_t *dst, int32_t d_width, int32_t d_height, 
                 uint8_t *src, int32_t s_width, int32_t s_height, 
                 int32_t bpp);
+sgl_result_t sgl_simd_resize_bilinear(
+                sgl_threadpool_t *pool, sgl_bilinear_lookup_t *ext_lut, 
+                uint8_t *dst, int32_t d_width, int32_t d_height, 
+                uint8_t *src, int32_t s_width, int32_t s_height, 
+                int32_t bpp);
 sgl_result_t sgl_generic_resize_cubic(uint8_t *dst, int32_t d_width, int32_t d_height, uint8_t *src, int32_t s_width, int32_t s_height, int32_t bpp);
 
 
@@ -85,26 +90,6 @@ size_t sgl_queue_get_count(sgl_queue_t *queue);
 sgl_threadpool_t *sgl_threadpool_create(size_t num_threads, size_t max_routine_lists, const char *base_name);
 sgl_result_t sgl_threadpool_destroy(sgl_threadpool_t *pool);
 sgl_result_t sgl_threadpool_attach_routine(sgl_threadpool_t *pool, sgl_threadpool_routine_t routine, sgl_queue_t *operations, void *cookie);
-
-
-/*******************************************************************
- *                          Util
- *******************************************************************/
-static inline uint8_t sgl_clamp_u8_i32(int32_t val)
-{
-    uint8_t u8_val = (uint8_t)val;
-
-    if ((val & ~0xFF) != 0) { 
-        if (val < 0) {
-            u8_val = 0U;
-        }
-        else {
-            u8_val = 255U;
-        }
-    }
-
-    return u8_val;
-}
 
 
 #if defined(__cplusplus)

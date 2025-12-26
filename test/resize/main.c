@@ -8,6 +8,7 @@
 typedef enum {
     SGL_TEST_RESIZE_NEAREST,
     SGL_TEST_RESIZE_BILINEAR,
+    SGL_TEST_RESIZE_BILINEAR_SIMD,
 } sgl_test_resize_method_t;
 
 typedef enum {
@@ -35,6 +36,7 @@ typedef struct {
 static const char *resize_method_name[] = {
     "nearest",
     "bilinear",
+    "bilinear-simd",
 };
 
 static const size_t threadpool_count_table[MAX_SGL_TEST_THREADPOOL_COUNT] = {
@@ -42,30 +44,35 @@ static const size_t threadpool_count_table[MAX_SGL_TEST_THREADPOOL_COUNT] = {
 };
 
 static const sgl_test_resize_t resize_test_vector[] = {
-    { .width  = 640, .height =  480, .method = SGL_TEST_RESIZE_NEAREST, .num_threads = SGL_TEST_THREADPOOL_COUNT_1 },
-    { .width = 1280, .height =  720, .method = SGL_TEST_RESIZE_NEAREST, .num_threads = SGL_TEST_THREADPOOL_COUNT_1 },
-    { .width = 1920, .height = 1080, .method = SGL_TEST_RESIZE_NEAREST, .num_threads = SGL_TEST_THREADPOOL_COUNT_1 },
-    { .width = 2560, .height = 1440, .method = SGL_TEST_RESIZE_NEAREST, .num_threads = SGL_TEST_THREADPOOL_COUNT_1 },
+    { .width  = 640, .height =  480, .method = SGL_TEST_RESIZE_NEAREST,         .num_threads = SGL_TEST_THREADPOOL_COUNT_1 },
+    { .width = 1280, .height =  720, .method = SGL_TEST_RESIZE_NEAREST,         .num_threads = SGL_TEST_THREADPOOL_COUNT_1 },
+    { .width = 1920, .height = 1080, .method = SGL_TEST_RESIZE_NEAREST,         .num_threads = SGL_TEST_THREADPOOL_COUNT_1 },
+    { .width = 2560, .height = 1440, .method = SGL_TEST_RESIZE_NEAREST,         .num_threads = SGL_TEST_THREADPOOL_COUNT_1 },
 
-    { .width  = 640, .height =  480, .method = SGL_TEST_RESIZE_BILINEAR, .num_threads = SGL_TEST_THREADPOOL_COUNT_1, },
-    { .width  = 640, .height =  480, .method = SGL_TEST_RESIZE_BILINEAR, .num_threads = SGL_TEST_THREADPOOL_COUNT_2, },
-    { .width  = 640, .height =  480, .method = SGL_TEST_RESIZE_BILINEAR, .num_threads = SGL_TEST_THREADPOOL_COUNT_4, },
-    { .width  = 640, .height =  480, .method = SGL_TEST_RESIZE_BILINEAR, .num_threads = SGL_TEST_THREADPOOL_COUNT_8, },
+    { .width  = 640, .height =  480, .method = SGL_TEST_RESIZE_BILINEAR,        .num_threads = SGL_TEST_THREADPOOL_COUNT_1, },
+    { .width  = 640, .height =  480, .method = SGL_TEST_RESIZE_BILINEAR,        .num_threads = SGL_TEST_THREADPOOL_COUNT_2, },
+    { .width  = 640, .height =  480, .method = SGL_TEST_RESIZE_BILINEAR,        .num_threads = SGL_TEST_THREADPOOL_COUNT_4, },
+    { .width  = 640, .height =  480, .method = SGL_TEST_RESIZE_BILINEAR,        .num_threads = SGL_TEST_THREADPOOL_COUNT_8, },
 
-    { .width = 1280, .height =  720, .method = SGL_TEST_RESIZE_BILINEAR, .num_threads = SGL_TEST_THREADPOOL_COUNT_1, },
-    { .width = 1280, .height =  720, .method = SGL_TEST_RESIZE_BILINEAR, .num_threads = SGL_TEST_THREADPOOL_COUNT_2 },
-    { .width = 1280, .height =  720, .method = SGL_TEST_RESIZE_BILINEAR, .num_threads = SGL_TEST_THREADPOOL_COUNT_4 },
-    { .width = 1280, .height =  720, .method = SGL_TEST_RESIZE_BILINEAR, .num_threads = SGL_TEST_THREADPOOL_COUNT_8 },
+    { .width = 1280, .height =  720, .method = SGL_TEST_RESIZE_BILINEAR,        .num_threads = SGL_TEST_THREADPOOL_COUNT_1, },
+    { .width = 1280, .height =  720, .method = SGL_TEST_RESIZE_BILINEAR,        .num_threads = SGL_TEST_THREADPOOL_COUNT_2 },
+    { .width = 1280, .height =  720, .method = SGL_TEST_RESIZE_BILINEAR,        .num_threads = SGL_TEST_THREADPOOL_COUNT_4 },
+    { .width = 1280, .height =  720, .method = SGL_TEST_RESIZE_BILINEAR,        .num_threads = SGL_TEST_THREADPOOL_COUNT_8 },
 
-    { .width = 1920, .height = 1080, .method = SGL_TEST_RESIZE_BILINEAR, .num_threads = SGL_TEST_THREADPOOL_COUNT_1, },
-    { .width = 1920, .height = 1080, .method = SGL_TEST_RESIZE_BILINEAR, .num_threads = SGL_TEST_THREADPOOL_COUNT_2 },
-    { .width = 1920, .height = 1080, .method = SGL_TEST_RESIZE_BILINEAR, .num_threads = SGL_TEST_THREADPOOL_COUNT_4 },
-    { .width = 1920, .height = 1080, .method = SGL_TEST_RESIZE_BILINEAR, .num_threads = SGL_TEST_THREADPOOL_COUNT_8 },
+    { .width = 1920, .height = 1080, .method = SGL_TEST_RESIZE_BILINEAR,        .num_threads = SGL_TEST_THREADPOOL_COUNT_1, },
+    { .width = 1920, .height = 1080, .method = SGL_TEST_RESIZE_BILINEAR,        .num_threads = SGL_TEST_THREADPOOL_COUNT_2 },
+    { .width = 1920, .height = 1080, .method = SGL_TEST_RESIZE_BILINEAR,        .num_threads = SGL_TEST_THREADPOOL_COUNT_4 },
+    { .width = 1920, .height = 1080, .method = SGL_TEST_RESIZE_BILINEAR,        .num_threads = SGL_TEST_THREADPOOL_COUNT_8 },
 
-    { .width = 2560, .height = 1440, .method = SGL_TEST_RESIZE_BILINEAR, .num_threads = SGL_TEST_THREADPOOL_COUNT_1, },
-    { .width = 2560, .height = 1440, .method = SGL_TEST_RESIZE_BILINEAR, .num_threads = SGL_TEST_THREADPOOL_COUNT_2 },
-    { .width = 2560, .height = 1440, .method = SGL_TEST_RESIZE_BILINEAR, .num_threads = SGL_TEST_THREADPOOL_COUNT_4 },
-    { .width = 2560, .height = 1440, .method = SGL_TEST_RESIZE_BILINEAR, .num_threads = SGL_TEST_THREADPOOL_COUNT_8 },
+    { .width = 2560, .height = 1440, .method = SGL_TEST_RESIZE_BILINEAR,        .num_threads = SGL_TEST_THREADPOOL_COUNT_1, },
+    { .width = 2560, .height = 1440, .method = SGL_TEST_RESIZE_BILINEAR,        .num_threads = SGL_TEST_THREADPOOL_COUNT_2 },
+    { .width = 2560, .height = 1440, .method = SGL_TEST_RESIZE_BILINEAR,        .num_threads = SGL_TEST_THREADPOOL_COUNT_4 },
+    { .width = 2560, .height = 1440, .method = SGL_TEST_RESIZE_BILINEAR,        .num_threads = SGL_TEST_THREADPOOL_COUNT_8 },
+
+    { .width  = 640, .height =  480, .method = SGL_TEST_RESIZE_BILINEAR_SIMD,   .num_threads = SGL_TEST_THREADPOOL_COUNT_1, },
+    { .width = 1280, .height =  720, .method = SGL_TEST_RESIZE_BILINEAR_SIMD,   .num_threads = SGL_TEST_THREADPOOL_COUNT_1, },
+    { .width = 1920, .height = 1080, .method = SGL_TEST_RESIZE_BILINEAR_SIMD,   .num_threads = SGL_TEST_THREADPOOL_COUNT_1, },
+    { .width = 2560, .height = 1440, .method = SGL_TEST_RESIZE_BILINEAR_SIMD,   .num_threads = SGL_TEST_THREADPOOL_COUNT_1, },
 };
 
 static void sgl_run_resize_test_vector(sgl_test_resize_source_t *src);
@@ -124,6 +131,9 @@ static void sgl_run_resize_test_vector(sgl_test_resize_source_t *src)
             break;
         case SGL_TEST_RESIZE_BILINEAR:
             (void)sgl_generic_resize_bilinear(pool[num_threads], NULL, dst, resize_test_vector[i].width, resize_test_vector[i].height, src->buf, src->width, src->height, src->bpp);
+            break;
+        case SGL_TEST_RESIZE_BILINEAR_SIMD:
+            (void)sgl_simd_resize_bilinear(pool[num_threads], NULL, dst, resize_test_vector[i].width, resize_test_vector[i].height, src->buf, src->width, src->height, src->bpp);
             break;
         }
         elapsed_us = sgl_test_get_timestamp_us(timestamp_us);
