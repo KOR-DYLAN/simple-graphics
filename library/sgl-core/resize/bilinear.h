@@ -4,13 +4,13 @@
 #include "sgl-fixed_point.h"
 
 typedef struct {
-    int32_t x1, x2;
-    sgl_q15_t p, inv_p;   /* Q15 */
+    int32_t *x1, *x2;
+    sgl_q15_t *p, *inv_p;   /* Q15 */
 } bilinear_column_lookup_t;
 
 typedef struct {
-    int32_t y1, y2;
-    sgl_q15_t q, inv_q;   /* Q15 */
+    int32_t *y1, *y2;
+    sgl_q15_t *q, *inv_q;   /* Q15 */
 } bilinear_row_lookup_t;
 
 typedef struct  {
@@ -29,8 +29,8 @@ typedef struct  {
 struct sgl_bilinear_lookup_table {
     int32_t d_width, d_height;
     int32_t s_width, s_height;
-    bilinear_column_lookup_t *col_lookup;
-    bilinear_row_lookup_t *row_lookup;
+    bilinear_column_lookup_t col_lookup;
+    bilinear_row_lookup_t row_lookup;
 };
 
 #endif /* SGL_BILINEAR_H_ */

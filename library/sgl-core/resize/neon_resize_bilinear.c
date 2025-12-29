@@ -183,17 +183,17 @@ static void sgl_simd_resize_bilinear_line_stripe(void *current, void *cookie) {
     uint8x8_t value1;
 
     /* set common data */
-    row_lookup = data->lut->row_lookup;
-    col_lookup = data->lut->col_lookup;
+    row_lookup = &data->lut->row_lookup;
+    col_lookup = &data->lut->col_lookup;
     d_width = data->lut->d_width;
     bpp = data->bpp;
     
     /* set 'row' data */
     row = cur->row;
-    y1 = row_lookup[row].y1;
-    y2 = row_lookup[row].y2;
-    q = row_lookup[row].q;
-    inv_q = row_lookup[row].inv_q;
+    y1 = row_lookup->y1[row];
+    y2 = row_lookup->y2[row];
+    q = row_lookup->q[row];
+    inv_q = row_lookup->inv_q[row];
 
     src_stride = data->src_stride;
     src = data->src;
@@ -211,10 +211,10 @@ static void sgl_simd_resize_bilinear_line_stripe(void *current, void *cookie) {
     for (lane = 0; lane < num_lanes; ++lane) {
         for (i = 0; i < NEON_LANE_SIZE; ++i) {
             col = (lane * NEON_LANE_SIZE) + i;
-            x1_off = col_lookup[col].x1 * bpp;
-            x2_off = col_lookup[col].x2 * bpp;
-            serialized_p[i] = col_lookup[col].p;
-            serialized_inv_p[i] = col_lookup[col].inv_p;
+            x1_off = col_lookup->x1[col] * bpp;
+            x2_off = col_lookup->x2[col] * bpp;
+            serialized_p[i] = col_lookup->p[col];
+            serialized_inv_p[i] = col_lookup->inv_p[col];
 
             src_y1x1 = src_y1_buf + x1_off;
             src_y1x2 = src_y1_buf + x2_off;

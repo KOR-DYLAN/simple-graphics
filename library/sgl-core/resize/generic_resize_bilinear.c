@@ -119,17 +119,17 @@ static void sgl_generic_resize_bilinear_line_stripe(void *current, void *cookie)
     uint8_t *src_y2x1, *src_y2x2;
 
     /* set common data */
-    row_lookup = data->lut->row_lookup;
-    col_lookup = data->lut->col_lookup;
+    row_lookup = &data->lut->row_lookup;
+    col_lookup = &data->lut->col_lookup;
     d_width = data->lut->d_width;
     bpp = data->bpp;
     
     /* set 'row' data */
     row = cur->row;
-    y1 = row_lookup[row].y1;
-    y2 = row_lookup[row].y2;
-    q = row_lookup[row].q;
-    inv_q = row_lookup[row].inv_q;
+    y1 = row_lookup->y1[row];
+    y2 = row_lookup->y2[row];
+    q = row_lookup->q[row];
+    inv_q = row_lookup->inv_q[row];
 
     src_stride = data->src_stride;
     src = data->src;
@@ -140,10 +140,10 @@ static void sgl_generic_resize_bilinear_line_stripe(void *current, void *cookie)
     dst = data->dst + (row * dst_stride);
 
     for (col = 0; col < d_width; ++col) {
-        x1_off = col_lookup[col].x1 * bpp;
-        x2_off = col_lookup[col].x2 * bpp;
-        p = col_lookup[col].p;
-        inv_p = col_lookup[col].inv_p;
+        x1_off = col_lookup->x1[col] * bpp;
+        x2_off = col_lookup->x2[col] * bpp;
+        p = col_lookup->p[col];
+        inv_p = col_lookup->inv_p[col];
 
         w00 = sgl_q15_mul(inv_p, inv_q); /* Q15 */
         w01 = sgl_q15_mul(    p, inv_q); /* Q15 */
