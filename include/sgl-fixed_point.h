@@ -50,11 +50,11 @@ static ALWAYS_INLINE uint8_t sgl_clamp_u8_i32(int32_t val)
     return u8_val;
 }
 
-static ALWAYS_INLINE sgl_simd_q15_t sgl_simd_q15_mul(sgl_simd_q15_t a, sgl_q15_t b) {
+static ALWAYS_INLINE sgl_simd_q15_t sgl_simd_q15_mul(sgl_simd_q15_t a, sgl_simd_q15_t b) {
     /* Avoid UB(Undefined Behavior) by changing 'signed' to 'unsigned'. */
     uint32x4_t ua = vreinterpretq_u32_s32(a);           /* Q15 */
-    uint32_t ub = (uint32_t)b;                          /* Q15 */
-    uint32x4_t prod = vmulq_u32(ua, vdupq_n_u32(ub));   /* Q30 = Q15 x Q15 */
+    uint32x4_t ub = vreinterpretq_u32_s32(b);           /* Q15 */
+    uint32x4_t prod = vmulq_u32(ua, ub);               /* Q30 = Q15 x Q15 */
 
     /* Rounding */
     prod = SGL_SIMD_Q15_ROUNDUP(prod);

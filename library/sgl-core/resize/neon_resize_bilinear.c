@@ -157,7 +157,6 @@ static void sgl_simd_resize_bilinear_line_stripe(void *current, void *cookie) {
     int32_t d_width, bpp, step;
     int32_t x1_off, x2_off;
     int32_t y1, y2;
-    sgl_q15_t q, inv_q;
     uint8_t *src, *dst;
     int32_t ch, src_stride, dst_stride;
     uint8_t *src_y1_buf, *src_y2_buf;
@@ -172,6 +171,8 @@ static void sgl_simd_resize_bilinear_line_stripe(void *current, void *cookie) {
 
     int32x4_t vec_p_lo, vec_p_hi;
     int32x4_t vec_p_inv_lo, vec_p_inv_hi;
+    int32x4_t vec_q, vec_q_inv;
+
     int32x4_t vec_w00_lo, vec_w00_hi;
     int32x4_t vec_w01_lo, vec_w01_hi;
     int32x4_t vec_w10_lo, vec_w10_hi;
@@ -192,8 +193,9 @@ static void sgl_simd_resize_bilinear_line_stripe(void *current, void *cookie) {
     row = cur->row;
     y1 = row_lookup->y1[row];
     y2 = row_lookup->y2[row];
-    q = row_lookup->q[row];
-    inv_q = row_lookup->inv_q[row];
+
+    vec_q = vdupq_n_s32(row_lookup->q[row]);
+    vec_q_inv = vdupq_n_s32(row_lookup->inv_q[row]);
 
     src_stride = data->src_stride;
     src = data->src;
@@ -235,14 +237,14 @@ static void sgl_simd_resize_bilinear_line_stripe(void *current, void *cookie) {
             }
         }
 
-        vec_w00_lo = sgl_simd_q15_mul(vec_p_inv_lo, inv_q);
-        vec_w00_hi = sgl_simd_q15_mul(vec_p_inv_hi, inv_q);
-        vec_w01_lo = sgl_simd_q15_mul(vec_p_lo, inv_q);
-        vec_w01_hi = sgl_simd_q15_mul(vec_p_hi, inv_q);
-        vec_w10_lo = sgl_simd_q15_mul(vec_p_inv_lo, q);
-        vec_w10_hi = sgl_simd_q15_mul(vec_p_inv_hi, q);
-        vec_w11_lo = sgl_simd_q15_mul(vec_p_lo, q);
-        vec_w11_hi = sgl_simd_q15_mul(vec_p_hi, q);
+        vec_w00_lo = sgl_simd_q15_mul(vec_p_inv_lo, vec_q_inv);
+        vec_w00_hi = sgl_simd_q15_mul(vec_p_inv_hi, vec_q_inv);
+        vec_w01_lo = sgl_simd_q15_mul(vec_p_lo, vec_q_inv);
+        vec_w01_hi = sgl_simd_q15_mul(vec_p_hi, vec_q_inv);
+        vec_w10_lo = sgl_simd_q15_mul(vec_p_inv_lo, vec_q);
+        vec_w10_hi = sgl_simd_q15_mul(vec_p_inv_hi, vec_q);
+        vec_w11_lo = sgl_simd_q15_mul(vec_p_lo, vec_q);
+        vec_w11_hi = sgl_simd_q15_mul(vec_p_hi, vec_q);
 
         switch (bpp) {
         case 4:
