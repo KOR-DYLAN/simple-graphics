@@ -3,7 +3,76 @@
 #include "sgl.h"
 #include "bilinear.h"
 
-static void sgl_generic_resize_bilinear_line_stripe(void *current, void *cookie);
+#define BULK_SIZE       4
+
+static void sgl_generic_resize_bilinear_routine(void *current, void *cookie);
+
+static ALWAYS_INLINE void sgl_generic_resize_bilinear_line_stripe(int32_t row, sgl_bilinear_data_t *data) {
+    bilinear_column_lookup_t *col_lookup;
+    bilinear_row_lookup_t *row_lookup;
+    int32_t col; 
+    int32_t d_width, bpp;
+    int32_t x1_off, x2_off;
+    int32_t y1, y2;
+    sgl_q15_t p, inv_p;
+    sgl_q15_t q, inv_q;
+    sgl_q15_t w00, w01, w10, w11;
+    int32_t acc, value;
+    uint8_t *src, *dst;
+    int32_t ch, src_stride, dst_stride;
+    uint8_t *src_y1_buf, *src_y2_buf;
+    uint8_t *src_y1x1, *src_y1x2;
+    uint8_t *src_y2x1, *src_y2x2;
+
+    /* set common data */
+    row_lookup = &data->lut->row_lookup;
+    col_lookup = &data->lut->col_lookup;
+    d_width = data->lut->d_width;
+    bpp = data->bpp;
+    
+    /* set 'row' data */
+    y1 = row_lookup->y1[row];
+    y2 = row_lookup->y2[row];
+    q = row_lookup->q[row];
+    inv_q = row_lookup->inv_q[row];
+
+    src_stride = data->src_stride;
+    src = data->src;
+    src_y1_buf = src + (y1 * src_stride);
+    src_y2_buf = src + (y2 * src_stride);
+
+    dst_stride = data->dst_stride;
+    dst = data->dst + (row * dst_stride);
+
+    for (col = 0; col < d_width; ++col) {
+        x1_off = col_lookup->x1[col] * bpp;
+        x2_off = col_lookup->x2[col] * bpp;
+        p = col_lookup->p[col];
+        inv_p = col_lookup->inv_p[col];
+
+        w00 = sgl_q15_mul(inv_p, inv_q); /* Q15 */
+        w01 = sgl_q15_mul(    p, inv_q); /* Q15 */
+        w10 = sgl_q15_mul(inv_p,     q); /* Q15 */
+        w11 = sgl_q15_mul(    p,     q); /* Q15 */
+
+        src_y1x1 = src_y1_buf + x1_off;
+        src_y1x2 = src_y1_buf + x2_off;
+        src_y2x1 = src_y2_buf + x1_off;
+        src_y2x2 = src_y2_buf + x2_off;
+
+        for (ch = 0; ch < bpp; ++ch) {
+            acc =   (w00 * src_y1x1[ch]) + 
+                    (w01 * src_y1x2[ch]) +
+                    (w10 * src_y2x1[ch]) + 
+                    (w11 * src_y2x2[ch]);
+            value = SGL_Q15_SHIFTDOWN(SGL_Q15_ROUNDUP(acc));
+
+            /* Q15 -> u8 */
+            dst[ch] = sgl_clamp_u8_i32(value);
+        }
+        dst += bpp;
+    }
+}
 
 sgl_result_t sgl_generic_resize_bilinear(
                 sgl_threadpool_t *pool, sgl_bilinear_lookup_t *ext_lut, 
@@ -12,10 +81,12 @@ sgl_result_t sgl_generic_resize_bilinear(
                 int32_t bpp)
 {
     sgl_result_t result = SGL_SUCCESS;
-    sgl_bilinear_current_t cur, *currents;
+    int32_t row;
+    sgl_bilinear_current_t *currents;
     sgl_bilinear_data_t data;
     sgl_queue_t *operations = NULL;
     sgl_bilinear_lookup_t *lut = NULL, *temp_lut = NULL;
+    int32_t i, num_operations, mod_operations;
     int32_t errcnt = 0;
 
     /* check buffer address */
@@ -61,21 +132,32 @@ sgl_result_t sgl_generic_resize_bilinear(
 
             if (pool == NULL) {
                 /* single-threaded resize */
-                for (cur.row = 0; cur.row < d_height; ++cur.row) {
-                    sgl_generic_resize_bilinear_line_stripe((void *)&cur, (void *)&data);
+                for (row = 0; row < d_height; ++row) {
+                    sgl_generic_resize_bilinear_line_stripe(row, (void *)&data);
                 }
             }
             else {
-                operations = sgl_queue_create((size_t)d_height);
-                currents = (sgl_bilinear_current_t *)malloc(sizeof(sgl_bilinear_current_t) * (size_t)d_height);
+                num_operations = d_height / BULK_SIZE;
+                mod_operations = d_height % BULK_SIZE;
+                if (mod_operations != 0) {
+                    num_operations += 1;
+                }
+
+                operations = sgl_queue_create((size_t)num_operations);
+                currents = (sgl_bilinear_current_t *)malloc(sizeof(sgl_bilinear_current_t) * (size_t)num_operations);
                 if ((operations != NULL) && (currents != NULL)) {
-                    for (cur.row = 0; cur.row < d_height; ++cur.row) {
-                        currents[cur.row].row = cur.row;
-                        sgl_queue_unsafe_enqueue(operations, (const void *)&currents[cur.row]);
+                    for (i = 0; i < num_operations; ++i) {
+                        currents[i].row = i * BULK_SIZE;
+                        currents[i].count = BULK_SIZE;
+                        sgl_queue_unsafe_enqueue(operations, (const void *)&currents[i]);
+                    }
+
+                    if (mod_operations != 0) {
+                        currents[num_operations - 1].count = mod_operations;
                     }
 
                     /* multi-threaded resize */
-                    sgl_threadpool_attach_routine(pool, sgl_generic_resize_bilinear_line_stripe, operations, (void *)&data);
+                    sgl_threadpool_attach_routine(pool, sgl_generic_resize_bilinear_routine, operations, (void *)&data);
                     sgl_queue_destroy(&operations);
                 }
                 else {
@@ -99,72 +181,13 @@ sgl_result_t sgl_generic_resize_bilinear(
     return result;
 }
 
-static void sgl_generic_resize_bilinear_line_stripe(void *current, void *cookie) {
+static void sgl_generic_resize_bilinear_routine(void *current, void *cookie)
+{
     sgl_bilinear_current_t *cur = (sgl_bilinear_current_t *)current;
     sgl_bilinear_data_t *data = (sgl_bilinear_data_t *)cookie;
-    bilinear_column_lookup_t *col_lookup;
-    bilinear_row_lookup_t *row_lookup;
-    int32_t row, col; 
-    int32_t d_width, bpp;
-    int32_t x1_off, x2_off;
-    int32_t y1, y2;
-    sgl_q15_t p, inv_p;
-    sgl_q15_t q, inv_q;
-    sgl_q15_t w00, w01, w10, w11;
-    int32_t acc, value;
-    uint8_t *src, *dst;
-    int32_t ch, src_stride, dst_stride;
-    uint8_t *src_y1_buf, *src_y2_buf;
-    uint8_t *src_y1x1, *src_y1x2;
-    uint8_t *src_y2x1, *src_y2x2;
+    int32_t row;
 
-    /* set common data */
-    row_lookup = &data->lut->row_lookup;
-    col_lookup = &data->lut->col_lookup;
-    d_width = data->lut->d_width;
-    bpp = data->bpp;
-    
-    /* set 'row' data */
-    row = cur->row;
-    y1 = row_lookup->y1[row];
-    y2 = row_lookup->y2[row];
-    q = row_lookup->q[row];
-    inv_q = row_lookup->inv_q[row];
-
-    src_stride = data->src_stride;
-    src = data->src;
-    src_y1_buf = src + (y1 * src_stride);
-    src_y2_buf = src + (y2 * src_stride);
-
-    dst_stride = data->dst_stride;
-    dst = data->dst + (row * dst_stride);
-
-    for (col = 0; col < d_width; ++col) {
-        x1_off = col_lookup->x1[col] * bpp;
-        x2_off = col_lookup->x2[col] * bpp;
-        p = col_lookup->p[col];
-        inv_p = col_lookup->inv_p[col];
-
-        w00 = sgl_q15_mul(inv_p, inv_q); /* Q15 */
-        w01 = sgl_q15_mul(    p, inv_q); /* Q15 */
-        w10 = sgl_q15_mul(inv_p,     q); /* Q15 */
-        w11 = sgl_q15_mul(    p,     q); /* Q15 */
-
-        src_y1x1 = src_y1_buf + x1_off;
-        src_y1x2 = src_y1_buf + x2_off;
-        src_y2x1 = src_y2_buf + x1_off;
-        src_y2x2 = src_y2_buf + x2_off;
-
-        for (ch = 0; ch < bpp; ++ch) {
-            acc =   (w00 * src_y1x1[ch]) + 
-                    (w01 * src_y1x2[ch]) +
-                    (w10 * src_y2x1[ch]) + 
-                    (w11 * src_y2x2[ch]);
-            value = SGL_Q15_SHIFTDOWN(SGL_Q15_ROUNDUP(acc));
-
-            /* Q15 -> u8 */
-            dst[ch] = sgl_clamp_u8_i32(value);
-        }
-        dst += bpp;
+    for (row = cur->row; row < (cur->row + cur->count); ++row) {
+        sgl_generic_resize_bilinear_line_stripe(row, data);
     }
 }

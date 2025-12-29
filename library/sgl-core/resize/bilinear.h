@@ -24,6 +24,7 @@ typedef struct  {
 
 typedef struct  {
     int32_t row;
+    int32_t count;
 } sgl_bilinear_current_t;
 
 struct sgl_bilinear_lookup_table {

@@ -6,8 +6,9 @@
 
 #define NEON_LANE_SIZE  8
 #define WORD_SIZE       4
+#define BULK_SIZE       4
 
-static void sgl_simd_resize_bilinear_line_stripe(void *current, void *cookie);
+static void sgl_simd_resize_bilinear_routine(void *current, void *cookie);
 
 static ALWAYS_INLINE uint8x8_t sgl_neon_bilinear_interpolation(
     uint8x8_t src_y1x1, uint8x8_t src_y1x2,
@@ -53,106 +54,10 @@ static ALWAYS_INLINE uint8x8_t sgl_neon_bilinear_interpolation(
     return sgl_simd_clamp_u8_i32(acc_lo, acc_hi);
 }
 
-sgl_result_t sgl_simd_resize_bilinear(
-                sgl_threadpool_t *pool, sgl_bilinear_lookup_t *ext_lut, 
-                uint8_t *dst, int32_t d_width, int32_t d_height, 
-                uint8_t *src, int32_t s_width, int32_t s_height, 
-                int32_t bpp)
-{
-    sgl_result_t result = SGL_SUCCESS;
-    sgl_bilinear_current_t cur, *currents;
-    sgl_bilinear_data_t data;
-    sgl_queue_t *operations = NULL;
-    sgl_bilinear_lookup_t *lut = NULL, *temp_lut = NULL;
-    int32_t errcnt = 0;
-
-    /* check buffer address */
-    if ((dst == NULL) || (src == NULL)) {
-        errcnt += 1;
-    }
-
-    /* check boundary */
-    if ((d_width <= 0) || (d_height <= 0) || (s_width <= 0) || (s_height <= 0)) {
-        errcnt += 1;
-    }
-
-    /* check bpp(bytes per pixel) */
-    if (bpp <= 0) {
-        errcnt += 1;
-    }
-
-    /* check error count */
-    if (errcnt == 0) {
-        if (ext_lut != NULL) {
-            if ((ext_lut->d_width == d_width) && (ext_lut->d_height == d_height) &&
-                (ext_lut->s_width == s_width) && (ext_lut->s_height == s_height))
-            {
-                /* apply external look-up table */
-                lut = ext_lut;
-            }
-        }
-
-        if (lut == NULL) {
-            /* create temp look-up table */
-            temp_lut = sgl_generic_create_bilinear_lut(d_width, d_height, s_width, s_height);
-            lut = temp_lut;
-        }
-
-        if (lut != NULL) {
-            /* set data */
-            data.bpp = bpp;
-            data.src = src;
-            data.dst = dst;
-            data.lut = lut;
-            data.src_stride = s_width * bpp;
-            data.dst_stride = d_width * bpp;
-
-            if (pool == NULL) {
-                /* single-threaded resize */
-                for (cur.row = 0; cur.row < d_height; ++cur.row) {
-                    sgl_simd_resize_bilinear_line_stripe((void *)&cur, (void *)&data);
-                }
-            }
-            else {
-                operations = sgl_queue_create((size_t)d_height);
-                currents = (sgl_bilinear_current_t *)malloc(sizeof(sgl_bilinear_current_t) * (size_t)d_height);
-                if ((operations != NULL) && (currents != NULL)) {
-                    for (cur.row = 0; cur.row < d_height; ++cur.row) {
-                        currents[cur.row].row = cur.row;
-                        sgl_queue_unsafe_enqueue(operations, (const void *)&currents[cur.row]);
-                    }
-
-                    /* multi-threaded resize */
-                    sgl_threadpool_attach_routine(pool, sgl_simd_resize_bilinear_line_stripe, operations, (void *)&data);
-                    sgl_queue_destroy(&operations);
-                }
-                else {
-                    result = SGL_ERROR_MEMORY_ALLOCATION;
-                }
-
-                SGL_SAFE_FREE(currents);
-                SGL_SAFE_FREE(operations);
-            }
-
-            if (temp_lut != NULL) {
-                /* destroy temp look-up table */
-                sgl_generic_destroy_bilinear_lut(temp_lut);
-            }
-        }
-    }
-    else {
-        result = SGL_ERROR_INVALID_ARGUMENTS;
-    }
-
-    return result;
-}
-
-static void sgl_simd_resize_bilinear_line_stripe(void *current, void *cookie) {
-    sgl_bilinear_current_t *cur = (sgl_bilinear_current_t *)current;
-    sgl_bilinear_data_t *data = (sgl_bilinear_data_t *)cookie;
+static ALWAYS_INLINE void sgl_simd_resize_bilinear_line_stripe(int32_t row, sgl_bilinear_data_t *data) {
     bilinear_column_lookup_t *col_lookup;
     bilinear_row_lookup_t *row_lookup;
-    int32_t row, col;
+    int32_t col;
     int32_t col_lo, col_hi;
     int32_t d_width, bpp, step;
     int32_t x1_off, x2_off;
@@ -195,7 +100,6 @@ static void sgl_simd_resize_bilinear_line_stripe(void *current, void *cookie) {
     bpp = data->bpp;
     
     /* set 'row' data */
-    row = cur->row;
     y1 = row_lookup->y1[row];
     y2 = row_lookup->y2[row];
 
@@ -325,5 +229,123 @@ static void sgl_simd_resize_bilinear_line_stripe(void *current, void *cookie) {
             dst[ch] = sgl_clamp_u8_i32(value);
         }
         dst += bpp;
+    }
+}
+
+sgl_result_t sgl_simd_resize_bilinear(
+                sgl_threadpool_t *pool, sgl_bilinear_lookup_t *ext_lut, 
+                uint8_t *dst, int32_t d_width, int32_t d_height, 
+                uint8_t *src, int32_t s_width, int32_t s_height, 
+                int32_t bpp)
+{
+    sgl_result_t result = SGL_SUCCESS;
+    int32_t row;
+    sgl_bilinear_current_t *currents;
+    sgl_bilinear_data_t data;
+    sgl_queue_t *operations = NULL;
+    sgl_bilinear_lookup_t *lut = NULL, *temp_lut = NULL;
+    int32_t i, num_operations, mod_operations;
+    int32_t errcnt = 0;
+
+    /* check buffer address */
+    if ((dst == NULL) || (src == NULL)) {
+        errcnt += 1;
+    }
+
+    /* check boundary */
+    if ((d_width <= 0) || (d_height <= 0) || (s_width <= 0) || (s_height <= 0)) {
+        errcnt += 1;
+    }
+
+    /* check bpp(bytes per pixel) */
+    if (bpp <= 0) {
+        errcnt += 1;
+    }
+
+    /* check error count */
+    if (errcnt == 0) {
+        if (ext_lut != NULL) {
+            if ((ext_lut->d_width == d_width) && (ext_lut->d_height == d_height) &&
+                (ext_lut->s_width == s_width) && (ext_lut->s_height == s_height))
+            {
+                /* apply external look-up table */
+                lut = ext_lut;
+            }
+        }
+
+        if (lut == NULL) {
+            /* create temp look-up table */
+            temp_lut = sgl_generic_create_bilinear_lut(d_width, d_height, s_width, s_height);
+            lut = temp_lut;
+        }
+
+        if (lut != NULL) {
+            /* set data */
+            data.bpp = bpp;
+            data.src = src;
+            data.dst = dst;
+            data.lut = lut;
+            data.src_stride = s_width * bpp;
+            data.dst_stride = d_width * bpp;
+
+            if (pool == NULL) {
+                /* single-threaded resize */
+                for (row = 0; row < d_height; ++row) {
+                    sgl_simd_resize_bilinear_line_stripe(row, (void *)&data);
+                }
+            }
+            else {
+                num_operations = d_height / BULK_SIZE;
+                mod_operations = d_height % BULK_SIZE;
+                if (mod_operations != 0) {
+                    num_operations += 1;
+                }
+
+                operations = sgl_queue_create((size_t)num_operations);
+                currents = (sgl_bilinear_current_t *)malloc(sizeof(sgl_bilinear_current_t) * (size_t)num_operations);
+                if ((operations != NULL) && (currents != NULL)) {
+                    for (i = 0; i < num_operations; ++i) {
+                        currents[i].row = i * BULK_SIZE;
+                        currents[i].count = BULK_SIZE;
+                        sgl_queue_unsafe_enqueue(operations, (const void *)&currents[i]);
+                    }
+
+                    if (mod_operations != 0) {
+                        currents[num_operations - 1].count = mod_operations;
+                    }
+
+                    /* multi-threaded resize */
+                    sgl_threadpool_attach_routine(pool, sgl_simd_resize_bilinear_routine, operations, (void *)&data);
+                    sgl_queue_destroy(&operations);
+                }
+                else {
+                    result = SGL_ERROR_MEMORY_ALLOCATION;
+                }
+
+                SGL_SAFE_FREE(currents);
+                SGL_SAFE_FREE(operations);
+            }
+
+            if (temp_lut != NULL) {
+                /* destroy temp look-up table */
+                sgl_generic_destroy_bilinear_lut(temp_lut);
+            }
+        }
+    }
+    else {
+        result = SGL_ERROR_INVALID_ARGUMENTS;
+    }
+
+    return result;
+}
+
+static void sgl_simd_resize_bilinear_routine(void *current, void *cookie)
+{
+    sgl_bilinear_current_t *cur = (sgl_bilinear_current_t *)current;
+    sgl_bilinear_data_t *data = (sgl_bilinear_data_t *)cookie;
+    int32_t row;
+
+    for (row = cur->row; row < (cur->row + cur->count); ++row) {
+        sgl_simd_resize_bilinear_line_stripe(row, data);
     }
 }
