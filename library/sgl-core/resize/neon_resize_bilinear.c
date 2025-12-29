@@ -163,7 +163,7 @@ static void sgl_simd_resize_bilinear_line_stripe(void *current, void *cookie) {
     uint8_t *src_y1x1, *src_y1x2;
     uint8_t *src_y2x1, *src_y2x2;
 
-    int32_t lane, i, num_lanes, rem_lanes;
+    int32_t lane, i, num_lanes;
     uint8_t serialized_src_y1x1[WORD_SIZE][NEON_LANE_SIZE];
     uint8_t serialized_src_y1x2[WORD_SIZE][NEON_LANE_SIZE];
     uint8_t serialized_src_y2x1[WORD_SIZE][NEON_LANE_SIZE];
@@ -183,6 +183,11 @@ static void sgl_simd_resize_bilinear_line_stripe(void *current, void *cookie) {
     uint8x8x2_t value2;
     uint8x8_t value1;
 
+    sgl_q15_t p, inv_p;
+    sgl_q15_t q, inv_q;
+    sgl_q15_t w00, w01, w10, w11;
+    int32_t acc, value;
+
     /* set common data */
     row_lookup = &data->lut->row_lookup;
     col_lookup = &data->lut->col_lookup;
@@ -194,6 +199,8 @@ static void sgl_simd_resize_bilinear_line_stripe(void *current, void *cookie) {
     y1 = row_lookup->y1[row];
     y2 = row_lookup->y2[row];
 
+    q = row_lookup->q[row];
+    inv_q = row_lookup->inv_q[row];
     vec_q = vdupq_n_s32(row_lookup->q[row]);
     vec_q_inv = vdupq_n_s32(row_lookup->inv_q[row]);
 
@@ -208,7 +215,6 @@ static void sgl_simd_resize_bilinear_line_stripe(void *current, void *cookie) {
 
     /* calc lane */
     num_lanes = d_width / NEON_LANE_SIZE;
-    rem_lanes = d_width % NEON_LANE_SIZE;
 
     for (lane = 0; lane < num_lanes; ++lane) {
         col = (lane * NEON_LANE_SIZE);
@@ -290,5 +296,34 @@ static void sgl_simd_resize_bilinear_line_stripe(void *current, void *cookie) {
             break;
         }
         dst += step;
+    }
+
+    for (col = num_lanes * NEON_LANE_SIZE; col < d_width; ++col) {
+        x1_off = col_lookup->x1[col] * bpp;
+        x2_off = col_lookup->x2[col] * bpp;
+        p = col_lookup->p[col];
+        inv_p = col_lookup->inv_p[col];
+
+        w00 = sgl_q15_mul(inv_p, inv_q); /* Q15 */
+        w01 = sgl_q15_mul(    p, inv_q); /* Q15 */
+        w10 = sgl_q15_mul(inv_p,     q); /* Q15 */
+        w11 = sgl_q15_mul(    p,     q); /* Q15 */
+
+        src_y1x1 = src_y1_buf + x1_off;
+        src_y1x2 = src_y1_buf + x2_off;
+        src_y2x1 = src_y2_buf + x1_off;
+        src_y2x2 = src_y2_buf + x2_off;
+
+        for (ch = 0; ch < bpp; ++ch) {
+            acc =   (w00 * src_y1x1[ch]) + 
+                    (w01 * src_y1x2[ch]) +
+                    (w10 * src_y2x1[ch]) + 
+                    (w11 * src_y2x2[ch]);
+            value = SGL_Q15_SHIFTDOWN(SGL_Q15_ROUNDUP(acc));
+
+            /* Q15 -> u8 */
+            dst[ch] = sgl_clamp_u8_i32(value);
+        }
+        dst += bpp;
     }
 }

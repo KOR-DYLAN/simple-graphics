@@ -154,6 +154,7 @@ static void sgl_generic_resize_bilinear_line_stripe(void *current, void *cookie)
         src_y1x2 = src_y1_buf + x2_off;
         src_y2x1 = src_y2_buf + x1_off;
         src_y2x2 = src_y2_buf + x2_off;
+
         for (ch = 0; ch < bpp; ++ch) {
             acc =   (w00 * src_y1x1[ch]) + 
                     (w01 * src_y1x2[ch]) +
