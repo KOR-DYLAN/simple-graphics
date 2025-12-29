@@ -152,7 +152,8 @@ static void sgl_simd_resize_bilinear_line_stripe(void *current, void *cookie) {
     sgl_bilinear_data_t *data = (sgl_bilinear_data_t *)cookie;
     bilinear_column_lookup_t *col_lookup;
     bilinear_row_lookup_t *row_lookup;
-    int32_t row, col; 
+    int32_t row, col;
+    int32_t col_lo, col_hi;
     int32_t d_width, bpp, step;
     int32_t x1_off, x2_off;
     int32_t y1, y2;
@@ -164,7 +165,6 @@ static void sgl_simd_resize_bilinear_line_stripe(void *current, void *cookie) {
     uint8_t *src_y2x1, *src_y2x2;
 
     int32_t lane, i, num_lanes, rem_lanes;
-    sgl_q15_t serialized_p[NEON_LANE_SIZE], serialized_inv_p[NEON_LANE_SIZE];
     uint8_t serialized_src_y1x1[WORD_SIZE][NEON_LANE_SIZE];
     uint8_t serialized_src_y1x2[WORD_SIZE][NEON_LANE_SIZE];
     uint8_t serialized_src_y2x1[WORD_SIZE][NEON_LANE_SIZE];
@@ -209,12 +209,18 @@ static void sgl_simd_resize_bilinear_line_stripe(void *current, void *cookie) {
     rem_lanes = d_width % NEON_LANE_SIZE;
 
     for (lane = 0; lane < num_lanes; ++lane) {
+        col = (lane * NEON_LANE_SIZE);
+        col_lo = col;
+        col_hi = col + 4;
+        vec_p_lo = vld1q_s32(&col_lookup->p[col_lo]);
+        vec_p_hi = vld1q_s32(&col_lookup->p[col_hi]);
+        vec_p_inv_lo = vld1q_s32(&col_lookup->inv_p[col_lo]);
+        vec_p_inv_hi = vld1q_s32(&col_lookup->inv_p[col_hi]);
+
         for (i = 0; i < NEON_LANE_SIZE; ++i) {
-            col = (lane * NEON_LANE_SIZE) + i;
             x1_off = col_lookup->x1[col] * bpp;
             x2_off = col_lookup->x2[col] * bpp;
-            serialized_p[i] = col_lookup->p[col];
-            serialized_inv_p[i] = col_lookup->inv_p[col];
+            col++;
 
             src_y1x1 = src_y1_buf + x1_off;
             src_y1x2 = src_y1_buf + x2_off;
@@ -228,11 +234,6 @@ static void sgl_simd_resize_bilinear_line_stripe(void *current, void *cookie) {
                 serialized_src_y2x2[ch][i] = src_y2x2[ch];
             }
         }
-
-        vec_p_lo = vld1q_s32(&serialized_p[0]);
-        vec_p_hi = vld1q_s32(&serialized_p[4]);
-        vec_p_inv_lo = vld1q_s32(&serialized_inv_p[0]);
-        vec_p_inv_hi = vld1q_s32(&serialized_inv_p[4]);
 
         vec_w00_lo = sgl_simd_q15_mul(vec_p_inv_lo, inv_q);
         vec_w00_hi = sgl_simd_q15_mul(vec_p_inv_hi, inv_q);
