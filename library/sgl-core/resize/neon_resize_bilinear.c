@@ -153,7 +153,7 @@ static void sgl_simd_resize_bilinear_line_stripe(void *current, void *cookie) {
     bilinear_column_lookup_t *col_lookup;
     bilinear_row_lookup_t *row_lookup;
     int32_t row, col; 
-    int32_t d_width, bpp;
+    int32_t d_width, bpp, step;
     int32_t x1_off, x2_off;
     int32_t y1, y2;
     sgl_q15_t q, inv_q;
@@ -202,6 +202,7 @@ static void sgl_simd_resize_bilinear_line_stripe(void *current, void *cookie) {
 
     dst_stride = data->dst_stride;
     dst = data->dst + (row * dst_stride);
+    step = bpp * NEON_LANE_SIZE;
 
     /* calc lane */
     num_lanes = d_width / NEON_LANE_SIZE;
@@ -251,7 +252,7 @@ static void sgl_simd_resize_bilinear_line_stripe(void *current, void *cookie) {
                                     vec_w00_lo, vec_w01_lo, vec_w10_lo, vec_w11_lo,
                                     vec_w00_hi, vec_w01_hi, vec_w10_hi, vec_w11_hi);
             }
-            vst4_u8(dst + (lane * NEON_LANE_SIZE * bpp), value4);
+            vst4_u8(dst, value4);
             break;
         case 3:
             for (ch = 0; ch < 3; ++ch) {
@@ -261,7 +262,7 @@ static void sgl_simd_resize_bilinear_line_stripe(void *current, void *cookie) {
                                     vec_w00_lo, vec_w01_lo, vec_w10_lo, vec_w11_lo,
                                     vec_w00_hi, vec_w01_hi, vec_w10_hi, vec_w11_hi);
             }
-            vst3_u8(dst + (lane * NEON_LANE_SIZE * bpp), value3);
+            vst3_u8(dst, value3);
             break;
         case 2:
             for (ch = 0; ch < 2; ++ch) {
@@ -271,7 +272,7 @@ static void sgl_simd_resize_bilinear_line_stripe(void *current, void *cookie) {
                                     vec_w00_lo, vec_w01_lo, vec_w10_lo, vec_w11_lo,
                                     vec_w00_hi, vec_w01_hi, vec_w10_hi, vec_w11_hi);
             }
-            vst2_u8(dst + (lane * NEON_LANE_SIZE * bpp), value2);
+            vst2_u8(dst, value2);
             break;
         case 1:
             value1 = sgl_neon_bilinear_interpolation(
@@ -279,11 +280,12 @@ static void sgl_simd_resize_bilinear_line_stripe(void *current, void *cookie) {
                                 vld1_u8(serialized_src_y2x1[0]), vld1_u8(serialized_src_y2x2[0]),
                                 vec_w00_lo, vec_w01_lo, vec_w10_lo, vec_w11_lo,
                                 vec_w00_hi, vec_w01_hi, vec_w10_hi, vec_w11_hi);
-            vst1_u8(dst + (lane * NEON_LANE_SIZE * bpp), value1);
+            vst1_u8(dst, value1);
             break;
         default:
             /* Unsupported bpp */
             break;
         }
+        dst += step;
     }
 }

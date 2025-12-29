@@ -26,7 +26,7 @@ struct sgl_threadpool {
 
 static sgl_osal_thread_return_t sgl_threadpool_routine(sgl_osal_thread_arg_t arg);
 
-static inline void sgl_threadpool_routine_handle_initialize(sgl_threadpool_routine_handle_t *routine_handle, sgl_queue_t *in, sgl_threadpool_routine_t routine, void *cookie)
+static ALWAYS_INLINE void sgl_threadpool_routine_handle_initialize(sgl_threadpool_routine_handle_t *routine_handle, sgl_queue_t *in, sgl_threadpool_routine_t routine, void *cookie)
 {
     size_t capacity;
 
@@ -41,11 +41,8 @@ static inline void sgl_threadpool_routine_handle_initialize(sgl_threadpool_routi
     sgl_osal_cond_init(&routine_handle->cond);
 }
 
-static inline void sgl_threadpool_routine_handle_deinitialize(sgl_threadpool_routine_handle_t *routine_handle)
+static ALWAYS_INLINE void sgl_threadpool_routine_handle_deinitialize(sgl_threadpool_routine_handle_t *routine_handle)
 {
-    size_t i, count;
-    const void *current;
-
     sgl_queue_copy(routine_handle->in, routine_handle->out);
     sgl_queue_destroy(&routine_handle->out);
 
