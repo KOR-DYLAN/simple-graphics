@@ -55,10 +55,10 @@ static SGL_ALWAYS_INLINE void sgl_simd_resize_bilinear_line_stripe(int32_t row, 
     uint8_t *src_y2x1, *src_y2x2;
 
     int32_t lane, i, num_lanes;
-    uint8_t serialized_src_y1x1[WORD_SIZE][NEON_LANE_SIZE];
-    uint8_t serialized_src_y1x2[WORD_SIZE][NEON_LANE_SIZE];
-    uint8_t serialized_src_y2x1[WORD_SIZE][NEON_LANE_SIZE];
-    uint8_t serialized_src_y2x2[WORD_SIZE][NEON_LANE_SIZE];
+    SGL_ALIGNED(16) uint8_t serialized_src_y1x1[WORD_SIZE][NEON_LANE_SIZE];
+    SGL_ALIGNED(16) uint8_t serialized_src_y1x2[WORD_SIZE][NEON_LANE_SIZE];
+    SGL_ALIGNED(16) uint8_t serialized_src_y2x1[WORD_SIZE][NEON_LANE_SIZE];
+    SGL_ALIGNED(16) uint8_t serialized_src_y2x2[WORD_SIZE][NEON_LANE_SIZE];
 
     sgl_simd_q11_t vec_p, vec_p_inv;
     sgl_simd_q11_t vec_q, vec_q_inv;

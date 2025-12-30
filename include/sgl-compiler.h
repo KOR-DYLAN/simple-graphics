@@ -17,4 +17,12 @@
     #define SGL_RESTRICT
 #endif
 
+#if defined(_MSC_VER)
+    #define SGL_ALIGNED(n) __declspec(align(n))
+#elif defined(__GNUC__) || defined(__clang__)
+    #define SGL_ALIGNED(n) __attribute__((aligned(n)))
+#else
+    #define SGL_ALIGNED(n)
+#endif
+
 #endif  /* !SGL_COMPILER_H_ */
