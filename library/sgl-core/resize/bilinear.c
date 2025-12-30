@@ -7,31 +7,31 @@ sgl_bilinear_lookup_t *sgl_generic_create_bilinear_lut(int32_t d_width, int32_t 
 {
     sgl_bilinear_lookup_t *lut;
     int32_t row, col;
-    sgl_q15_t x_step, y_step;
-    sgl_q15_t rx, ry;
+    sgl_q11_ext_t x_step, y_step;
+    sgl_q11_ext_t rx, ry;
     int32_t x1, y1;
     int32_t x2, y2;
-    sgl_q15_t p, q;
+    sgl_q11_t p, q;
 
     lut = (sgl_bilinear_lookup_t *)malloc(sizeof(sgl_bilinear_lookup_t));
     if (lut != NULL) {
         lut->col_lookup.x1      = (int32_t *)malloc(sizeof(int32_t) * (size_t)d_width);
         lut->col_lookup.x2      = (int32_t *)malloc(sizeof(int32_t) * (size_t)d_width);
-        lut->col_lookup.p       = (sgl_q15_t *)malloc(sizeof(sgl_q15_t) * (size_t)d_width);
-        lut->col_lookup.inv_p   = (sgl_q15_t *)malloc(sizeof(sgl_q15_t) * (size_t)d_width);
+        lut->col_lookup.p       = (sgl_q11_t *)malloc(sizeof(sgl_q11_t) * (size_t)d_width);
+        lut->col_lookup.inv_p   = (sgl_q11_t *)malloc(sizeof(sgl_q11_t) * (size_t)d_width);
 
         lut->row_lookup.y1      = (int32_t *)malloc(sizeof(int32_t) * (size_t)d_height);
         lut->row_lookup.y2      = (int32_t *)malloc(sizeof(int32_t) * (size_t)d_height);
-        lut->row_lookup.q       = (sgl_q15_t *)malloc(sizeof(sgl_q15_t) * (size_t)d_height);
-        lut->row_lookup.inv_q   = (sgl_q15_t *)malloc(sizeof(sgl_q15_t) * (size_t)d_height);
+        lut->row_lookup.q       = (sgl_q11_t *)malloc(sizeof(sgl_q11_t) * (size_t)d_height);
+        lut->row_lookup.inv_q   = (sgl_q11_t *)malloc(sizeof(sgl_q11_t) * (size_t)d_height);
 
         if ((lut->col_lookup.x1 != NULL) && (lut->col_lookup.x2 != NULL) && (lut->col_lookup.p != NULL) && (lut->col_lookup.inv_p != NULL) &&
             (lut->row_lookup.y1 != NULL) && (lut->row_lookup.y2 != NULL) && (lut->row_lookup.q != NULL) && (lut->row_lookup.inv_q != NULL)) {
             /* create 'row' lookup table */
-            y_step = SGL_INT_TO_Q15(s_height - 1) / (d_height - 1);
+            y_step = SGL_INT_TO_Q11(s_height - 1) / (d_height - 1);
             for (row = 0; row < d_height; ++row) {
-                ry = row * y_step;  /* Q15 */
-                y1 = SGL_Q15_GET_INT_PART(ry);
+                ry = row * y_step;  /* Q11 */
+                y1 = SGL_Q11_GET_INT_PART(ry);
                 if (y1 >= (s_height - 1)) {
                     y1 = s_height - 1;
                 }
@@ -39,7 +39,7 @@ sgl_bilinear_lookup_t *sgl_generic_create_bilinear_lut(int32_t d_width, int32_t 
                 if (y2 >= s_height) {
                     y2 = s_height - 1;
                 }
-                q = SGL_Q15_GET_FRAC_PART(ry);
+                q = (sgl_q11_t)SGL_Q11_GET_FRAC_PART(ry);
                 if (y1 == (s_height - 1)) {
                     q = 0;
                 }
@@ -47,14 +47,14 @@ sgl_bilinear_lookup_t *sgl_generic_create_bilinear_lut(int32_t d_width, int32_t 
                 lut->row_lookup.y1[row] = y1;
                 lut->row_lookup.y2[row] = y2;
                 lut->row_lookup.q[row] = q;
-                lut->row_lookup.inv_q[row] = SGL_Q15_ONE - q;
+                lut->row_lookup.inv_q[row] = (sgl_q11_t)SGL_Q11_ONE - q;
             }
 
             /* create 'column' lookup table */
-            x_step = SGL_INT_TO_Q15(s_width - 1) / (d_width - 1);
+            x_step = SGL_INT_TO_Q11(s_width - 1) / (d_width - 1);
             for (col = 0; col < d_width; ++col) {
                 rx = col * x_step;
-                x1 = SGL_Q15_GET_INT_PART(rx);
+                x1 = SGL_Q11_GET_INT_PART(rx);
                 if (x1 >= (s_width - 1)) {
                     x1 = s_width - 1;
                 }
@@ -62,7 +62,7 @@ sgl_bilinear_lookup_t *sgl_generic_create_bilinear_lut(int32_t d_width, int32_t 
                 if (x2 >= s_width) {
                     x2 = s_width - 1;
                 }
-                p = SGL_Q15_GET_FRAC_PART(rx);
+                p = SGL_Q11_GET_FRAC_PART(rx);
                 if (x1 == (s_width - 1)) {
                     p = 0;
                 }
@@ -70,7 +70,7 @@ sgl_bilinear_lookup_t *sgl_generic_create_bilinear_lut(int32_t d_width, int32_t 
                 lut->col_lookup.x1[col] = x1;
                 lut->col_lookup.x2[col] = x2;
                 lut->col_lookup.p[col] = p;
-                lut->col_lookup.inv_p[col] = SGL_Q15_ONE - p;
+                lut->col_lookup.inv_p[col] = (sgl_q11_t)SGL_Q11_ONE - p;
             }
 
             lut->d_width = d_width;

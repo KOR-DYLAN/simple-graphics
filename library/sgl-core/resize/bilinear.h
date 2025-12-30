@@ -5,12 +5,12 @@
 
 typedef struct {
     int32_t *SGL_RESTRICT x1, *SGL_RESTRICT x2;
-    sgl_q15_t *SGL_RESTRICT p, *SGL_RESTRICT inv_p;   /* Q15 */
+    sgl_q11_t *SGL_RESTRICT p, *SGL_RESTRICT inv_p;   /* Q11 */
 } bilinear_column_lookup_t;
 
 typedef struct {
     int32_t *SGL_RESTRICT y1, *SGL_RESTRICT y2;
-    sgl_q15_t *SGL_RESTRICT q, *SGL_RESTRICT inv_q;   /* Q15 */
+    sgl_q11_t *SGL_RESTRICT q, *SGL_RESTRICT inv_q;   /* Q11 */
 } bilinear_row_lookup_t;
 
 typedef struct  {

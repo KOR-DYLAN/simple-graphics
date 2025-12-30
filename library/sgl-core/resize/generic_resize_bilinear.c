@@ -14,9 +14,9 @@ static SGL_ALWAYS_INLINE void sgl_generic_resize_bilinear_line_stripe(int32_t ro
     int32_t d_width, bpp;
     int32_t x1_off, x2_off;
     int32_t y1, y2;
-    sgl_q15_t p, inv_p;
-    sgl_q15_t q, inv_q;
-    sgl_q15_t w00, w01, w10, w11;
+    sgl_q11_t p, inv_p;
+    sgl_q11_t q, inv_q;
+    sgl_q11_t w00, w01, w10, w11;
     int32_t acc, value;
     uint8_t *src, *dst;
     int32_t ch, src_stride, dst_stride;
@@ -50,10 +50,10 @@ static SGL_ALWAYS_INLINE void sgl_generic_resize_bilinear_line_stripe(int32_t ro
         p = col_lookup->p[col];
         inv_p = col_lookup->inv_p[col];
 
-        w00 = sgl_q15_mul(inv_p, inv_q); /* Q15 */
-        w01 = sgl_q15_mul(    p, inv_q); /* Q15 */
-        w10 = sgl_q15_mul(inv_p,     q); /* Q15 */
-        w11 = sgl_q15_mul(    p,     q); /* Q15 */
+        w00 = sgl_q11_mul(inv_p, inv_q); /* Q11 */
+        w01 = sgl_q11_mul(    p, inv_q); /* Q11 */
+        w10 = sgl_q11_mul(inv_p,     q); /* Q11 */
+        w11 = sgl_q11_mul(    p,     q); /* Q11 */
 
         src_y1x1 = src_y1_buf + x1_off;
         src_y1x2 = src_y1_buf + x2_off;
@@ -61,13 +61,13 @@ static SGL_ALWAYS_INLINE void sgl_generic_resize_bilinear_line_stripe(int32_t ro
         src_y2x2 = src_y2_buf + x2_off;
 
         for (ch = 0; ch < bpp; ++ch) {
-            acc =   (w00 * src_y1x1[ch]) + 
-                    (w01 * src_y1x2[ch]) +
-                    (w10 * src_y2x1[ch]) + 
-                    (w11 * src_y2x2[ch]);
-            value = SGL_Q15_SHIFTDOWN(SGL_Q15_ROUNDUP(acc));
+            acc =   ((sgl_q11_ext_t)w00 * src_y1x1[ch]) + 
+                    ((sgl_q11_ext_t)w01 * src_y1x2[ch]) +
+                    ((sgl_q11_ext_t)w10 * src_y2x1[ch]) + 
+                    ((sgl_q11_ext_t)w11 * src_y2x2[ch]);
+            value = SGL_Q11_SHIFTDOWN(SGL_Q11_ROUNDUP(acc));
 
-            /* Q15 -> u8 */
+            /* Q11 -> u8 */
             dst[ch] = sgl_clamp_u8_i32(value);
         }
         dst += bpp;
