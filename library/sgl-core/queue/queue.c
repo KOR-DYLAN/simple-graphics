@@ -50,7 +50,7 @@ void sgl_queue_destroy(sgl_queue_t **queue)
     }
 }
 
-sgl_result_t sgl_queue_copy(sgl_queue_t *dst, sgl_queue_t *src)
+sgl_result_t sgl_queue_copy(sgl_queue_t *SGL_RESTRICT dst, sgl_queue_t *SGL_RESTRICT src)
 {
     sgl_result_t result = SGL_SUCCESS;
 
@@ -72,7 +72,7 @@ sgl_result_t sgl_queue_copy(sgl_queue_t *dst, sgl_queue_t *src)
     return result;
 }
 
-sgl_result_t sgl_queue_unsafe_enqueue(sgl_queue_t *queue, const void *data)
+sgl_result_t sgl_queue_unsafe_enqueue(sgl_queue_t *SGL_RESTRICT queue, const void *SGL_RESTRICT data)
 {
     sgl_result_t result = SGL_SUCCESS;
     size_t head;
@@ -96,7 +96,7 @@ sgl_result_t sgl_queue_unsafe_enqueue(sgl_queue_t *queue, const void *data)
     return result;
 }
 
-sgl_result_t sgl_queue_enqueue(sgl_queue_t *queue, const void *data)
+sgl_result_t sgl_queue_enqueue(sgl_queue_t *SGL_RESTRICT queue, const void *SGL_RESTRICT data)
 {
     sgl_result_t result = SGL_SUCCESS;
     size_t head;

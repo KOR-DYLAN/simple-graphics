@@ -4,19 +4,19 @@
 #include "sgl-fixed_point.h"
 
 typedef struct {
-    int32_t *x1, *x2;
-    sgl_q15_t *p, *inv_p;   /* Q15 */
+    int32_t *SGL_RESTRICT x1, *SGL_RESTRICT x2;
+    sgl_q15_t *SGL_RESTRICT p, *SGL_RESTRICT inv_p;   /* Q15 */
 } bilinear_column_lookup_t;
 
 typedef struct {
-    int32_t *y1, *y2;
-    sgl_q15_t *q, *inv_q;   /* Q15 */
+    int32_t *SGL_RESTRICT y1, *SGL_RESTRICT y2;
+    sgl_q15_t *SGL_RESTRICT q, *SGL_RESTRICT inv_q;   /* Q15 */
 } bilinear_row_lookup_t;
 
 typedef struct  {
-    sgl_bilinear_lookup_t *lut;
-    uint8_t *src;
-    uint8_t *dst;
+    sgl_bilinear_lookup_t *SGL_RESTRICT lut;
+    uint8_t *SGL_RESTRICT src;
+    uint8_t *SGL_RESTRICT dst;
     int32_t bpp;
     int32_t src_stride;
     int32_t dst_stride;

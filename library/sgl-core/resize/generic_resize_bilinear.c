@@ -5,9 +5,9 @@
 
 #define BULK_SIZE       4
 
-static void sgl_generic_resize_bilinear_routine(void *current, void *cookie);
+static void sgl_generic_resize_bilinear_routine(void *SGL_RESTRICT current, void *SGL_RESTRICT cookie);
 
-static ALWAYS_INLINE void sgl_generic_resize_bilinear_line_stripe(int32_t row, sgl_bilinear_data_t *data) {
+static SGL_ALWAYS_INLINE void sgl_generic_resize_bilinear_line_stripe(int32_t row, sgl_bilinear_data_t *data) {
     bilinear_column_lookup_t *col_lookup;
     bilinear_row_lookup_t *row_lookup;
     int32_t col; 
@@ -75,9 +75,9 @@ static ALWAYS_INLINE void sgl_generic_resize_bilinear_line_stripe(int32_t row, s
 }
 
 sgl_result_t sgl_generic_resize_bilinear(
-                sgl_threadpool_t *pool, sgl_bilinear_lookup_t *ext_lut, 
-                uint8_t *dst, int32_t d_width, int32_t d_height, 
-                uint8_t *src, int32_t s_width, int32_t s_height, 
+                sgl_threadpool_t *SGL_RESTRICT pool, sgl_bilinear_lookup_t *SGL_RESTRICT ext_lut, 
+                uint8_t *SGL_RESTRICT dst, int32_t d_width, int32_t d_height, 
+                uint8_t *SGL_RESTRICT src, int32_t s_width, int32_t s_height, 
                 int32_t bpp)
 {
     sgl_result_t result = SGL_SUCCESS;
@@ -181,7 +181,7 @@ sgl_result_t sgl_generic_resize_bilinear(
     return result;
 }
 
-static void sgl_generic_resize_bilinear_routine(void *current, void *cookie)
+static void sgl_generic_resize_bilinear_routine(void *SGL_RESTRICT current, void *SGL_RESTRICT cookie)
 {
     sgl_bilinear_current_t *cur = (sgl_bilinear_current_t *)current;
     sgl_bilinear_data_t *data = (sgl_bilinear_data_t *)cookie;

@@ -22,7 +22,7 @@
 typedef int32_t                     sgl_q15_t;
 typedef int32x4_t                   sgl_simd_q15_t;
 
-static ALWAYS_INLINE sgl_q15_t sgl_q15_mul(sgl_q15_t a, sgl_q15_t b) {
+static SGL_ALWAYS_INLINE sgl_q15_t sgl_q15_mul(sgl_q15_t a, sgl_q15_t b) {
     /* Avoid UB(Undefined Behavior) by changing 'signed' to 'unsigned'. */
     uint32_t ua = (uint32_t)a;  /* Q15 */
     uint32_t ub = (uint32_t)b;  /* Q15 */
@@ -34,7 +34,7 @@ static ALWAYS_INLINE sgl_q15_t sgl_q15_mul(sgl_q15_t a, sgl_q15_t b) {
     return (sgl_q15_t)SGL_Q15_SHIFTDOWN(prod);  /* Q15 */
 }
 
-static ALWAYS_INLINE uint8_t sgl_clamp_u8_i32(int32_t val)
+static SGL_ALWAYS_INLINE uint8_t sgl_clamp_u8_i32(int32_t val)
 {
     uint8_t u8_val = (uint8_t)val;
 
@@ -50,7 +50,7 @@ static ALWAYS_INLINE uint8_t sgl_clamp_u8_i32(int32_t val)
     return u8_val;
 }
 
-static ALWAYS_INLINE sgl_simd_q15_t sgl_simd_q15_mul(sgl_simd_q15_t a, sgl_simd_q15_t b) {
+static SGL_ALWAYS_INLINE sgl_simd_q15_t sgl_simd_q15_mul(sgl_simd_q15_t a, sgl_simd_q15_t b) {
     /* Avoid UB(Undefined Behavior) by changing 'signed' to 'unsigned'. */
     uint32x4_t ua = vreinterpretq_u32_s32(a);           /* Q15 */
     uint32x4_t ub = vreinterpretq_u32_s32(b);           /* Q15 */
@@ -62,7 +62,7 @@ static ALWAYS_INLINE sgl_simd_q15_t sgl_simd_q15_mul(sgl_simd_q15_t a, sgl_simd_
     return SGL_SIMD_Q15_SHIFTDOWN(prod);  /* Q15 */
 }
 
-static ALWAYS_INLINE uint8x8_t sgl_simd_clamp_u8_i32(int32x4_t lo, int32x4_t hi)
+static SGL_ALWAYS_INLINE uint8x8_t sgl_simd_clamp_u8_i32(int32x4_t lo, int32x4_t hi)
 {
     const int32x4_t zero = vdupq_n_s32(0);
     const int32x4_t max_u8 = vdupq_n_s32(255);

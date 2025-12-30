@@ -15,92 +15,92 @@ typedef pthread_mutex_t     sgl_osal_mutex_t;
 typedef pthread_cond_t      sgl_osal_cond_t;
 
 /* Thread */
-static ALWAYS_INLINE sgl_osal_thread_t sgl_thread_create(sgl_osal_thread_entry_t start_routine, sgl_osal_thread_arg_t arg)
+static SGL_ALWAYS_INLINE sgl_osal_thread_t sgl_thread_create(sgl_osal_thread_entry_t start_routine, sgl_osal_thread_arg_t arg)
 {
     pthread_t thread = NULL_THREAD;
     pthread_create(&thread, NULL, start_routine, arg);
     return thread;
 }
 
-static ALWAYS_INLINE void sgl_osal_thread_join(sgl_osal_thread_t thread)
+static SGL_ALWAYS_INLINE void sgl_osal_thread_join(sgl_osal_thread_t thread)
 {
     pthread_join(thread, NULL);
 }
 
-static ALWAYS_INLINE void sgl_osal_thread_exit(sgl_osal_thread_return_t retval)
+static SGL_ALWAYS_INLINE void sgl_osal_thread_exit(sgl_osal_thread_return_t retval)
 {
     pthread_exit(retval);
 }
 
 /* Spinlock */
-static ALWAYS_INLINE void sgl_osal_spinlock_init(sgl_osal_spinlock_t *spinlock)
+static SGL_ALWAYS_INLINE void sgl_osal_spinlock_init(sgl_osal_spinlock_t *spinlock)
 {
     pthread_spin_init(spinlock, PTHREAD_PROCESS_PRIVATE);
 }
 
-static ALWAYS_INLINE void sgl_osal_spinlock_lock(sgl_osal_spinlock_t *spinlock)
+static SGL_ALWAYS_INLINE void sgl_osal_spinlock_lock(sgl_osal_spinlock_t *spinlock)
 {
     pthread_spin_lock(spinlock);
 }
 
-static ALWAYS_INLINE void sgl_osal_spinlock_unlock(sgl_osal_spinlock_t *spinlock)
+static SGL_ALWAYS_INLINE void sgl_osal_spinlock_unlock(sgl_osal_spinlock_t *spinlock)
 {
     pthread_spin_unlock(spinlock);
 }
 
-static ALWAYS_INLINE void sgl_osal_spinlock_destroy(sgl_osal_spinlock_t *spinlock)
+static SGL_ALWAYS_INLINE void sgl_osal_spinlock_destroy(sgl_osal_spinlock_t *spinlock)
 {
     pthread_spin_destroy(spinlock);
 }
 
 /* Mutex */
-static ALWAYS_INLINE void sgl_osal_mutex_init(sgl_osal_mutex_t *mutex)
+static SGL_ALWAYS_INLINE void sgl_osal_mutex_init(sgl_osal_mutex_t *mutex)
 {
     pthread_mutex_init(mutex, NULL);
 }
 
-static ALWAYS_INLINE void sgl_osal_mutex_lock(sgl_osal_mutex_t *mutex)
+static SGL_ALWAYS_INLINE void sgl_osal_mutex_lock(sgl_osal_mutex_t *mutex)
 {
     pthread_mutex_lock(mutex);
 }
 
-static ALWAYS_INLINE void sgl_osal_mutex_unlock(sgl_osal_mutex_t *mutex)
+static SGL_ALWAYS_INLINE void sgl_osal_mutex_unlock(sgl_osal_mutex_t *mutex)
 {
     pthread_mutex_unlock(mutex);
 }
 
-static ALWAYS_INLINE void sgl_osal_mutex_destroy(sgl_osal_mutex_t *mutex)
+static SGL_ALWAYS_INLINE void sgl_osal_mutex_destroy(sgl_osal_mutex_t *mutex)
 {
     pthread_mutex_destroy(mutex);
 }
 
 /* Conditional Variable */
-static ALWAYS_INLINE void sgl_osal_cond_init(sgl_osal_cond_t *cond)
+static SGL_ALWAYS_INLINE void sgl_osal_cond_init(sgl_osal_cond_t *cond)
 {
     pthread_cond_init(cond, NULL);
 }
 
-static ALWAYS_INLINE void sgl_osal_cond_wait(sgl_osal_cond_t *cond, sgl_osal_mutex_t *mutex)
+static SGL_ALWAYS_INLINE void sgl_osal_cond_wait(sgl_osal_cond_t *cond, sgl_osal_mutex_t *mutex)
 {
     pthread_cond_wait(cond, mutex);
 }
 
-static ALWAYS_INLINE void sgl_osal_cond_signal(sgl_osal_cond_t *cond)
+static SGL_ALWAYS_INLINE void sgl_osal_cond_signal(sgl_osal_cond_t *cond)
 {
     pthread_cond_signal(cond);
 }
 
-static ALWAYS_INLINE void sgl_osal_cond_broadcast(sgl_osal_cond_t *cond)
+static SGL_ALWAYS_INLINE void sgl_osal_cond_broadcast(sgl_osal_cond_t *cond)
 {
     pthread_cond_broadcast(cond);
 }
 
-static ALWAYS_INLINE void sgl_osal_cond_destroy(sgl_osal_cond_t *cond)
+static SGL_ALWAYS_INLINE void sgl_osal_cond_destroy(sgl_osal_cond_t *cond)
 {
     pthread_cond_destroy(cond);
 }
 
-static ALWAYS_INLINE void sgl_osal_yield_thread(void)
+static SGL_ALWAYS_INLINE void sgl_osal_yield_thread(void)
 {
     sched_yield();
 }
