@@ -15,10 +15,10 @@ QEMU			:=qemu-aarch64
 TOOLCHAIN		:=llvm
 
 # Debug | Release | RelWithDebInfo | MinSizeRel
-BUILD_TYPE		:=Debug
+BUILD_TYPE		:=Release
 
 # Target Name
-TARGET			:=queue
+TARGET			:=resize
 ARGS			:=$(TOPDIR)/resource/sample.png
 
 ifneq ($(TOOLCHAIN),)
