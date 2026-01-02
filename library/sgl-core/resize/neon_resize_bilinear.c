@@ -4,9 +4,7 @@
 #include "sgl.h"
 #include "bilinear.h"
 
-#define NEON_LANE_SIZE  8
-#define WORD_SIZE       4
-#define BULK_SIZE       8
+#define NEON_LANE_SIZE  (8)
 
 static void sgl_simd_resize_bilinear_routine(void *SGL_RESTRICT current, void *SGL_RESTRICT cookie);
 
@@ -209,10 +207,10 @@ static SGL_ALWAYS_INLINE uint8_t *sgl_simd_resize_bilinear_downscale_line_stripe
     uint8_t *src_y2x1, *src_y2x2;
     uint8_t *dst;
 
-    SGL_ALIGNED(16) uint8_t serialized_src_y1x1[WORD_SIZE][NEON_LANE_SIZE];
-    SGL_ALIGNED(16) uint8_t serialized_src_y1x2[WORD_SIZE][NEON_LANE_SIZE];
-    SGL_ALIGNED(16) uint8_t serialized_src_y2x1[WORD_SIZE][NEON_LANE_SIZE];
-    SGL_ALIGNED(16) uint8_t serialized_src_y2x2[WORD_SIZE][NEON_LANE_SIZE];
+    SGL_ALIGNED(16) uint8_t serialized_src_y1x1[SGL_BPP32][NEON_LANE_SIZE];
+    SGL_ALIGNED(16) uint8_t serialized_src_y1x2[SGL_BPP32][NEON_LANE_SIZE];
+    SGL_ALIGNED(16) uint8_t serialized_src_y2x1[SGL_BPP32][NEON_LANE_SIZE];
+    SGL_ALIGNED(16) uint8_t serialized_src_y2x2[SGL_BPP32][NEON_LANE_SIZE];
 
     sgl_simd_q11_t vec_p, vec_p_inv;
     sgl_simd_q11_t vec_q, vec_q_inv;
@@ -447,8 +445,8 @@ sgl_result_t sgl_simd_resize_bilinear(
                 }
             }
             else {
-                num_operations = d_height / BULK_SIZE;
-                mod_operations = d_height % BULK_SIZE;
+                num_operations = d_height / SGL_SIMD_BULK_SIZE;
+                mod_operations = d_height % SGL_SIMD_BULK_SIZE;
                 if (mod_operations != 0) {
                     num_operations += 1;
                 }
@@ -457,8 +455,8 @@ sgl_result_t sgl_simd_resize_bilinear(
                 currents = (sgl_bilinear_current_t *)malloc(sizeof(sgl_bilinear_current_t) * (size_t)num_operations);
                 if ((operations != NULL) && (currents != NULL)) {
                     for (i = 0; i < num_operations; ++i) {
-                        currents[i].row = i * BULK_SIZE;
-                        currents[i].count = BULK_SIZE;
+                        currents[i].row = i * SGL_SIMD_BULK_SIZE;
+                        currents[i].count = SGL_SIMD_BULK_SIZE;
                         sgl_queue_unsafe_enqueue(operations, (const void *)&currents[i]);
                     }
 
