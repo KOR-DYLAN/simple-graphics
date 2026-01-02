@@ -3,8 +3,6 @@
 #include "sgl.h"
 #include "bilinear.h"
 
-#define BULK_SIZE       4
-
 static void sgl_generic_resize_bilinear_routine(void *SGL_RESTRICT current, void *SGL_RESTRICT cookie);
 
 static SGL_ALWAYS_INLINE void sgl_generic_resize_bilinear_line_stripe(int32_t row, sgl_bilinear_data_t *data) {
@@ -137,8 +135,8 @@ sgl_result_t sgl_generic_resize_bilinear(
                 }
             }
             else {
-                num_operations = d_height / BULK_SIZE;
-                mod_operations = d_height % BULK_SIZE;
+                num_operations = d_height / SGL_GENERIC_BULK_SIZE;
+                mod_operations = d_height % SGL_GENERIC_BULK_SIZE;
                 if (mod_operations != 0) {
                     num_operations += 1;
                 }
@@ -147,8 +145,8 @@ sgl_result_t sgl_generic_resize_bilinear(
                 currents = (sgl_bilinear_current_t *)malloc(sizeof(sgl_bilinear_current_t) * (size_t)num_operations);
                 if ((operations != NULL) && (currents != NULL)) {
                     for (i = 0; i < num_operations; ++i) {
-                        currents[i].row = i * BULK_SIZE;
-                        currents[i].count = BULK_SIZE;
+                        currents[i].row = i * SGL_GENERIC_BULK_SIZE;
+                        currents[i].count = SGL_GENERIC_BULK_SIZE;
                         sgl_queue_unsafe_enqueue(operations, (const void *)&currents[i]);
                     }
 
