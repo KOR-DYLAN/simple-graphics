@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include "sgl.h"
 
-sgl_result_t sgl_generic_resize_nearest(uint8_t *dst, int32_t d_width, int32_t d_height, uint8_t *src, int32_t s_width, int32_t s_height, int32_t bpp)
+sgl_result_t sgl_generic_resize_nearest(uint8_t *SGL_RESTRICT dst, int32_t d_width, int32_t d_height, uint8_t *SGL_RESTRICT src, int32_t s_width, int32_t s_height, int32_t bpp)
 {
     sgl_result_t result = SGL_SUCCESS;
     int32_t row, col;

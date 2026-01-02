@@ -9,7 +9,7 @@ typedef struct {
     sgl_osal_mutex_t lock;
     sgl_osal_cond_t cond;
     sgl_threadpool_routine_t routine;
-    void *cookie;
+    void *SGL_RESTRICT cookie;
     volatile bool is_done;
     volatile bool is_removable;
 } sgl_threadpool_routine_handle_t;
@@ -26,7 +26,7 @@ struct sgl_threadpool {
 
 static sgl_osal_thread_return_t sgl_threadpool_routine(sgl_osal_thread_arg_t arg);
 
-static inline void sgl_threadpool_routine_handle_initialize(sgl_threadpool_routine_handle_t *routine_handle, sgl_queue_t *in, sgl_threadpool_routine_t routine, void *cookie)
+static SGL_ALWAYS_INLINE void sgl_threadpool_routine_handle_initialize(sgl_threadpool_routine_handle_t *SGL_RESTRICT routine_handle, sgl_queue_t *SGL_RESTRICT in, sgl_threadpool_routine_t routine, void *SGL_RESTRICT cookie)
 {
     size_t capacity;
 
@@ -41,11 +41,8 @@ static inline void sgl_threadpool_routine_handle_initialize(sgl_threadpool_routi
     sgl_osal_cond_init(&routine_handle->cond);
 }
 
-static inline void sgl_threadpool_routine_handle_deinitialize(sgl_threadpool_routine_handle_t *routine_handle)
+static SGL_ALWAYS_INLINE void sgl_threadpool_routine_handle_deinitialize(sgl_threadpool_routine_handle_t *routine_handle)
 {
-    size_t i, count;
-    const void *current;
-
     sgl_queue_copy(routine_handle->in, routine_handle->out);
     sgl_queue_destroy(&routine_handle->out);
 
@@ -142,7 +139,7 @@ sgl_result_t sgl_threadpool_destroy(sgl_threadpool_t *pool)
     return result;
 }
 
-sgl_result_t sgl_threadpool_attach_routine(sgl_threadpool_t *pool, sgl_threadpool_routine_t routine, sgl_queue_t *operations, void *cookie)
+sgl_result_t sgl_threadpool_attach_routine(sgl_threadpool_t *SGL_RESTRICT pool, sgl_threadpool_routine_t routine, sgl_queue_t *SGL_RESTRICT operations, void *SGL_RESTRICT cookie)
 {
     sgl_result_t result = SGL_SUCCESS;
     sgl_threadpool_routine_handle_t routine_handle;
@@ -166,7 +163,7 @@ sgl_result_t sgl_threadpool_attach_routine(sgl_threadpool_t *pool, sgl_threadpoo
 
         /* wait for routine to be removable */
         while (routine_handle.is_removable == false) {
-            sgl_osal_yield_thread();
+            // sgl_osal_yield_thread();
         }
     
         /* deinitialize routine handle */
