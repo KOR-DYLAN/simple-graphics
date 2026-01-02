@@ -3,25 +3,100 @@
 #include "sgl.h"
 #include "nearest_neighbor.h"
 
-#define NEON_LANE_SIZE  (16)
+#define NEON_LANE_SIZE          (16)
+#define NEON_HALF_LANE_SIZE     (8)
 
 static void sgl_simd_resize_nearest_neighbor_routine(void *SGL_RESTRICT current, void *SGL_RESTRICT cookie);
 
-static SGL_ALWAYS_INLINE void sgl_simd_resize_nearest_neighbor_line_stripe(int32_t row, sgl_nearest_neighbor_data_t *data) {
+static SGL_ALWAYS_INLINE uint8_t *sgl_simd_resize_nearest_neighbor_upscale_line_stripe(
+                                    int32_t row, int32_t num_half_lanes, int32_t half_step, int32_t bpp,
+                                    sgl_nearest_neighbor_data_t *data)
+{
+    sgl_nearest_neighbor_lookup_t *lut = data->lut;
+    int32_t col, lane;
+    int32_t x_col_base;
+    int32_t *x;
+    uint8_t *src_y_buf, *dst;
+
+    uint8x8_t vec_x_col;
+    uint8x16x4_t vtbl4_src;
+    uint8x16x3_t vtbl3_src;
+    uint8x16x2_t vtbl2_src;
+    uint8x16_t vtbl1_src;
+
+    uint8x8x4_t value4;
+    uint8x8x3_t value3;
+    uint8x8x2_t value2;
+    uint8x8_t value1;
+
+    x = lut->x;
+    src_y_buf = data->src + (lut->y[row] * data->src_stride);
+    dst = data->dst + (row * data->dst_stride);
+
+    for (lane = 0; lane < num_half_lanes; ++lane) {
+        col = (lane * NEON_HALF_LANE_SIZE);
+        x_col_base = x[col];
+
+        vec_x_col = vset_lane_u8(x[col++] - x_col_base, vec_x_col, 0);
+        vec_x_col = vset_lane_u8(x[col++] - x_col_base, vec_x_col, 1);
+        vec_x_col = vset_lane_u8(x[col++] - x_col_base, vec_x_col, 2);
+        vec_x_col = vset_lane_u8(x[col++] - x_col_base, vec_x_col, 3);
+        vec_x_col = vset_lane_u8(x[col++] - x_col_base, vec_x_col, 4);
+        vec_x_col = vset_lane_u8(x[col++] - x_col_base, vec_x_col, 5);
+        vec_x_col = vset_lane_u8(x[col++] - x_col_base, vec_x_col, 6);
+        vec_x_col = vset_lane_u8(x[col++] - x_col_base, vec_x_col, 7);
+
+        switch (bpp) {
+        case SGL_BPP32:
+            vtbl4_src = vld4q_u8(src_y_buf + (x[lane * NEON_HALF_LANE_SIZE] * SGL_BPP32));
+            value4.val[3] = vqtbl1_u8(vtbl4_src.val[3], vec_x_col);
+            value4.val[2] = vqtbl1_u8(vtbl4_src.val[2], vec_x_col);
+            value4.val[1] = vqtbl1_u8(vtbl4_src.val[1], vec_x_col);
+            value4.val[0] = vqtbl1_u8(vtbl4_src.val[0], vec_x_col);
+            vst4_u8(dst, value4);
+            break;
+        case SGL_BPP24:
+            vtbl3_src = vld3q_u8(src_y_buf + (x[lane * NEON_HALF_LANE_SIZE] * SGL_BPP24));
+            value3.val[2] = vqtbl1_u8(vtbl3_src.val[2], vec_x_col);
+            value3.val[1] = vqtbl1_u8(vtbl3_src.val[1], vec_x_col);
+            value3.val[0] = vqtbl1_u8(vtbl3_src.val[0], vec_x_col);
+            vst3_u8(dst, value3);
+            break;
+        case SGL_BPP16:
+            vtbl2_src = vld2q_u8(src_y_buf + (x[lane * NEON_HALF_LANE_SIZE] * SGL_BPP16));
+            value2.val[1] = vqtbl1_u8(vtbl2_src.val[1], vec_x_col);
+            value2.val[0] = vqtbl1_u8(vtbl2_src.val[0], vec_x_col);
+            vst2_u8(dst, value2);
+            break;
+        case SGL_BPP8:
+            vtbl1_src = vld1q_u8(src_y_buf + (x[lane * NEON_HALF_LANE_SIZE] * SGL_BPP8));
+            value1 = vqtbl1_u8(vtbl1_src, vec_x_col);
+            vst1_u8(dst, value1);
+            break;
+        default:
+            /* Not Supported */
+            break;
+        }
+
+        dst += half_step;
+    }
+
+    return dst;
+}
+
+static SGL_ALWAYS_INLINE uint8_t *sgl_simd_resize_nearest_neighbor_downscale_line_stripe(
+                                    int32_t row, int32_t num_lanes, int32_t step, int32_t bpp,
+                                    sgl_nearest_neighbor_data_t *data)
+{
     sgl_nearest_neighbor_lookup_t *lut = data->lut;
     int32_t col, ch, lane;
-    int32_t d_width, bpp, step, num_lanes;
     int32_t *x;
-    uint8_t *src_y_buf, *src, *dst;
+    uint8_t *src_y_buf, *dst;
     uint8x16x4_t value4;
     uint8x16x3_t value3;
     uint8x16x2_t value2;
     uint8x16_t value1;
 
-    d_width = lut->d_width;
-    bpp = data->bpp;
-    num_lanes = d_width / NEON_LANE_SIZE;
-    step = bpp * NEON_LANE_SIZE;
     x = lut->x;
     src_y_buf = data->src + (lut->y[row] * data->src_stride);
     dst = data->dst + (row * data->dst_stride);
@@ -128,8 +203,37 @@ static SGL_ALWAYS_INLINE void sgl_simd_resize_nearest_neighbor_line_stripe(int32
 
         dst += step;
     }
+
+    return dst;
+}
+
+static SGL_ALWAYS_INLINE void sgl_simd_resize_nearest_neighbor_line_stripe(int32_t row, sgl_nearest_neighbor_data_t *data) {
+    sgl_nearest_neighbor_lookup_t *lut = data->lut;
+    int32_t col, ch;
+    int32_t d_width, bpp, step, num_lanes, lane_size;
+    int32_t *x;
+    uint8_t *src_y_buf, *src, *dst;
+
+    d_width = lut->d_width;
+    bpp = data->bpp;
     
-    for (col = num_lanes * NEON_LANE_SIZE; col < d_width; ++col) {
+    if (data->src_stride <= data->dst_stride) {
+        num_lanes = d_width / NEON_HALF_LANE_SIZE;
+        step = bpp * NEON_HALF_LANE_SIZE;
+        lane_size = NEON_HALF_LANE_SIZE;
+        dst = sgl_simd_resize_nearest_neighbor_upscale_line_stripe(row, num_lanes, step, bpp, data);
+    }
+    else {
+        num_lanes = d_width / NEON_LANE_SIZE;
+        step = bpp * NEON_LANE_SIZE;
+        lane_size = NEON_LANE_SIZE;
+        dst = sgl_simd_resize_nearest_neighbor_downscale_line_stripe(row, num_lanes, step, bpp, data);
+    }
+    
+    x = lut->x;
+    src_y_buf = data->src + (lut->y[row] * data->src_stride);
+
+    for (col = num_lanes * lane_size; col < d_width; ++col) {
         src = src_y_buf + (x[col] * bpp);
         switch (bpp) {
         case SGL_BPP32:
