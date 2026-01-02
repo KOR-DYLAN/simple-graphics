@@ -26,6 +26,12 @@ extern "C" {
 #define SGL_DIV_ROUNDUP(n, d)                       (((n) + (d) - 1) / (d))
 #define SGL_SAFE_FREE(p)                            if ((p) != NULL) { free(p); (p) = NULL; }
 #define SGL_THREADPOOL_DEFAULT_MAX_ROUTINE_LISTS    (4U)
+#define SGL_GENERIC_BULK_SIZE                       (4)
+#define SGL_SIMD_BULK_SIZE                          (8)
+#define SGL_BPP32                                   (4)
+#define SGL_BPP24                                   (3)
+#define SGL_BPP16                                   (2)
+#define SGL_BPP8                                    (1)
 
 
 /*
@@ -45,18 +51,26 @@ typedef enum {
     SGL_QUEUE_IS_NOT_FULL,
 } sgl_result_t;
 
-typedef struct sgl_bilinear_lookup_table    sgl_bilinear_lookup_t;
-typedef struct sgl_queue                    sgl_queue_t;
-typedef struct sgl_threadpool               sgl_threadpool_t;
+typedef struct sgl_nearest_neighbor_lookup_table    sgl_nearest_neighbor_lookup_t;
+typedef struct sgl_bilinear_lookup_table            sgl_bilinear_lookup_t;
+typedef struct sgl_queue                            sgl_queue_t;
+typedef struct sgl_threadpool                       sgl_threadpool_t;
 typedef void(*sgl_threadpool_routine_t)(void *SGL_RESTRICT current, void *SGL_RESTRICT cookie);
 
 
 /*******************************************************************
  *                          Resize
  *******************************************************************/
+sgl_nearest_neighbor_lookup_t *sgl_generic_create_nearest_neighbor_lut(int32_t d_width, int32_t d_height, int32_t s_width, int32_t s_height);
+void sgl_generic_destroy_nearest_neighbor_lut(sgl_nearest_neighbor_lookup_t *lut);
+sgl_result_t sgl_generic_resize_nearest(
+                sgl_threadpool_t *SGL_RESTRICT pool, sgl_nearest_neighbor_lookup_t *SGL_RESTRICT ext_lut, 
+                uint8_t *SGL_RESTRICT dst, int32_t d_width, int32_t d_height, 
+                uint8_t *SGL_RESTRICT src, int32_t s_width, int32_t s_height, 
+                int32_t bpp);
+
 sgl_bilinear_lookup_t *sgl_generic_create_bilinear_lut(int32_t d_width, int32_t d_height, int32_t s_width, int32_t s_height);
 void sgl_generic_destroy_bilinear_lut(sgl_bilinear_lookup_t *lut);
-sgl_result_t sgl_generic_resize_nearest(uint8_t *SGL_RESTRICT dst, int32_t d_width, int32_t d_height, uint8_t *SGL_RESTRICT src, int32_t s_width, int32_t s_height, int32_t bpp);
 sgl_result_t sgl_generic_resize_bilinear(
                 sgl_threadpool_t *SGL_RESTRICT pool, sgl_bilinear_lookup_t *SGL_RESTRICT ext_lut, 
                 uint8_t *SGL_RESTRICT dst, int32_t d_width, int32_t d_height, 
@@ -67,6 +81,7 @@ sgl_result_t sgl_simd_resize_bilinear(
                 uint8_t *SGL_RESTRICT dst, int32_t d_width, int32_t d_height, 
                 uint8_t *SGL_RESTRICT src, int32_t s_width, int32_t s_height, 
                 int32_t bpp);
+
 sgl_result_t sgl_generic_resize_cubic(uint8_t *SGL_RESTRICT dst, int32_t d_width, int32_t d_height, uint8_t *SGL_RESTRICT src, int32_t s_width, int32_t s_height, int32_t bpp);
 
 
