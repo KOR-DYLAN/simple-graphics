@@ -112,6 +112,7 @@ sgl_result_t sgl_generic_resize_nearest(
                     sgl_generic_resize_nearest_neighbor_line_stripe(row, (void *)&data);
                 }
             }
+#if SGL_CFG_HAS_THREAD
             else {
                 num_operations = d_height / SGL_GENERIC_BULK_SIZE;
                 mod_operations = d_height % SGL_GENERIC_BULK_SIZE;
@@ -143,6 +144,11 @@ sgl_result_t sgl_generic_resize_nearest(
                 SGL_SAFE_FREE(currents);
                 SGL_SAFE_FREE(operations);
             }
+#else
+            else {
+                result = SGL_ERROR_NOT_SUPPORTED;
+            }
+#endif  /* !SGL_CFG_HAS_THREAD */
 
             if (temp_lut != NULL) {
                 /* destroy temp look-up table */

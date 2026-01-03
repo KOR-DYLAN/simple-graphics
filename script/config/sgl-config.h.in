@@ -1,0 +1,29 @@
+#ifndef SGL_CONFIG_H_
+#define SGL_CONFIG_H_
+
+#ifndef TRUE
+#define TRUE    true
+#endif  /* !TRUE */
+
+#ifndef FALSE
+#define FALSE   false
+#endif  /* !FALSE */
+
+/* Architecture */
+#cmakedefine SGL_CFG_IS_ARM         @SGL_CFG_IS_ARM@
+#cmakedefine SGL_CFG_IS_ARM64       @SGL_CFG_IS_ARM64@
+#cmakedefine SGL_CFG_IS_X86         @SGL_CFG_IS_X86@
+#cmakedefine SGL_CFG_IS_X86_64      @SGL_CFG_IS_X86_64@
+
+/* SIMD Features */
+#cmakedefine SGL_CFG_HAS_SIMD       @SGL_CFG_HAS_SIMD@
+#cmakedefine SGL_CFG_HAS_NEON       @SGL_CFG_HAS_NEON@
+#cmakedefine SGL_CFG_HAS_SSE42      @SGL_CFG_HAS_SSE42@
+#cmakedefine SGL_CFG_HAS_AVX2       @SGL_CFG_HAS_AVX2@
+
+/* Thread Features */
+#cmakedefine SGL_CFG_HAS_THREAD     @SGL_CFG_HAS_THREAD@
+#cmakedefine SGL_CFG_HAS_PTHREAD    @SGL_CFG_HAS_PTHREAD@
+#cmakedefine SGL_CFG_HAS_WINTHREAD  @SGL_CFG_HAS_WINTHREAD@
+
+#endif  /* !SGL_CONFIG_H_ */
