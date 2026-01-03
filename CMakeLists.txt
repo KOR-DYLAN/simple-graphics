@@ -2,7 +2,9 @@
 cmake_minimum_required(VERSION 3.16)
 
 # project name
-project(qemu-arch-skeleton)
+project(simple-graphics-library)
+
+include(script/config/sgl-config.cmake)
 
 # executable
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG            ${CMAKE_BINARY_DIR}/Debug/bin)

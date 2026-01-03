@@ -1,1 +1,5 @@
-target_sources(${PROJECT_NAME} PRIVATE threadpool.c)
+if(SGL_CFG_HAS_THREAD)
+    target_sources(${PROJECT_NAME} PRIVATE threadpool.c)
+else()
+    target_sources(${PROJECT_NAME} PRIVATE dummy_threadpool.c)
+endif()
