@@ -1,5 +1,7 @@
+include(CMakePackageConfigHelpers)
+
 project(sgl-core
-    VERSION 0.0.1
+    VERSION ${SGL_FULL_VERSION}
     LANGUAGES ASM C
 )
 
@@ -10,3 +12,48 @@ add_subdirectory(resize)
 add_subdirectory(rotate)
 add_subdirectory(queue)
 add_subdirectory(threadpool)
+
+# ------------------------------------------------
+# Install targets
+# ------------------------------------------------
+install(
+    TARGETS ${PROJECT_NAME}
+    EXPORT ${SGL_CORE_EXPORT_NAME}-targets
+    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+    ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+)
+
+install(
+    FILES ${CMAKE_BINARY_DIR}/sgl-config.h
+    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+)
+install(
+    FILES ${CMAKE_SOURCE_DIR}/include/sgl.h
+    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+)
+
+install(
+    FILES ${CMAKE_BINARY_DIR}/${SGL_CORE_PC}
+    DESTINATION "${PKGCONFIG_INSTALL_DIR}"
+)
+install(
+    EXPORT ${SGL_CORE_EXPORT_NAME}-targets
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${SGL_CORE_EXPORT_NAME}"
+    NAMESPACE ${SGL_CORE_EXPORT_NAME}::)
+
+configure_package_config_file(
+    ${CMAKE_SOURCE_DIR}/script/config/${SGL_CORE_PACKAGE_CONFIGNAME}-config.cmake.in
+    ${CMAKE_BINARY_DIR}/${SGL_CORE_PACKAGE_CONFIGNAME}-config.cmake
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${SGL_CORE_EXPORT_NAME}
+    PATH_VARS INCLUDE_INSTALL_DIR LIB_INSTALL_DIR
+)
+write_basic_package_version_file(
+    ${CMAKE_BINARY_DIR}/${SGL_CORE_PACKAGE_CONFIGNAME}-config-version.cmake
+    VERSION ${PACKAGE_VERSION}
+    COMPATIBILITY AnyNewerVersion
+)
+install(
+    FILES ${CMAKE_BINARY_DIR}/${SGL_CORE_PACKAGE_CONFIGNAME}-config.cmake ${CMAKE_BINARY_DIR}/${SGL_CORE_PACKAGE_CONFIGNAME}-config-version.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${SGL_CORE_EXPORT_NAME}
+)

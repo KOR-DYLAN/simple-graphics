@@ -17,12 +17,19 @@ TOOLCHAIN		:=llvm
 # Debug | Release | RelWithDebInfo | MinSizeRel
 BUILD_TYPE		:=Release
 
+# Install Prefix
+# INSTALL_PREFIX	:=$(BUILD)/install
+
 # Target Name
 TARGET			:=resize
 ARGS			:=$(TOPDIR)/resource/sample.png
 
 ifneq ($(TOOLCHAIN),)
     CMAKE_FLAGS	+=-DCMAKE_TOOLCHAIN_FILE=$(TOPDIR)/script/toolchain/$(TOOLCHAIN).cmake
+endif
+
+ifneq ($(INSTALL_PREFIX),)
+    CMAKE_FLAGS	+=-DCMAKE_INSTALL_PREFIX=$(INSTALL_PREFIX)
 endif
 
 ifneq ($(V),0)
@@ -46,6 +53,10 @@ config:
 phony+=build
 build:
 	$(CMAKE) --build $(BUILD) -j $(NPROC) $(VERBOSE)
+
+phony+=install
+install:
+	$(CMAKE) --install $(BUILD) $(VERBOSE)
 
 phony+=clean
 clean:

@@ -1,6 +1,10 @@
 #ifndef SGL_CONFIG_H_
 #define SGL_CONFIG_H_
 
+/* Version */
+#cmakedefine SGL_FULL_VERSION       "@SGL_FULL_VERSION@"
+
+/* Util */
 #ifndef TRUE
 #define TRUE    true
 #endif  /* !TRUE */

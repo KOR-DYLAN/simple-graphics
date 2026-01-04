@@ -1,0 +1,15 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+symbol_prefix=@SGL_SYMBOL_PREFIX@
+bindir=@PC_BIN_INSTALL_DIR@
+libdir=@PC_LIB_INSTALL_DIR@
+sharedlibdir=${libdir}
+includedir=@PC_INC_INSTALL_DIR@
+
+Name: sgl-core
+Description: Simple Graphics Core Library
+Version: @SGL_FULL_VERSION@
+
+Requires:
+Libs: -L${libdir} -L${sharedlibdir} -lsgl-core
+Cflags: -I${includedir} @PKG_CONFIG_CFLAGS@
