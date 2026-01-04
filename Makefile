@@ -2,6 +2,7 @@ TOPDIR			:=$(dir $(abspath $(firstword $(MAKEFILE_LIST))))
 WORKSPACE		:=$(TOPDIR)
 BUILD			:=$(TOPDIR)/build
 CMAKE			:=cmake
+CPACK			:=cpack
 NPROC			?=$(shell nproc)
 V				?=0
 HOSTENV			:=TRUE
@@ -57,6 +58,14 @@ build:
 phony+=install
 install:
 	$(CMAKE) --install $(BUILD) $(VERBOSE)
+
+phony+=package
+package:
+	$(CPACK) --config $(BUILD)/CPackConfig.cmake $(VERBOSE)
+
+phony+=package-source
+package-source:
+	$(CPACK) --config $(BUILD)/CPackSourceConfig.cmake $(VERBOSE)
 
 phony+=clean
 clean:

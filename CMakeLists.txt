@@ -30,3 +30,26 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 # Add Subdirectory
 add_subdirectory(library)
 add_subdirectory(test)
+
+#============================================================================
+# CPack Target
+#============================================================================
+set(CPACK_GENERATOR
+    ZIP
+    TGZ
+)
+set(CPACK_SOURCE_GENERATOR
+    ZIP
+    TGZ
+)
+set(CPACK_SOURCE_IGNORE_FILES .git/ _CPack_Packages/ package .vscode 3rd-party .gitmodules .gitignore prebuild "${CMAKE_BINARY_DIR}/")
+
+set(CPACK_PACKAGE_NAME "sgl")
+set(CPACK_PACKAGE_VERSION ${SGL_FULL_VERSION})
+set(CPACK_PACKAGE_DIRECTORY "${CMAKE_SOURCE_DIR}/package")
+
+if("${PROJECT_BINARY_DIR}" STREQUAL "${PROJECT_SOURCE_DIR}")
+    message(WARNING "Building to source folder is not recommended. Cpack will be unable to generate source package.")
+endif()
+
+include(CPack)

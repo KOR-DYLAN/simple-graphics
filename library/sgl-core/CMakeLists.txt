@@ -13,9 +13,9 @@ add_subdirectory(rotate)
 add_subdirectory(queue)
 add_subdirectory(threadpool)
 
-# ------------------------------------------------
-# Install targets
-# ------------------------------------------------
+#============================================================================
+# Install Target
+#============================================================================
 install(
     TARGETS ${PROJECT_NAME}
     EXPORT ${SGL_CORE_EXPORT_NAME}-targets
