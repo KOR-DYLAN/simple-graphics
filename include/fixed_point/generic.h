@@ -9,7 +9,7 @@
 #define SGL_INT_TO_Q11(num)         ((num) << SGL_Q11_FRAC_BITS)
 #define SGL_Q11_GET_INT_PART(num)   ((num) >> SGL_Q11_FRAC_BITS)
 #define SGL_Q11_GET_FRAC_PART(num)  ((num) & SGL_Q11_MASK)
-#define SGL_Q11_ROUNDUP(num)        ((num) + (typeof((num)))(1U << (SGL_Q11_FRAC_BITS - 1)))
+#define SGL_Q11_ROUNDUP(num)        ((num) + (SGL_TYPEOF((num)))(1U << (SGL_Q11_FRAC_BITS - 1)))
 #define SGL_Q11_SHIFTDOWN(num)      ((num) >> SGL_Q11_FRAC_BITS)
 
 typedef int16_t                     sgl_q11_t;

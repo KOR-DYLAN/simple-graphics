@@ -3,14 +3,14 @@
 #include <stdlib.h>
 #include <assert.h>
 #include "util.h"
-#include "sgl.h"
+#include "sgl-core.h"
 
 #define REPEAT_TEST_COUNT   (10)
 
 typedef enum {
     SGL_TEST_RESIZE_NEAREST,
     SGL_TEST_RESIZE_BILINEAR,
-#if SGL_CFG_HAS_SIMD
+#if defined(SGL_CFG_HAS_SIMD)
     SGL_TEST_RESIZE_NEAREST_SIMD,
     SGL_TEST_RESIZE_BILINEAR_SIMD,
 #endif  /* !SGL_CFG_HAS_SIMD */
@@ -18,7 +18,7 @@ typedef enum {
 
 typedef enum {
     SGL_TEST_THREADPOOL_COUNT_1,
-#if SGL_CFG_HAS_THREAD
+#if defined(SGL_CFG_HAS_THREAD)
     SGL_TEST_THREADPOOL_COUNT_2,
     SGL_TEST_THREADPOOL_COUNT_4,
     SGL_TEST_THREADPOOL_COUNT_8,
@@ -43,7 +43,7 @@ typedef struct {
 static const char *resize_method_name[] = {
     "nearest",
     "bilinear",
-#if SGL_CFG_HAS_SIMD
+#if defined(SGL_CFG_HAS_SIMD)
     "nearest-simd",
     "bilinear-simd",
 #endif  /* !SGL_CFG_HAS_SIMD */
@@ -51,7 +51,7 @@ static const char *resize_method_name[] = {
 
 static const size_t threadpool_count_table[MAX_SGL_TEST_THREADPOOL_COUNT] = {
     1,
-#if SGL_CFG_HAS_THREAD
+#if defined(SGL_CFG_HAS_THREAD)
     2, 4, 8,
 #endif  /* !SGL_CFG_HAS_THREAD */
 };
@@ -62,14 +62,14 @@ static const sgl_test_resize_t resize_test_vector[] = {
     { .width = 1920, .height = 1080, .method = SGL_TEST_RESIZE_NEAREST,        .num_threads = SGL_TEST_THREADPOOL_COUNT_1,  },
     { .width = 2560, .height = 1440, .method = SGL_TEST_RESIZE_NEAREST,        .num_threads = SGL_TEST_THREADPOOL_COUNT_1,  },
 
-#if SGL_CFG_HAS_SIMD
+#if defined(SGL_CFG_HAS_SIMD)
     { .width  = 640, .height =  480, .method = SGL_TEST_RESIZE_NEAREST_SIMD,   .num_threads = SGL_TEST_THREADPOOL_COUNT_1,  },
     { .width = 1280, .height =  720, .method = SGL_TEST_RESIZE_NEAREST_SIMD,   .num_threads = SGL_TEST_THREADPOOL_COUNT_1,  },
     { .width = 1920, .height = 1080, .method = SGL_TEST_RESIZE_NEAREST_SIMD,   .num_threads = SGL_TEST_THREADPOOL_COUNT_1,  },
     { .width = 2560, .height = 1440, .method = SGL_TEST_RESIZE_NEAREST_SIMD,   .num_threads = SGL_TEST_THREADPOOL_COUNT_1,  },
 #endif  /* !SGL_CFG_HAS_SIMD */
 
-#if SGL_CFG_HAS_THREAD
+#if defined(SGL_CFG_HAS_THREAD)
     { .width  = 640, .height =  480, .method = SGL_TEST_RESIZE_NEAREST,        .num_threads = SGL_TEST_THREADPOOL_COUNT_2,  },
     { .width = 1280, .height =  720, .method = SGL_TEST_RESIZE_NEAREST,        .num_threads = SGL_TEST_THREADPOOL_COUNT_2   },
     { .width = 1920, .height = 1080, .method = SGL_TEST_RESIZE_NEAREST,        .num_threads = SGL_TEST_THREADPOOL_COUNT_2   },
@@ -85,7 +85,7 @@ static const sgl_test_resize_t resize_test_vector[] = {
     { .width = 1920, .height = 1080, .method = SGL_TEST_RESIZE_NEAREST,        .num_threads = SGL_TEST_THREADPOOL_COUNT_8   },
     { .width = 2560, .height = 1440, .method = SGL_TEST_RESIZE_NEAREST,        .num_threads = SGL_TEST_THREADPOOL_COUNT_8   },
 
-#   if SGL_CFG_HAS_SIMD
+#   if defined(SGL_CFG_HAS_SIMD)
     { .width  = 640, .height =  480, .method = SGL_TEST_RESIZE_NEAREST_SIMD,   .num_threads = SGL_TEST_THREADPOOL_COUNT_2,  },
     { .width = 1280, .height =  720, .method = SGL_TEST_RESIZE_NEAREST_SIMD,   .num_threads = SGL_TEST_THREADPOOL_COUNT_2   },
     { .width = 1920, .height = 1080, .method = SGL_TEST_RESIZE_NEAREST_SIMD,   .num_threads = SGL_TEST_THREADPOOL_COUNT_2   },
@@ -107,13 +107,13 @@ static const sgl_test_resize_t resize_test_vector[] = {
     { .width = 1280, .height =  720, .method = SGL_TEST_RESIZE_BILINEAR,        .num_threads = SGL_TEST_THREADPOOL_COUNT_1, },
     { .width = 1920, .height = 1080, .method = SGL_TEST_RESIZE_BILINEAR,        .num_threads = SGL_TEST_THREADPOOL_COUNT_1, },
     { .width = 2560, .height = 1440, .method = SGL_TEST_RESIZE_BILINEAR,        .num_threads = SGL_TEST_THREADPOOL_COUNT_1, },
-
+#   if defined(SGL_CFG_HAS_SIMD)
     { .width  = 640, .height =  480, .method = SGL_TEST_RESIZE_BILINEAR_SIMD,   .num_threads = SGL_TEST_THREADPOOL_COUNT_1, },
     { .width = 1280, .height =  720, .method = SGL_TEST_RESIZE_BILINEAR_SIMD,   .num_threads = SGL_TEST_THREADPOOL_COUNT_1, },
     { .width = 1920, .height = 1080, .method = SGL_TEST_RESIZE_BILINEAR_SIMD,   .num_threads = SGL_TEST_THREADPOOL_COUNT_1, },
     { .width = 2560, .height = 1440, .method = SGL_TEST_RESIZE_BILINEAR_SIMD,   .num_threads = SGL_TEST_THREADPOOL_COUNT_1, },
-
-#if SGL_CFG_HAS_THREAD
+#   endif  /* !SGL_CFG_HAS_SIMD */
+#if defined(SGL_CFG_HAS_THREAD)
     { .width  = 640, .height =  480, .method = SGL_TEST_RESIZE_BILINEAR,        .num_threads = SGL_TEST_THREADPOOL_COUNT_2, },
     { .width = 1280, .height =  720, .method = SGL_TEST_RESIZE_BILINEAR,        .num_threads = SGL_TEST_THREADPOOL_COUNT_2  },
     { .width = 1920, .height = 1080, .method = SGL_TEST_RESIZE_BILINEAR,        .num_threads = SGL_TEST_THREADPOOL_COUNT_2  },
@@ -129,7 +129,7 @@ static const sgl_test_resize_t resize_test_vector[] = {
     { .width = 1920, .height = 1080, .method = SGL_TEST_RESIZE_BILINEAR,        .num_threads = SGL_TEST_THREADPOOL_COUNT_8  },
     { .width = 2560, .height = 1440, .method = SGL_TEST_RESIZE_BILINEAR,        .num_threads = SGL_TEST_THREADPOOL_COUNT_8  },
 
-#   if SGL_CFG_HAS_SIMD
+#   if defined(SGL_CFG_HAS_SIMD)
     { .width  = 640, .height =  480, .method = SGL_TEST_RESIZE_BILINEAR_SIMD,   .num_threads = SGL_TEST_THREADPOOL_COUNT_2, },
     { .width = 1280, .height =  720, .method = SGL_TEST_RESIZE_BILINEAR_SIMD,   .num_threads = SGL_TEST_THREADPOOL_COUNT_2  },
     { .width = 1920, .height = 1080, .method = SGL_TEST_RESIZE_BILINEAR_SIMD,   .num_threads = SGL_TEST_THREADPOOL_COUNT_2  },
@@ -185,7 +185,7 @@ static void sgl_run_resize_test_vector(sgl_test_resize_source_t *src)
     uint64_t max_elapsed_us, min_elapsed_us, avg_elapsed_us;
     int32_t repeat;
 
-#if SGL_CFG_HAS_THREAD
+#if defined(SGL_CFG_HAS_THREAD)
     for (num_threads = SGL_TEST_THREADPOOL_COUNT_2; num_threads < MAX_SGL_TEST_THREADPOOL_COUNT; ++num_threads) {
         pool[num_threads] = sgl_threadpool_create(threadpool_count_table[num_threads], SGL_THREADPOOL_DEFAULT_MAX_ROUTINE_LISTS, "resize_pool");
         assert(pool[num_threads] != NULL);
@@ -214,7 +214,7 @@ static void sgl_run_resize_test_vector(sgl_test_resize_source_t *src)
             case SGL_TEST_RESIZE_BILINEAR:
                 (void)sgl_generic_resize_bilinear(pool[num_threads], NULL, dst, resize_test_vector[i].width, resize_test_vector[i].height, src->buf, src->width, src->height, src->bpp);
                 break;
-#if SGL_CFG_HAS_SIMD
+#if defined(SGL_CFG_HAS_SIMD)
             case SGL_TEST_RESIZE_NEAREST_SIMD:
                 (void)sgl_simd_resize_nearest(pool[num_threads], NULL, dst, resize_test_vector[i].width, resize_test_vector[i].height, src->buf, src->width, src->height, src->bpp);
                 break;
@@ -222,9 +222,6 @@ static void sgl_run_resize_test_vector(sgl_test_resize_source_t *src)
                 (void)sgl_simd_resize_bilinear(pool[num_threads], NULL, dst, resize_test_vector[i].width, resize_test_vector[i].height, src->buf, src->width, src->height, src->bpp);
                 break;
 #endif  /* !SGL_CFG_HAS_SIMD */
-            default:
-                /* invalid test case... */
-                break;
             }
             elapsed_us = sgl_test_get_timestamp_us(timestamp_us);
             avg_elapsed_us += elapsed_us;
@@ -259,7 +256,7 @@ static void sgl_run_resize_test_vector(sgl_test_resize_source_t *src)
         free(dst);
     }
 
-#if SGL_CFG_HAS_THREAD
+#if defined(SGL_CFG_HAS_THREAD)
     for (num_threads = SGL_TEST_THREADPOOL_COUNT_2; num_threads < MAX_SGL_TEST_THREADPOOL_COUNT; ++num_threads) {
         sgl_threadpool_destroy(pool[num_threads]);
     }

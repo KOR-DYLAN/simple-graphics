@@ -13,6 +13,18 @@ add_subdirectory(rotate)
 add_subdirectory(queue)
 add_subdirectory(threadpool)
 
+# Apply C99
+set_property(TARGET ${PROJECT_NAME} PROPERTY C_STANDARD 99)
+set_property(TARGET ${PROJECT_NAME} PROPERTY C_STANDARD_REQUIRED ON)
+set_property(TARGET ${PROJECT_NAME} PROPERTY C_EXTENSIONS ON)
+
+# Apply clang-tidy
+if (WITH_CLANG_TIDY)
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        C_CLANG_TIDY "clang-tidy;-checks=misra-c2012-*"
+    )
+endif()
+
 #============================================================================
 # Install Target
 #============================================================================
@@ -29,7 +41,7 @@ install(
     DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
 install(
-    FILES ${CMAKE_SOURCE_DIR}/include/sgl.h
+    FILES ${CMAKE_SOURCE_DIR}/include/sgl-core.h
     DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
 

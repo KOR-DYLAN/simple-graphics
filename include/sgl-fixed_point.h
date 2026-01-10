@@ -6,7 +6,7 @@
 /************************************************************
  * SIMD Supported
  ************************************************************/
-#if SGL_CFG_HAS_NEON
+#if defined(SGL_CFG_HAS_NEON)
 #include "fixed_point/neon.h"
 #endif  /* !SGL_CFG_HAS_NEON */
 

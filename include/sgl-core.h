@@ -1,5 +1,5 @@
-#ifndef SGL__H__
-#define SGL__H__
+#ifndef SGL_CORE_H_
+#define SGL_CORE_H_
 
 #if defined(__cplusplus)
 extern "C" {
@@ -45,6 +45,23 @@ extern "C" {
     #define SGL_ALIGNED(n)
 #endif
 
+#if defined(_MSC_VER)
+    #define SGL_TYPEOF(var)
+#elif defined(__GNUC__) || defined(__clang__)
+    #define SGL_TYPEOF(var) typeof(var)
+#else
+    #define SGL_TYPEOF(var)
+#endif
+
+#if defined(_MSC_VER)
+#   define SGL_UNUSED(x) (void)(x)
+#elif defined(__GNUC__) || defined(__clang__)
+#   define SGL_UNUSED(x) (void)(x)
+#else
+#   define SGL_UNUSED(x) (void)(x)
+#endif
+
+
 
 /*
  *******************************************************************
@@ -53,7 +70,7 @@ extern "C" {
  */
 #define SGL_UNUSED_PARAM(p)                         (void)(p)
 #define SGL_DIV_ROUNDUP(n, d)                       (((n) + (d) - 1) / (d))
-#define SGL_SAFE_FREE(p)                            if ((p) != NULL) { free(p); (p) = NULL; }
+#define SGL_SAFE_FREE(p)                            if ((p) != NULL) { free((p)); (p) = NULL; }
 #define SGL_THREADPOOL_DEFAULT_MAX_ROUTINE_LISTS    (4U)
 #define SGL_GENERIC_BULK_SIZE                       (4)
 #define SGL_SIMD_BULK_SIZE                          (8)
@@ -113,7 +130,7 @@ sgl_result_t sgl_generic_resize_bilinear(
 sgl_result_t sgl_generic_resize_cubic(uint8_t *SGL_RESTRICT dst, int32_t d_width, int32_t d_height, uint8_t *SGL_RESTRICT src, int32_t s_width, int32_t s_height, int32_t bpp);
 
 /* SIMD Resize */
-#if SGL_CFG_HAS_SIMD
+#if defined(SGL_CFG_HAS_SIMD)
 sgl_result_t sgl_simd_resize_nearest(
                 sgl_threadpool_t *SGL_RESTRICT pool, sgl_nearest_neighbor_lookup_t *SGL_RESTRICT ext_lut, 
                 uint8_t *SGL_RESTRICT dst, int32_t d_width, int32_t d_height, 
@@ -125,7 +142,8 @@ sgl_result_t sgl_simd_resize_bilinear(
                 uint8_t *SGL_RESTRICT dst, int32_t d_width, int32_t d_height, 
                 uint8_t *SGL_RESTRICT src, int32_t s_width, int32_t s_height, 
                 int32_t bpp);
-#endif
+#endif  /* !SGL_CFG_HAS_SIMD */
+
 
 /*******************************************************************
  *                          Queue
@@ -135,8 +153,8 @@ void sgl_queue_destroy(sgl_queue_t **queue);
 sgl_result_t sgl_queue_copy(sgl_queue_t *SGL_RESTRICT dst, sgl_queue_t *SGL_RESTRICT src);
 sgl_result_t sgl_queue_unsafe_enqueue(sgl_queue_t *SGL_RESTRICT queue, const void *SGL_RESTRICT data);
 sgl_result_t sgl_queue_enqueue(sgl_queue_t *SGL_RESTRICT queue, const void *SGL_RESTRICT data);
-const void *sgl_queue_dequeue(sgl_queue_t *queue);
-const void *sgl_queue_peek(sgl_queue_t *queue);
+void *sgl_queue_dequeue(sgl_queue_t *queue);
+void *sgl_queue_peek(sgl_queue_t *queue);
 sgl_result_t sgl_queue_is_empty(sgl_queue_t *queue);
 sgl_result_t sgl_queue_is_full(sgl_queue_t *queue);
 size_t sgl_queue_get_capacity(sgl_queue_t *queue);
@@ -146,7 +164,7 @@ size_t sgl_queue_get_count(sgl_queue_t *queue);
 /*******************************************************************
  *                          Threadpool
  *******************************************************************/
-#if SGL_CFG_HAS_THREAD
+#if defined(SGL_CFG_HAS_THREAD)
 sgl_threadpool_t *sgl_threadpool_create(size_t num_threads, size_t max_routine_lists, const char *base_name);
 sgl_result_t sgl_threadpool_destroy(sgl_threadpool_t *pool);
 sgl_result_t sgl_threadpool_attach_routine(sgl_threadpool_t *SGL_RESTRICT pool, sgl_threadpool_routine_t routine, sgl_queue_t *SGL_RESTRICT operations, void *SGL_RESTRICT cookie);
@@ -156,6 +174,6 @@ sgl_result_t sgl_threadpool_attach_routine(sgl_threadpool_t *SGL_RESTRICT pool, 
 }
 #endif
 
-#endif  /* !SGL__H__ */
+#endif  /* !SGL_CORE_H_ */
 
 /* End Of File */

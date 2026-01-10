@@ -10,40 +10,27 @@ HOSTENV			:=TRUE
 # qemu-aarch64
 QEMU			:=qemu-aarch64
 
+# Options(ON,OFF)
+# WITH_CLANG_TIDY	?=ON
+# WITH_SIMD		?=OFF
+# WITH_THREAD		?=OFF
+
 # aarch64-none-linux-llvm | aarch64-none-linux-gnu |
 # llvm | gnu
 # TOOLCHAIN		:=aarch64-none-linux-llvm
-TOOLCHAIN		:=llvm
+TOOLCHAIN		?=llvm
 
 # Debug | Release | RelWithDebInfo | MinSizeRel
-BUILD_TYPE		:=Release
+BUILD_TYPE		?=Release
 
 # Install Prefix
 # INSTALL_PREFIX	:=$(BUILD)/install
 
 # Target Name
-TARGET			:=resize
-ARGS			:=$(TOPDIR)/resource/sample.png
+TARGET			?=resize
+ARGS			?=$(TOPDIR)/resource/sample.png
 
-ifneq ($(TOOLCHAIN),)
-    CMAKE_FLAGS	+=-DCMAKE_TOOLCHAIN_FILE=$(TOPDIR)/script/toolchain/$(TOOLCHAIN).cmake
-endif
-
-ifneq ($(INSTALL_PREFIX),)
-    CMAKE_FLAGS	+=-DCMAKE_INSTALL_PREFIX=$(INSTALL_PREFIX)
-endif
-
-ifneq ($(V),0)
-    VERBOSE	:=-v
-endif
-
-ifeq ($(TOOLCHAIN),gnu)
-    HOSTENV=TRUE
-endif
-
-ifeq ($(TOOLCHAIN),llvm)
-    HOSTENV=TRUE
-endif
+include $(TOPDIR)/config.mk
 
 all: build
 
