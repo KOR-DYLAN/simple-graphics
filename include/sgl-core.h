@@ -1,5 +1,5 @@
-#ifndef SGL__H__
-#define SGL__H__
+#ifndef SGL_CORE_H_
+#define SGL_CORE_H_
 
 #if defined(__cplusplus)
 extern "C" {
@@ -164,6 +164,6 @@ sgl_result_t sgl_threadpool_attach_routine(sgl_threadpool_t *SGL_RESTRICT pool, 
 }
 #endif
 
-#endif  /* !SGL__H__ */
+#endif  /* !SGL_CORE_H_ */
 
 /* End Of File */

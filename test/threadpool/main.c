@@ -4,7 +4,7 @@
 #include <string.h>
 #include <assert.h>
 #include "util.h"
-#include "sgl.h"
+#include "sgl-core.h"
 
 typedef struct {
     uint8_t *rgb;

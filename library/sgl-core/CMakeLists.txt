@@ -39,7 +39,7 @@ install(
     DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
 install(
-    FILES ${CMAKE_SOURCE_DIR}/include/sgl.h
+    FILES ${CMAKE_SOURCE_DIR}/include/sgl-core.h
     DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
 

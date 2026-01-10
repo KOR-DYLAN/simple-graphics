@@ -1,6 +1,6 @@
 #include <stdint.h>
 #include <stdlib.h>
-#include "sgl.h"
+#include "sgl-core.h"
 #include "bilinear.h"
 
 static void sgl_generic_resize_bilinear_routine(void *SGL_RESTRICT current, void *SGL_RESTRICT cookie);

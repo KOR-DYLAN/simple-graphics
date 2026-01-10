@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include "sgl.h"
+#include "sgl-core.h"
 #include "sgl-osal.h"
 
 typedef struct {

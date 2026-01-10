@@ -1,6 +1,6 @@
 #include <stdint.h>
 #include <stdlib.h>
-#include "sgl.h"
+#include "sgl-core.h"
 #include "nearest_neighbor.h"
 
 #define NEON_LANE_SIZE          (16)

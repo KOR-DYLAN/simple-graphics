@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include "util.h"
-#include "sgl.h"
+#include "sgl-core.h"
 
 #define REPEAT_TEST_COUNT   (10)
 

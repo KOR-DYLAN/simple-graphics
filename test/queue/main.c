@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <assert.h>
-#include "sgl.h"
+#include "sgl-core.h"
 
 #define ARRAY_SIZE(arr) sizeof(arr) / sizeof(arr[0])
 
