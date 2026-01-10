@@ -29,7 +29,9 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 
 # Add Subdirectory
 add_subdirectory(library)
-add_subdirectory(test)
+if (WITH_TEST_APP)
+    add_subdirectory(test)
+endif()
 
 #============================================================================
 # CPack Target

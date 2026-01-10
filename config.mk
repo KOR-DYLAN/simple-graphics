@@ -10,6 +10,10 @@ ifneq ($(WITH_CLANG_TIDY),)
     CMAKE_FLAGS	+=-DWITH_CLANG_TIDY=$(WITH_CLANG_TIDY)
 endif
 
+ifneq ($(WITH_TEST_APP),)
+    CMAKE_FLAGS	+=-DWITH_TEST_APP=$(WITH_TEST_APP)
+endif
+
 ifneq ($(WITH_SIMD),)
     CMAKE_FLAGS	+=-DWITH_SIMD=$(WITH_SIMD)
 endif

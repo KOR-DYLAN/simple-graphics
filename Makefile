@@ -11,6 +11,7 @@ HOSTENV			:=TRUE
 QEMU			:=qemu-aarch64
 
 # Options(ON,OFF)
+# WITH_TEST_APP	?=OFF
 # WITH_CLANG_TIDY	?=ON
 # WITH_SIMD		?=OFF
 # WITH_THREAD		?=OFF
