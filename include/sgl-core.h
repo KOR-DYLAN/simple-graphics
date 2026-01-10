@@ -53,6 +53,15 @@ extern "C" {
     #define SGL_TYPEOF(var)
 #endif
 
+#if defined(_MSC_VER)
+#   define SGL_UNUSED(x) (void)(x)
+#elif defined(__GNUC__) || defined(__clang__)
+#   define SGL_UNUSED(x) (void)(x)
+#else
+#   define SGL_UNUSED(x) (void)(x)
+#endif
+
+
 
 /*
  *******************************************************************
@@ -121,7 +130,7 @@ sgl_result_t sgl_generic_resize_bilinear(
 sgl_result_t sgl_generic_resize_cubic(uint8_t *SGL_RESTRICT dst, int32_t d_width, int32_t d_height, uint8_t *SGL_RESTRICT src, int32_t s_width, int32_t s_height, int32_t bpp);
 
 /* SIMD Resize */
-#if SGL_CFG_HAS_SIMD
+#if defined(SGL_CFG_HAS_SIMD)
 sgl_result_t sgl_simd_resize_nearest(
                 sgl_threadpool_t *SGL_RESTRICT pool, sgl_nearest_neighbor_lookup_t *SGL_RESTRICT ext_lut, 
                 uint8_t *SGL_RESTRICT dst, int32_t d_width, int32_t d_height, 
@@ -133,7 +142,8 @@ sgl_result_t sgl_simd_resize_bilinear(
                 uint8_t *SGL_RESTRICT dst, int32_t d_width, int32_t d_height, 
                 uint8_t *SGL_RESTRICT src, int32_t s_width, int32_t s_height, 
                 int32_t bpp);
-#endif
+#endif  /* !SGL_CFG_HAS_SIMD */
+
 
 /*******************************************************************
  *                          Queue
@@ -154,7 +164,7 @@ size_t sgl_queue_get_count(sgl_queue_t *queue);
 /*******************************************************************
  *                          Threadpool
  *******************************************************************/
-#if SGL_CFG_HAS_THREAD
+#if defined(SGL_CFG_HAS_THREAD)
 sgl_threadpool_t *sgl_threadpool_create(size_t num_threads, size_t max_routine_lists, const char *base_name);
 sgl_result_t sgl_threadpool_destroy(sgl_threadpool_t *pool);
 sgl_result_t sgl_threadpool_attach_routine(sgl_threadpool_t *SGL_RESTRICT pool, sgl_threadpool_routine_t routine, sgl_queue_t *SGL_RESTRICT operations, void *SGL_RESTRICT cookie);

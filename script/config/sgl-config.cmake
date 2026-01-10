@@ -1,4 +1,9 @@
+option(WITH_CLANG_TIDY  "Enable clang-tidy Feature"     OFF)
+option(WITH_SIMD        "Enable SIMD Feature"           ON)
+option(WITH_THREAD      "Enable Thread Feature"         ON)
+
 include(${CMAKE_CURRENT_LIST_DIR}/load-version.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/arch/detect-arch.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/simd/detect-simd.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/thread/detect-thread.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/detect-install-dirs.cmake)

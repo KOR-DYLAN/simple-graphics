@@ -3,7 +3,9 @@
 #include "sgl-core.h"
 #include "nearest_neighbor.h"
 
+#if defined(SGL_CFG_HAS_THREAD)
 static void sgl_generic_resize_nearest_neighbor_routine(void *SGL_RESTRICT current, void *SGL_RESTRICT cookie);
+#endif  /* !SGL_CFG_HAS_THREAD */
 
 static SGL_ALWAYS_INLINE void sgl_generic_resize_nearest_neighbor_line_stripe(int32_t row, sgl_nearest_neighbor_data_t *data) {
     sgl_nearest_neighbor_lookup_t *lut = data->lut;
@@ -58,11 +60,8 @@ sgl_result_t sgl_generic_resize_nearest(
 {
     sgl_result_t result = SGL_SUCCESS;
     int32_t row;
-    sgl_nearest_neighbor_current_t *currents;
     sgl_nearest_neighbor_data_t data;
-    sgl_queue_t *operations = NULL;
     sgl_nearest_neighbor_lookup_t *lut = NULL, *temp_lut = NULL;
-    int32_t i, num_operations, mod_operations;
     int32_t errcnt = 0;
 
     /* check buffer address */
@@ -112,8 +111,12 @@ sgl_result_t sgl_generic_resize_nearest(
                     sgl_generic_resize_nearest_neighbor_line_stripe(row, (void *)&data);
                 }
             }
-#if SGL_CFG_HAS_THREAD
+#if defined(SGL_CFG_HAS_THREAD)
             else {
+                sgl_nearest_neighbor_current_t *currents;
+                sgl_queue_t *operations = NULL;
+                int32_t i, num_operations, mod_operations;
+
                 num_operations = d_height / SGL_GENERIC_BULK_SIZE;
                 mod_operations = d_height % SGL_GENERIC_BULK_SIZE;
                 if (mod_operations != 0) {
@@ -163,6 +166,7 @@ sgl_result_t sgl_generic_resize_nearest(
     return result;
 }
 
+#if defined(SGL_CFG_HAS_THREAD)
 static void sgl_generic_resize_nearest_neighbor_routine(void *SGL_RESTRICT current, void *SGL_RESTRICT cookie)
 {
     sgl_nearest_neighbor_current_t *cur = (sgl_nearest_neighbor_current_t *)current;
@@ -173,3 +177,4 @@ static void sgl_generic_resize_nearest_neighbor_routine(void *SGL_RESTRICT curre
         sgl_generic_resize_nearest_neighbor_line_stripe(row, data);
     }
 }
+#endif  /* !SGL_CFG_HAS_THREAD */

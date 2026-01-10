@@ -19,9 +19,11 @@ set_property(TARGET ${PROJECT_NAME} PROPERTY C_STANDARD_REQUIRED ON)
 set_property(TARGET ${PROJECT_NAME} PROPERTY C_EXTENSIONS ON)
 
 # Apply clang-tidy
-set_target_properties(${PROJECT_NAME} PROPERTIES
-    C_CLANG_TIDY "clang-tidy;-checks=misra-c2012-*"
-)
+if (WITH_CLANG_TIDY)
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        C_CLANG_TIDY "clang-tidy;-checks=misra-c2012-*"
+    )
+endif()
 
 #============================================================================
 # Install Target
