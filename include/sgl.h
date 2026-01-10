@@ -45,6 +45,14 @@ extern "C" {
     #define SGL_ALIGNED(n)
 #endif
 
+#if defined(_MSC_VER)
+    #define SGL_TYPEOF(var)
+#elif defined(__GNUC__) || defined(__clang__)
+    #define SGL_TYPEOF(var) typeof(var)
+#else
+    #define SGL_TYPEOF(var)
+#endif
+
 
 /*
  *******************************************************************
@@ -53,7 +61,7 @@ extern "C" {
  */
 #define SGL_UNUSED_PARAM(p)                         (void)(p)
 #define SGL_DIV_ROUNDUP(n, d)                       (((n) + (d) - 1) / (d))
-#define SGL_SAFE_FREE(p)                            if ((p) != NULL) { free(p); (p) = NULL; }
+#define SGL_SAFE_FREE(p)                            if ((p) != NULL) { free((p)); (p) = NULL; }
 #define SGL_THREADPOOL_DEFAULT_MAX_ROUTINE_LISTS    (4U)
 #define SGL_GENERIC_BULK_SIZE                       (4)
 #define SGL_SIMD_BULK_SIZE                          (8)
@@ -135,8 +143,8 @@ void sgl_queue_destroy(sgl_queue_t **queue);
 sgl_result_t sgl_queue_copy(sgl_queue_t *SGL_RESTRICT dst, sgl_queue_t *SGL_RESTRICT src);
 sgl_result_t sgl_queue_unsafe_enqueue(sgl_queue_t *SGL_RESTRICT queue, const void *SGL_RESTRICT data);
 sgl_result_t sgl_queue_enqueue(sgl_queue_t *SGL_RESTRICT queue, const void *SGL_RESTRICT data);
-const void *sgl_queue_dequeue(sgl_queue_t *queue);
-const void *sgl_queue_peek(sgl_queue_t *queue);
+void *sgl_queue_dequeue(sgl_queue_t *queue);
+void *sgl_queue_peek(sgl_queue_t *queue);
 sgl_result_t sgl_queue_is_empty(sgl_queue_t *queue);
 sgl_result_t sgl_queue_is_full(sgl_queue_t *queue);
 size_t sgl_queue_get_capacity(sgl_queue_t *queue);

@@ -5,7 +5,7 @@
 #include "sgl-osal.h"
 
 struct sgl_queue {
-    const void **data;
+    void **data;
     size_t capacity;
     size_t count;
     size_t head;
@@ -20,7 +20,7 @@ sgl_queue_t *sgl_queue_create(size_t capacity)
     if (0 < capacity) {
         queue = (sgl_queue_t *)malloc(sizeof(sgl_queue_t));
         if (queue != NULL) {
-            queue->data = (const void **)malloc(sizeof(const void *) * capacity);
+            queue->data = (void **)malloc(sizeof(void *) * capacity);
             if (queue->data != NULL) {
                 queue->head = 0;
                 queue->tail = 0;
@@ -76,12 +76,13 @@ sgl_result_t sgl_queue_unsafe_enqueue(sgl_queue_t *SGL_RESTRICT queue, const voi
 {
     sgl_result_t result = SGL_SUCCESS;
     size_t head;
+    const uintptr_t data_addr = (const uintptr_t)data;
 
     if ((queue != NULL) && (data != NULL)) {
         result = sgl_queue_is_full(queue);
         if (result == SGL_QUEUE_IS_NOT_FULL) {
             head = queue->head;
-            queue->data[head] = data;
+            queue->data[head] = (void *)data_addr;
             if (queue->capacity <= ++head) {
                 head = 0;
             }
@@ -100,13 +101,14 @@ sgl_result_t sgl_queue_enqueue(sgl_queue_t *SGL_RESTRICT queue, const void *SGL_
 {
     sgl_result_t result = SGL_SUCCESS;
     size_t head;
+    const uintptr_t data_addr = (const uintptr_t)data;
 
     if ((queue != NULL) && (data != NULL)) {
         sgl_osal_spinlock_lock(&queue->lock);
         result = sgl_queue_is_full(queue);
         if (result == SGL_QUEUE_IS_NOT_FULL) {
             head = queue->head;
-            queue->data[head] = data;
+            queue->data[head] = (void *)data_addr;
             if (queue->capacity <= ++head) {
                 head = 0;
             }
@@ -122,10 +124,10 @@ sgl_result_t sgl_queue_enqueue(sgl_queue_t *SGL_RESTRICT queue, const void *SGL_
     return result;
 }
 
-const void *sgl_queue_dequeue(sgl_queue_t *queue)
+void *sgl_queue_dequeue(sgl_queue_t *queue)
 {
     sgl_result_t result;
-    const void *data = NULL;
+    void *data = NULL;
     size_t tail;
 
     if (queue != NULL) {
@@ -146,10 +148,10 @@ const void *sgl_queue_dequeue(sgl_queue_t *queue)
     return data;
 }
 
-const void *sgl_queue_peek(sgl_queue_t *queue)
+void *sgl_queue_peek(sgl_queue_t *queue)
 {
     sgl_result_t result;
-    const void *data = NULL;
+    void *data = NULL;
     size_t tail;
 
     if (queue != NULL) {

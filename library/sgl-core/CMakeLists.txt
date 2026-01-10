@@ -13,6 +13,16 @@ add_subdirectory(rotate)
 add_subdirectory(queue)
 add_subdirectory(threadpool)
 
+# Apply C99
+set_property(TARGET ${PROJECT_NAME} PROPERTY C_STANDARD 99)
+set_property(TARGET ${PROJECT_NAME} PROPERTY C_STANDARD_REQUIRED ON)
+set_property(TARGET ${PROJECT_NAME} PROPERTY C_EXTENSIONS ON)
+
+# Apply clang-tidy
+set_target_properties(${PROJECT_NAME} PROPERTIES
+    C_CLANG_TIDY "clang-tidy;-checks=misra-c2012-*"
+)
+
 #============================================================================
 # Install Target
 #============================================================================

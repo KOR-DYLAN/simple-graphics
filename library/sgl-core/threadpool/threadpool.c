@@ -58,7 +58,7 @@ sgl_threadpool_t *sgl_threadpool_create(size_t num_threads, size_t max_routine_l
     size_t i;
 
     /* create instance handle */
-    pool = (sgl_threadpool_t *)malloc(sizeof(sgl_threadpool_t));
+    pool = (sgl_threadpool_t *)calloc(1, sizeof(sgl_threadpool_t));
     if (pool == NULL) {
         return NULL;
     }
@@ -179,7 +179,6 @@ sgl_result_t sgl_threadpool_attach_routine(sgl_threadpool_t *SGL_RESTRICT pool, 
 #if defined(__GNUC__)
 #   pragma GCC diagnostic push
 #   pragma GCC diagnostic ignored "-Wcast-qual"
-#   pragma GCC diagnostic ignored "-Wdiscarded-qualifiers"
 #elif defined(__clang__)
 #   pragma clang diagnostic push
 #   pragma clang diagnostic ignored "-Wcast-qual"

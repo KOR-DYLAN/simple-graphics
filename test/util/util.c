@@ -101,6 +101,12 @@ sgl_test_png_t *sgl_test_load_png(const char *path)
 
 int32_t sgl_test_save_png(sgl_test_png_t *png, const char *path)
 {
+    png_t *handle;
+    int color_type;
+    size_t rowbytes;
+    png_bytep *row_pointers;
+    int32_t row;
+
     if ((png == NULL) || (path == NULL)) {
         return -1;
     }
@@ -108,7 +114,7 @@ int32_t sgl_test_save_png(sgl_test_png_t *png, const char *path)
         return -1;
     }
 
-    png_t *handle = sgl_test_png_write_init(path);
+    handle = sgl_test_png_write_init(path);
     if (!handle) {
         return -1;
     }
@@ -118,7 +124,7 @@ int32_t sgl_test_save_png(sgl_test_png_t *png, const char *path)
         return -1;
     }
 
-    int color_type = (png->channels == 4) ? PNG_COLOR_TYPE_RGBA : PNG_COLOR_TYPE_RGB;
+    color_type = (png->channels == 4) ? PNG_COLOR_TYPE_RGBA : PNG_COLOR_TYPE_RGB;
     png_set_IHDR(handle->png, handle->info,
                  (png_uint_32)png->width, (png_uint_32)png->height,
                  8, color_type, PNG_INTERLACE_NONE,
@@ -126,14 +132,14 @@ int32_t sgl_test_save_png(sgl_test_png_t *png, const char *path)
     png_write_info(handle->png, handle->info);
 
     /* rowbytes in bytes per row, check overflow */
-    size_t rowbytes = (size_t)png->width * (size_t)png->channels;
-    png_bytep *row_pointers = (png_bytep*)malloc(sizeof(png_bytep) * (size_t)png->height);
+    rowbytes = (size_t)png->width * (size_t)png->channels;
+    row_pointers = (png_bytep*)malloc(sizeof(png_bytep) * (size_t)png->height);
     if (row_pointers == NULL) {
         sgl_test_png_write_deinit(handle);
         return -1;
     }
 
-    for (int32_t row = 0; row < png->height; row++) {
+    for (row = 0; row < png->height; row++) {
         row_pointers[row] = (png_bytep)(png->data + (size_t)row * rowbytes);
     }
 
@@ -142,6 +148,7 @@ int32_t sgl_test_save_png(sgl_test_png_t *png, const char *path)
 
     sgl_test_png_write_deinit(handle);
     free(row_pointers);
+
     return 0;
 }
 

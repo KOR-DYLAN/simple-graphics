@@ -222,9 +222,6 @@ static void sgl_run_resize_test_vector(sgl_test_resize_source_t *src)
                 (void)sgl_simd_resize_bilinear(pool[num_threads], NULL, dst, resize_test_vector[i].width, resize_test_vector[i].height, src->buf, src->width, src->height, src->bpp);
                 break;
 #endif  /* !SGL_CFG_HAS_SIMD */
-            default:
-                /* invalid test case... */
-                break;
             }
             elapsed_us = sgl_test_get_timestamp_us(timestamp_us);
             avg_elapsed_us += elapsed_us;
