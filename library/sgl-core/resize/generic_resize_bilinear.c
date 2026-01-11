@@ -17,7 +17,7 @@ static SGL_ALWAYS_INLINE void sgl_generic_resize_bilinear_line_stripe(int32_t ro
     sgl_q11_t p, inv_p;
     sgl_q11_t q, inv_q;
     sgl_q11_t w00, w01, w10, w11;
-    int32_t acc, value;
+    sgl_q11_ext_t acc, value;
     uint8_t *src, *dst;
     int32_t ch, src_stride, dst_stride;
     uint8_t *src_y1_buf, *src_y2_buf;
