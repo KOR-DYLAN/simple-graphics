@@ -100,6 +100,7 @@ typedef enum {
 
 typedef struct sgl_nearest_neighbor_lookup_table    sgl_nearest_neighbor_lookup_t;
 typedef struct sgl_bilinear_lookup_table            sgl_bilinear_lookup_t;
+typedef struct sgl_bicubic_lookup_table             sgl_bicubic_lookup_t;
 typedef struct sgl_queue                            sgl_queue_t;
 typedef struct sgl_threadpool                       sgl_threadpool_t;
 typedef void(*sgl_threadpool_routine_t)(void *SGL_RESTRICT current, void *SGL_RESTRICT cookie);
@@ -110,9 +111,11 @@ typedef void(*sgl_threadpool_routine_t)(void *SGL_RESTRICT current, void *SGL_RE
  *******************************************************************/
 sgl_nearest_neighbor_lookup_t *sgl_generic_create_nearest_neighbor_lut(int32_t d_width, int32_t d_height, int32_t s_width, int32_t s_height);
 sgl_bilinear_lookup_t *sgl_generic_create_bilinear_lut(int32_t d_width, int32_t d_height, int32_t s_width, int32_t s_height);
+sgl_bicubic_lookup_t *sgl_generic_create_bicubic_lut(int32_t d_width, int32_t d_height, int32_t s_width, int32_t s_height);
 
 void sgl_generic_destroy_nearest_neighbor_lut(sgl_nearest_neighbor_lookup_t *lut);
 void sgl_generic_destroy_bilinear_lut(sgl_bilinear_lookup_t *lut);
+void sgl_generic_destroy_bicubic_lut(sgl_bicubic_lookup_t *lut);
 
 /* Generic Resize */
 sgl_result_t sgl_generic_resize_nearest(
@@ -127,7 +130,11 @@ sgl_result_t sgl_generic_resize_bilinear(
                 uint8_t *SGL_RESTRICT src, int32_t s_width, int32_t s_height, 
                 int32_t bpp);
 
-sgl_result_t sgl_generic_resize_cubic(uint8_t *SGL_RESTRICT dst, int32_t d_width, int32_t d_height, uint8_t *SGL_RESTRICT src, int32_t s_width, int32_t s_height, int32_t bpp);
+sgl_result_t sgl_generic_resize_bicubic(
+                sgl_threadpool_t *SGL_RESTRICT pool, sgl_bicubic_lookup_t *SGL_RESTRICT ext_lut, 
+                uint8_t *SGL_RESTRICT dst, int32_t d_width, int32_t d_height, 
+                uint8_t *SGL_RESTRICT src, int32_t s_width, int32_t s_height, 
+                int32_t bpp);
 
 /* SIMD Resize */
 #if defined(SGL_CFG_HAS_SIMD)

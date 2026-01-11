@@ -1,7 +1,9 @@
 target_sources(${PROJECT_NAME} PRIVATE nearest_neighbor.c)
 target_sources(${PROJECT_NAME} PRIVATE bilinear.c)
+target_sources(${PROJECT_NAME} PRIVATE bicubic.c)
 target_sources(${PROJECT_NAME} PRIVATE generic_resize_nearest_neighbor.c)
 target_sources(${PROJECT_NAME} PRIVATE generic_resize_bilinear.c)
+target_sources(${PROJECT_NAME} PRIVATE generic_resize_bicubic.c)
 
 # SIMD(NEON)
 if(SGL_CFG_HAS_NEON)
