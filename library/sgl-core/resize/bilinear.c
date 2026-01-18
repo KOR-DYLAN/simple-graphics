@@ -88,6 +88,8 @@ sgl_bilinear_lookup_t *sgl_generic_create_bilinear_lut(int32_t d_width, int32_t 
             SGL_SAFE_FREE(lut->row_lookup.y2);
             SGL_SAFE_FREE(lut->row_lookup.q);
             SGL_SAFE_FREE(lut->row_lookup.inv_q);
+
+            SGL_SAFE_FREE(lut);
         }
     }
 
