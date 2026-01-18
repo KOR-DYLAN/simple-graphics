@@ -4,7 +4,7 @@
 #include <arm_neon.h>
 
 typedef int16x8_t   sgl_simd_q11_t;
-typedef int16x4_t   sgl_simd_q11_ext_t;
+typedef int32x4_t   sgl_simd_q11_ext_t;
 
 /**
  * Optimized Q11 Multiplication: (a * b) >> 11

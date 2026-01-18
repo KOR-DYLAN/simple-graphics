@@ -149,6 +149,11 @@ sgl_result_t sgl_simd_resize_bilinear(
                 uint8_t *SGL_RESTRICT dst, int32_t d_width, int32_t d_height, 
                 uint8_t *SGL_RESTRICT src, int32_t s_width, int32_t s_height, 
                 int32_t bpp);
+sgl_result_t sgl_simd_resize_bicubic(
+                sgl_threadpool_t *SGL_RESTRICT pool, sgl_bicubic_lookup_t *SGL_RESTRICT ext_lut, 
+                uint8_t *SGL_RESTRICT dst, int32_t d_width, int32_t d_height, 
+                uint8_t *SGL_RESTRICT src, int32_t s_width, int32_t s_height, 
+                int32_t bpp);
 #endif  /* !SGL_CFG_HAS_SIMD */
 
 

@@ -7,7 +7,7 @@
 static void sgl_generic_resize_bicubic_routine(void *SGL_RESTRICT current, void *SGL_RESTRICT cookie);
 #endif  /* !SGL_CFG_HAS_THREAD */
 
-static SGL_ALWAYS_INLINE sgl_q11_ext_t sgl_generic_bilinear_interpolation(sgl_q11_ext_t v1, sgl_q11_ext_t v2, sgl_q11_ext_t v3, sgl_q11_ext_t v4, sgl_q11_ext_t d)
+static SGL_ALWAYS_INLINE sgl_q11_ext_t sgl_generic_bicubic_interpolation(sgl_q11_ext_t v1, sgl_q11_ext_t v2, sgl_q11_ext_t v3, sgl_q11_ext_t v4, sgl_q11_ext_t d)
 {
     sgl_q11_ext_t v, p1, p2, p3, p4;
 
@@ -91,11 +91,11 @@ static SGL_ALWAYS_INLINE void sgl_generic_resize_bicubic_line_stripe(int32_t row
         src_y4x4 = src_y4_buf + x4_off;
 
         for (ch = 0; ch < bpp; ++ch) {
-            v1 = sgl_generic_bilinear_interpolation(SGL_INT_TO_Q11((sgl_q11_ext_t)src_y1x1[ch]), SGL_INT_TO_Q11((sgl_q11_ext_t)src_y1x2[ch]), SGL_INT_TO_Q11((sgl_q11_ext_t)src_y1x3[ch]), SGL_INT_TO_Q11((sgl_q11_ext_t)src_y1x4[ch]), (sgl_q11_ext_t)p);
-            v2 = sgl_generic_bilinear_interpolation(SGL_INT_TO_Q11((sgl_q11_ext_t)src_y2x1[ch]), SGL_INT_TO_Q11((sgl_q11_ext_t)src_y2x2[ch]), SGL_INT_TO_Q11((sgl_q11_ext_t)src_y2x3[ch]), SGL_INT_TO_Q11((sgl_q11_ext_t)src_y2x4[ch]), (sgl_q11_ext_t)p);
-            v3 = sgl_generic_bilinear_interpolation(SGL_INT_TO_Q11((sgl_q11_ext_t)src_y3x1[ch]), SGL_INT_TO_Q11((sgl_q11_ext_t)src_y3x2[ch]), SGL_INT_TO_Q11((sgl_q11_ext_t)src_y3x3[ch]), SGL_INT_TO_Q11((sgl_q11_ext_t)src_y3x4[ch]), (sgl_q11_ext_t)p);
-            v4 = sgl_generic_bilinear_interpolation(SGL_INT_TO_Q11((sgl_q11_ext_t)src_y4x1[ch]), SGL_INT_TO_Q11((sgl_q11_ext_t)src_y4x2[ch]), SGL_INT_TO_Q11((sgl_q11_ext_t)src_y4x3[ch]), SGL_INT_TO_Q11((sgl_q11_ext_t)src_y4x4[ch]), (sgl_q11_ext_t)p);
-            value = sgl_generic_bilinear_interpolation(v1, v2, v3, v4, (sgl_q11_ext_t)q);
+            v1 = sgl_generic_bicubic_interpolation(SGL_INT_TO_Q11((sgl_q11_ext_t)src_y1x1[ch]), SGL_INT_TO_Q11((sgl_q11_ext_t)src_y1x2[ch]), SGL_INT_TO_Q11((sgl_q11_ext_t)src_y1x3[ch]), SGL_INT_TO_Q11((sgl_q11_ext_t)src_y1x4[ch]), (sgl_q11_ext_t)p);
+            v2 = sgl_generic_bicubic_interpolation(SGL_INT_TO_Q11((sgl_q11_ext_t)src_y2x1[ch]), SGL_INT_TO_Q11((sgl_q11_ext_t)src_y2x2[ch]), SGL_INT_TO_Q11((sgl_q11_ext_t)src_y2x3[ch]), SGL_INT_TO_Q11((sgl_q11_ext_t)src_y2x4[ch]), (sgl_q11_ext_t)p);
+            v3 = sgl_generic_bicubic_interpolation(SGL_INT_TO_Q11((sgl_q11_ext_t)src_y3x1[ch]), SGL_INT_TO_Q11((sgl_q11_ext_t)src_y3x2[ch]), SGL_INT_TO_Q11((sgl_q11_ext_t)src_y3x3[ch]), SGL_INT_TO_Q11((sgl_q11_ext_t)src_y3x4[ch]), (sgl_q11_ext_t)p);
+            v4 = sgl_generic_bicubic_interpolation(SGL_INT_TO_Q11((sgl_q11_ext_t)src_y4x1[ch]), SGL_INT_TO_Q11((sgl_q11_ext_t)src_y4x2[ch]), SGL_INT_TO_Q11((sgl_q11_ext_t)src_y4x3[ch]), SGL_INT_TO_Q11((sgl_q11_ext_t)src_y4x4[ch]), (sgl_q11_ext_t)p);
+            value = sgl_generic_bicubic_interpolation(v1, v2, v3, v4, (sgl_q11_ext_t)q);
             value = SGL_Q11_SHIFTDOWN(SGL_Q11_ROUNDUP(value));
 
             /* Q11 -> u8 */
