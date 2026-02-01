@@ -1,6 +1,6 @@
 #include <stdint.h>
 #include <stdlib.h>
-#include "sgl-core.h"
+#include <sgl-core.h>
 #include "nearest_neighbor.h"
 
 sgl_nearest_neighbor_lookup_t *sgl_generic_create_nearest_neighbor_lut(int32_t d_width, int32_t d_height, int32_t s_width, int32_t s_height)

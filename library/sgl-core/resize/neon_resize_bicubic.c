@@ -1,6 +1,6 @@
 #include <stdint.h>
 #include <stdlib.h>
-#include "sgl-core.h"
+#include <sgl-core.h>
 #include "bicubic.h"
 
 #define NEON_LANE_SIZE  (8)

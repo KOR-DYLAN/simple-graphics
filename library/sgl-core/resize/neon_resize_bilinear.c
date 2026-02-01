@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <arm_neon.h>
-#include "sgl-core.h"
+#include <sgl-core.h>
 #include "bilinear.h"
 
 #define NEON_LANE_SIZE  (8)

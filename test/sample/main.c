@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
-#include "sgl-core.h"
+#include <sgl-core.h>
 #include "util.h"
 
 int main(int argc, char *argv[]) {

@@ -1,6 +1,6 @@
 #include <stdint.h>
 #include <stdlib.h>
-#include "sgl-core.h"
+#include <sgl-core.h>
 #include "bicubic.h"
 
 sgl_bicubic_lookup_t *sgl_generic_create_bicubic_lut(int32_t d_width, int32_t d_height, int32_t s_width, int32_t s_height)
