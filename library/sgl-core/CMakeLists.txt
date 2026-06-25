@@ -6,6 +6,7 @@ project(sgl-core
 )
 
 add_library(${PROJECT_NAME})
+add_subdirectory(memory)
 add_subdirectory(convert)
 add_subdirectory(crop)
 add_subdirectory(resize)
@@ -13,16 +14,26 @@ add_subdirectory(rotate)
 add_subdirectory(queue)
 add_subdirectory(threadpool)
 
+if(SGL_CFG_HAS_PTHREAD)
+    find_package(Threads REQUIRED)
+    target_link_libraries(${PROJECT_NAME} PUBLIC Threads::Threads)
+endif()
+
 # Apply C99
 set_property(TARGET ${PROJECT_NAME} PROPERTY C_STANDARD 99)
 set_property(TARGET ${PROJECT_NAME} PROPERTY C_STANDARD_REQUIRED ON)
 set_property(TARGET ${PROJECT_NAME} PROPERTY C_EXTENSIONS ON)
 
-# Apply clang-tidy
-if (WITH_CLANG_TIDY)
-    set_target_properties(${PROJECT_NAME} PROPERTIES
-        C_CLANG_TIDY "clang-tidy;-checks=misra-c2012-*"
+if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(${PROJECT_NAME} PRIVATE
+        -fno-builtin-memcpy
+        -fno-builtin-memset
     )
+endif()
+
+if(WITH_CPPCHECK)
+    set_property(TARGET ${PROJECT_NAME} PROPERTY C_CPPCHECK "${SGL_C_CPPCHECK}")
+    set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_CPPCHECK "${SGL_CXX_CPPCHECK}")
 endif()
 
 #============================================================================
@@ -41,7 +52,10 @@ install(
     DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
 install(
-    FILES ${CMAKE_SOURCE_DIR}/include/sgl-core.h
+    FILES
+        ${CMAKE_SOURCE_DIR}/include/sgl-compiler.h
+        ${CMAKE_SOURCE_DIR}/include/sgl-core.h
+        ${CMAKE_SOURCE_DIR}/include/sgl-type.h
     DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
 

@@ -20,6 +20,7 @@ Prerequisites
 - CMake
 - Make
 - A C/C++ compiler (LLVM or GNU toolchain)
+- cppcheck (optional; enables build-time static analysis)
 - qemu-aarch64 (required only for non-host execution)
 - Linux environment (nproc is used to determine parallel jobs)
 
@@ -59,6 +60,44 @@ The following variables can be overridden from the command line:
 
   Example:
     make V=1
+
+- WITH_CPPCHECK
+  Enables cppcheck analysis for the SGL library sources. Test applications are
+  excluded. Defaults to ON, and configuration fails when cppcheck is
+  unavailable. Set it to OFF to build without static analysis.
+
+  Example:
+    make WITH_CPPCHECK=OFF
+
+- WITH_CPPCHECK_MISRA
+  Enables the cppcheck MISRA C:2012 addon for C sources. Defaults to ON and
+  requires `WITH_CPPCHECK=ON`. The open-source addon provides partial MISRA
+  coverage.
+
+  Example:
+    make WITH_CPPCHECK_MISRA=OFF
+
+- CPPCHECK_MISRA_RULE_TEXTS
+  Optional path to a licensed MISRA C rule-headlines file. When omitted,
+  diagnostics contain rule identifiers without the proprietary rule text.
+
+  Example:
+    make WITH_CPPCHECK_MISRA=ON \
+      CPPCHECK_MISRA_RULE_TEXTS=/path/to/misra-rule-headlines.txt
+
+- WITH_CPPCHECK_WARNINGS_AS_ERRORS
+  Makes cppcheck findings, including enabled MISRA findings, fail the build by
+  passing `--error-exitcode=1`. Defaults to OFF.
+
+  Example:
+    make WITH_CPPCHECK_WARNINGS_AS_ERRORS=ON
+
+- WITH_COMPILER_WARNINGS
+  Enables the commonly used `-Wall` and `-Wextra` compiler warnings for C and
+  C++. Defaults to ON.
+
+  Example:
+    make WITH_COMPILER_WARNINGS=OFF
 
 Build Targets
 -------------
@@ -114,3 +153,27 @@ Notes
 - qemu-aarch64 is only required for non-host (cross) execution.
 - The default input argument is `resource/sample.png`.
 
+Memory Pool
+-----------
+SGL uses `sgl_malloc`, `sgl_calloc`, and `sgl_free` internally. Their calling
+conventions match `malloc`, `calloc`, and `free`, but they never use the C
+runtime heap. A caller-owned pool must be registered before using an SGL
+operation that allocates memory:
+
+```c
+static unsigned char sgl_pool[1024 * 1024];
+
+if (sgl_memory_pool_initialize(sgl_pool, sizeof(sgl_pool)) != SGL_SUCCESS) {
+    /* handle initialization failure */
+}
+
+/* Use SGL normally. */
+
+if (sgl_memory_pool_deinitialize() != SGL_SUCCESS) {
+    /* Pool allocations are still alive. */
+}
+```
+
+The allocator supports variable-size blocks, splits and coalesces free blocks,
+and serializes allocation/free operations when thread support is enabled.
+Initialize and deinitialize the pool outside concurrent SGL activity.

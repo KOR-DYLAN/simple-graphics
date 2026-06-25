@@ -1,3 +1,8 @@
+/*
+ * SGL-HDR-DEV-001: generated feature macros are consumed conditionally by
+ * different translation units and target architectures.
+ */
+/* cppcheck-suppress-file misra-c2012-2.5 */
 #ifndef SGL_CONFIG_H_
 #define SGL_CONFIG_H_
 
@@ -6,11 +11,11 @@
 
 /* Util */
 #ifndef TRUE
-#define TRUE    true
+#define TRUE    SGL_TRUE
 #endif  /* !TRUE */
 
 #ifndef FALSE
-#define FALSE   false
+#define FALSE   SGL_FALSE
 #endif  /* !FALSE */
 
 /* Architecture */

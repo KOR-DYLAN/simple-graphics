@@ -1,16 +1,21 @@
+/*
+ * SGL-HDR-DEV-001: OS abstraction macros are selected conditionally and each
+ * translation unit uses only the operations it requires.
+ */
+/* cppcheck-suppress-file misra-c2012-2.5 */
 #ifndef SGL_OSAL_DUMMY_H_
 #define SGL_OSAL_DUMMY_H_
 
 #define NULL_THREAD         (sgl_osal_thread_t)(0)
-#define EXIT_ROUTINE        return NULL;
+#define EXIT_ROUTINE        return SGL_NULL;
 
-typedef uintptr_t           sgl_osal_thread_t;
+typedef sgl_uintptr_t       sgl_osal_thread_t;
 typedef void*               sgl_osal_thread_return_t;
 typedef void*               sgl_osal_thread_arg_t;
 typedef sgl_osal_thread_return_t(*sgl_osal_thread_entry_t)(sgl_osal_thread_arg_t arg);
-typedef uintptr_t           sgl_osal_spinlock_t;
-typedef uintptr_t           sgl_osal_mutex_t;
-typedef uintptr_t           sgl_osal_cond_t;
+typedef sgl_uintptr_t       sgl_osal_spinlock_t;
+typedef sgl_uintptr_t       sgl_osal_mutex_t;
+typedef sgl_uintptr_t       sgl_osal_cond_t;
 
 /* Thread */
 static SGL_ALWAYS_INLINE sgl_osal_thread_t sgl_thread_create(sgl_osal_thread_entry_t start_routine, sgl_osal_thread_arg_t arg)

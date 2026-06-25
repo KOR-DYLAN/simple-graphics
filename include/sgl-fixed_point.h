@@ -1,6 +1,10 @@
 #ifndef SGL_FIXED_POINT__H__
 #define SGL_FIXED_POINT__H__
 
+#include <sgl-compiler.h>
+#include <sgl-type.h>
+#include <sgl-config.h>
+
 #include "fixed_point/generic.h"
 
 /************************************************************

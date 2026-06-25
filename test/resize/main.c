@@ -1,11 +1,13 @@
 #include <stdio.h>
 #include <stdint.h>
-#include <stdlib.h>
 #include <assert.h>
 #include "util.h"
 #include <sgl-core.h>
 
 #define REPEAT_TEST_COUNT   (10)
+#define SGL_TEST_MEMORY_POOL_SIZE   (64U * 1024U * 1024U)
+
+static unsigned char sgl_test_memory_pool[SGL_TEST_MEMORY_POOL_SIZE];
 
 typedef enum {
     SGL_TEST_RESIZE_NEAREST,
@@ -202,21 +204,35 @@ static void sgl_run_resize_test_vector(sgl_test_resize_source_t *src);
 int main(int argc, char *argv[]) {
     sgl_test_png_t *png = NULL;
     sgl_test_resize_source_t src;
+    int result = 0;
 
     (void)argc;
 
-    png = sgl_test_load_png(argv[1]);
-    if (png != NULL) {
-        src.buf = png->data;
-        src.width = png->width;
-        src.height = png->height;
-        src.bpp = png->channels;
-        sgl_run_resize_test_vector(&src);
+    if (sgl_memory_pool_initialize(
+            sgl_test_memory_pool,
+            sizeof(sgl_test_memory_pool)) != SGL_SUCCESS) {
+        result = 1;
+    }
+    if (result == 0) {
+        png = sgl_test_load_png(argv[1]);
+        if (png != NULL) {
+            src.buf = png->data;
+            src.width = png->width;
+            src.height = png->height;
+            src.bpp = png->channels;
+            sgl_run_resize_test_vector(&src);
 
-        sgl_test_release_png(png);
+            sgl_test_release_png(png);
+        }
+        else {
+            result = 1;
+        }
+    }
+    if (sgl_memory_pool_deinitialize() != SGL_SUCCESS) {
+        result = 1;
     }
 
-    return 0;
+    return result;
 }
 
 static void sgl_run_resize_test_vector(sgl_test_resize_source_t *src)
@@ -246,7 +262,7 @@ static void sgl_run_resize_test_vector(sgl_test_resize_source_t *src)
     for (i = 0; i < (int32_t)(sizeof(resize_test_vector) / sizeof(sgl_test_resize_t)); ++i) {
         method = resize_test_vector[i].method;
         imgsize = resize_test_vector[i].width * resize_test_vector[i].height * src->bpp;
-        dst = (uint8_t *)calloc(1, (size_t)imgsize);
+        dst = (uint8_t *)sgl_calloc(1U, (size_t)imgsize);
         assert(dst != NULL);
 
         num_threads = resize_test_vector[i].num_threads;
@@ -307,7 +323,7 @@ static void sgl_run_resize_test_vector(sgl_test_resize_source_t *src)
         resize_png.height = resize_test_vector[i].height;
         resize_png.channels = src->bpp;
         sgl_test_save_png(&resize_png, path);
-        free(dst);
+        sgl_free(dst);
     }
 
 #if defined(SGL_CFG_HAS_THREAD)

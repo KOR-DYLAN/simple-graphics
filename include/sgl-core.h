@@ -1,3 +1,8 @@
+/*
+ * SGL-HDR-DEV-001: public macros are intentionally shared by translation
+ * units that use different subsets of the interface.
+ */
+/* cppcheck-suppress-file misra-c2012-2.5 */
 #ifndef SGL_CORE_H_
 #define SGL_CORE_H_
 
@@ -9,68 +14,18 @@ extern "C" {
  *                          INCLUDES
  *******************************************************************
  */
-#if !defined(__cplusplus)
-#   include <stdbool.h>
-#endif
-#include <stddef.h>
-#include <stdint.h>
+#include <sgl-compiler.h>
+#include <sgl-type.h>
 #include <sgl-config.h>
-
-/*
- *******************************************************************
- *                          COMPILER
- *******************************************************************
- */
-#if defined(_MSC_VER)
-    #define SGL_ALWAYS_INLINE __forceinline
-#elif defined(__GNUC__) || defined(__clang__)
-    #define SGL_ALWAYS_INLINE inline __attribute__((always_inline))
-#else
-    #define SGL_ALWAYS_INLINE inline
-#endif
-
-#if defined(_MSC_VER)
-    #define SGL_RESTRICT __restrict
-#elif defined(__GNUC__) || defined(__clang__)
-    #define SGL_RESTRICT __restrict__
-#else
-    #define SGL_RESTRICT
-#endif
-
-#if defined(_MSC_VER)
-    #define SGL_ALIGNED(n) __declspec(align(n))
-#elif defined(__GNUC__) || defined(__clang__)
-    #define SGL_ALIGNED(n) __attribute__((aligned(n)))
-#else
-    #define SGL_ALIGNED(n)
-#endif
-
-#if defined(_MSC_VER)
-    #define SGL_TYPEOF(var)
-#elif defined(__GNUC__) || defined(__clang__)
-    #define SGL_TYPEOF(var) typeof(var)
-#else
-    #define SGL_TYPEOF(var)
-#endif
-
-#if defined(_MSC_VER)
-#   define SGL_UNUSED(x) (void)(x)
-#elif defined(__GNUC__) || defined(__clang__)
-#   define SGL_UNUSED(x) (void)(x)
-#else
-#   define SGL_UNUSED(x) (void)(x)
-#endif
-
-
 
 /*
  *******************************************************************
  *                          DEFINES
  *******************************************************************
  */
-#define SGL_UNUSED_PARAM(p)                         (void)(p)
+#define SGL_UNUSED_PARAM(p)                         SGL_UNUSED(p)
 #define SGL_DIV_ROUNDUP(n, d)                       (((n) + (d) - 1) / (d))
-#define SGL_SAFE_FREE(p)                            if ((p) != NULL) { free((p)); (p) = NULL; }
+#define SGL_SAFE_FREE(p)                            if ((p) != SGL_NULL) { sgl_free((p)); (p) = SGL_NULL; }
 #define SGL_THREADPOOL_DEFAULT_MAX_ROUTINE_LISTS    (4U)
 #define SGL_GENERIC_BULK_SIZE                       (4)
 #define SGL_SIMD_BULK_SIZE                          (8)
@@ -107,11 +62,59 @@ typedef void(*sgl_threadpool_routine_t)(void *SGL_RESTRICT current, void *SGL_RE
 
 
 /*******************************************************************
+ *                          Memory Operations
+ *******************************************************************/
+/*
+ * Copy operations require non-overlapping source and destination ranges.
+ * Set operations store the low eight bits of value in every destination byte.
+ *
+ * sgl_memcpy() and sgl_memset() select the accelerated implementation when
+ * the configured target provides one.
+ */
+void *sgl_memcpy(void *SGL_RESTRICT destination,
+                 const void *SGL_RESTRICT source,
+                 sgl_size_t size);
+void *sgl_memset(void *destination, sgl_int32_t value, sgl_size_t size);
+
+
+/*******************************************************************
+ *                          Memory
+ *******************************************************************/
+/*
+ * Registers a caller-owned buffer as the single process-wide SGL memory pool.
+ * The buffer may be unaligned; the implementation adjusts the usable range.
+ * The caller must keep the buffer alive and unchanged until deinitialization
+ * succeeds. Initialize/deinitialize only while no other thread uses SGL memory.
+ *
+ * A pool must be initialized before any SGL operation that allocates memory.
+ * sgl_malloc and sgl_calloc return NULL before initialization or when the pool
+ * cannot satisfy the request. The implementation never falls back to the C
+ * runtime heap.
+ *
+ * Deinitialization returns SGL_FAILURE while pool allocations remain alive.
+ * sgl_free(NULL) is valid. Pointers outside the active pool are ignored. A pool
+ * pointer must be released exactly once before successful deinitialization.
+ *
+ * MISRA deviation SGL-MEM-DEV-001:
+ * MISRA C:2012 Rule 11.5 is deviated at typed allocation sites. The allocator
+ * intentionally follows the standard malloc interface and therefore returns
+ * void *. Each allocation site explicitly converts that result to the pointer
+ * type of the object whose size was requested. The pool guarantees alignment
+ * suitable for every supported object type.
+ */
+sgl_result_t sgl_memory_pool_initialize(void *memory, sgl_size_t size);
+sgl_result_t sgl_memory_pool_deinitialize(void);
+void *sgl_malloc(sgl_size_t size);
+void *sgl_calloc(sgl_size_t count, sgl_size_t size);
+void sgl_free(void *memory);
+
+
+/*******************************************************************
  *                          Resize
  *******************************************************************/
-sgl_nearest_neighbor_lookup_t *sgl_generic_create_nearest_neighbor_lut(int32_t d_width, int32_t d_height, int32_t s_width, int32_t s_height);
-sgl_bilinear_lookup_t *sgl_generic_create_bilinear_lut(int32_t d_width, int32_t d_height, int32_t s_width, int32_t s_height);
-sgl_bicubic_lookup_t *sgl_generic_create_bicubic_lut(int32_t d_width, int32_t d_height, int32_t s_width, int32_t s_height);
+sgl_nearest_neighbor_lookup_t *sgl_generic_create_nearest_neighbor_lut(sgl_int32_t d_width, sgl_int32_t d_height, sgl_int32_t s_width, sgl_int32_t s_height);
+sgl_bilinear_lookup_t *sgl_generic_create_bilinear_lut(sgl_int32_t d_width, sgl_int32_t d_height, sgl_int32_t s_width, sgl_int32_t s_height);
+sgl_bicubic_lookup_t *sgl_generic_create_bicubic_lut(sgl_int32_t d_width, sgl_int32_t d_height, sgl_int32_t s_width, sgl_int32_t s_height);
 
 void sgl_generic_destroy_nearest_neighbor_lut(sgl_nearest_neighbor_lookup_t *lut);
 void sgl_generic_destroy_bilinear_lut(sgl_bilinear_lookup_t *lut);
@@ -119,65 +122,65 @@ void sgl_generic_destroy_bicubic_lut(sgl_bicubic_lookup_t *lut);
 
 /* Generic Resize */
 sgl_result_t sgl_generic_resize_nearest(
-                sgl_threadpool_t *SGL_RESTRICT pool, sgl_nearest_neighbor_lookup_t *SGL_RESTRICT ext_lut, 
-                uint8_t *SGL_RESTRICT dst, int32_t d_width, int32_t d_height, 
-                uint8_t *SGL_RESTRICT src, int32_t s_width, int32_t s_height, 
-                int32_t bpp);
+                sgl_threadpool_t *SGL_RESTRICT pool, sgl_nearest_neighbor_lookup_t *SGL_RESTRICT ext_lut,
+                sgl_uint8_t *SGL_RESTRICT dst, sgl_int32_t d_width, sgl_int32_t d_height,
+                sgl_uint8_t *SGL_RESTRICT src, sgl_int32_t s_width, sgl_int32_t s_height,
+                sgl_int32_t bpp);
 
 sgl_result_t sgl_generic_resize_bilinear(
-                sgl_threadpool_t *SGL_RESTRICT pool, sgl_bilinear_lookup_t *SGL_RESTRICT ext_lut, 
-                uint8_t *SGL_RESTRICT dst, int32_t d_width, int32_t d_height, 
-                uint8_t *SGL_RESTRICT src, int32_t s_width, int32_t s_height, 
-                int32_t bpp);
+                sgl_threadpool_t *SGL_RESTRICT pool, sgl_bilinear_lookup_t *SGL_RESTRICT ext_lut,
+                sgl_uint8_t *SGL_RESTRICT dst, sgl_int32_t d_width, sgl_int32_t d_height,
+                sgl_uint8_t *SGL_RESTRICT src, sgl_int32_t s_width, sgl_int32_t s_height,
+                sgl_int32_t bpp);
 
 sgl_result_t sgl_generic_resize_bicubic(
-                sgl_threadpool_t *SGL_RESTRICT pool, sgl_bicubic_lookup_t *SGL_RESTRICT ext_lut, 
-                uint8_t *SGL_RESTRICT dst, int32_t d_width, int32_t d_height, 
-                uint8_t *SGL_RESTRICT src, int32_t s_width, int32_t s_height, 
-                int32_t bpp);
+                sgl_threadpool_t *SGL_RESTRICT pool, sgl_bicubic_lookup_t *SGL_RESTRICT ext_lut,
+                sgl_uint8_t *SGL_RESTRICT dst, sgl_int32_t d_width, sgl_int32_t d_height,
+                sgl_uint8_t *SGL_RESTRICT src, sgl_int32_t s_width, sgl_int32_t s_height,
+                sgl_int32_t bpp);
 
 /* SIMD Resize */
 #if defined(SGL_CFG_HAS_SIMD)
 sgl_result_t sgl_simd_resize_nearest(
-                sgl_threadpool_t *SGL_RESTRICT pool, sgl_nearest_neighbor_lookup_t *SGL_RESTRICT ext_lut, 
-                uint8_t *SGL_RESTRICT dst, int32_t d_width, int32_t d_height, 
-                uint8_t *SGL_RESTRICT src, int32_t s_width, int32_t s_height, 
-                int32_t bpp);
+                sgl_threadpool_t *SGL_RESTRICT pool, sgl_nearest_neighbor_lookup_t *SGL_RESTRICT ext_lut,
+                sgl_uint8_t *SGL_RESTRICT dst, sgl_int32_t d_width, sgl_int32_t d_height,
+                sgl_uint8_t *SGL_RESTRICT src, sgl_int32_t s_width, sgl_int32_t s_height,
+                sgl_int32_t bpp);
 
 sgl_result_t sgl_simd_resize_bilinear(
-                sgl_threadpool_t *SGL_RESTRICT pool, sgl_bilinear_lookup_t *SGL_RESTRICT ext_lut, 
-                uint8_t *SGL_RESTRICT dst, int32_t d_width, int32_t d_height, 
-                uint8_t *SGL_RESTRICT src, int32_t s_width, int32_t s_height, 
-                int32_t bpp);
+                sgl_threadpool_t *SGL_RESTRICT pool, sgl_bilinear_lookup_t *SGL_RESTRICT ext_lut,
+                sgl_uint8_t *SGL_RESTRICT dst, sgl_int32_t d_width, sgl_int32_t d_height,
+                sgl_uint8_t *SGL_RESTRICT src, sgl_int32_t s_width, sgl_int32_t s_height,
+                sgl_int32_t bpp);
 sgl_result_t sgl_simd_resize_bicubic(
-                sgl_threadpool_t *SGL_RESTRICT pool, sgl_bicubic_lookup_t *SGL_RESTRICT ext_lut, 
-                uint8_t *SGL_RESTRICT dst, int32_t d_width, int32_t d_height, 
-                uint8_t *SGL_RESTRICT src, int32_t s_width, int32_t s_height, 
-                int32_t bpp);
+                sgl_threadpool_t *SGL_RESTRICT pool, sgl_bicubic_lookup_t *SGL_RESTRICT ext_lut,
+                sgl_uint8_t *SGL_RESTRICT dst, sgl_int32_t d_width, sgl_int32_t d_height,
+                sgl_uint8_t *SGL_RESTRICT src, sgl_int32_t s_width, sgl_int32_t s_height,
+                sgl_int32_t bpp);
 #endif  /* !SGL_CFG_HAS_SIMD */
 
 
 /*******************************************************************
  *                          Queue
  *******************************************************************/
-sgl_queue_t *sgl_queue_create(size_t capacity);
+sgl_queue_t *sgl_queue_create(sgl_size_t capacity);
 void sgl_queue_destroy(sgl_queue_t **queue);
-sgl_result_t sgl_queue_copy(sgl_queue_t *SGL_RESTRICT dst, sgl_queue_t *SGL_RESTRICT src);
+sgl_result_t sgl_queue_copy(sgl_queue_t *SGL_RESTRICT dst, const sgl_queue_t *SGL_RESTRICT src);
 sgl_result_t sgl_queue_unsafe_enqueue(sgl_queue_t *SGL_RESTRICT queue, const void *SGL_RESTRICT data);
 sgl_result_t sgl_queue_enqueue(sgl_queue_t *SGL_RESTRICT queue, const void *SGL_RESTRICT data);
 void *sgl_queue_dequeue(sgl_queue_t *queue);
 void *sgl_queue_peek(sgl_queue_t *queue);
-sgl_result_t sgl_queue_is_empty(sgl_queue_t *queue);
-sgl_result_t sgl_queue_is_full(sgl_queue_t *queue);
-size_t sgl_queue_get_capacity(sgl_queue_t *queue);
-size_t sgl_queue_get_count(sgl_queue_t *queue);
+sgl_result_t sgl_queue_is_empty(const sgl_queue_t *queue);
+sgl_result_t sgl_queue_is_full(const sgl_queue_t *queue);
+sgl_size_t sgl_queue_get_capacity(const sgl_queue_t *queue);
+sgl_size_t sgl_queue_get_count(const sgl_queue_t *queue);
 
 
 /*******************************************************************
  *                          Threadpool
  *******************************************************************/
 #if defined(SGL_CFG_HAS_THREAD)
-sgl_threadpool_t *sgl_threadpool_create(size_t num_threads, size_t max_routine_lists, const char *base_name);
+sgl_threadpool_t *sgl_threadpool_create(sgl_size_t num_threads, sgl_size_t max_routine_lists, const char *base_name);
 sgl_result_t sgl_threadpool_destroy(sgl_threadpool_t *pool);
 sgl_result_t sgl_threadpool_attach_routine(sgl_threadpool_t *SGL_RESTRICT pool, sgl_threadpool_routine_t routine, sgl_queue_t *SGL_RESTRICT operations, void *SGL_RESTRICT cookie);
 #endif  /* !SGL_CFG_HAS_THREAD */
