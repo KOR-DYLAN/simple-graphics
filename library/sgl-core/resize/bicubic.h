@@ -10,40 +10,40 @@
 #include "sgl-fixed_point.h"
 
 typedef struct {
-    int32_t *SGL_RESTRICT x1;
-    int32_t *SGL_RESTRICT x2;
-    int32_t *SGL_RESTRICT x3;
-    int32_t *SGL_RESTRICT x4;
+    sgl_int32_t *SGL_RESTRICT x1;
+    sgl_int32_t *SGL_RESTRICT x2;
+    sgl_int32_t *SGL_RESTRICT x3;
+    sgl_int32_t *SGL_RESTRICT x4;
     sgl_q11_t *SGL_RESTRICT p;   /* Q11 */
 } bicubic_column_lookup_t;
 
 typedef struct {
-    int32_t *SGL_RESTRICT y1;
-    int32_t *SGL_RESTRICT y2;
-    int32_t *SGL_RESTRICT y3;
-    int32_t *SGL_RESTRICT y4;
+    sgl_int32_t *SGL_RESTRICT y1;
+    sgl_int32_t *SGL_RESTRICT y2;
+    sgl_int32_t *SGL_RESTRICT y3;
+    sgl_int32_t *SGL_RESTRICT y4;
     sgl_q11_t *SGL_RESTRICT q;   /* Q11 */
 } bicubic_row_lookup_t;
 
 typedef struct  {
     sgl_bicubic_lookup_t *SGL_RESTRICT lut;
-    uint8_t *SGL_RESTRICT src;
-    uint8_t *SGL_RESTRICT dst;
-    int32_t bpp;
-    int32_t src_stride;
-    int32_t dst_stride;
+    sgl_uint8_t *SGL_RESTRICT src;
+    sgl_uint8_t *SGL_RESTRICT dst;
+    sgl_int32_t bpp;
+    sgl_int32_t src_stride;
+    sgl_int32_t dst_stride;
 } sgl_bicubic_data_t;
 
 typedef struct  {
-    int32_t row;
-    int32_t count;
+    sgl_int32_t row;
+    sgl_int32_t count;
 } sgl_bicubic_current_t;
 
 struct sgl_bicubic_lookup_table {
-    int32_t d_width;
-    int32_t d_height;
-    int32_t s_width;
-    int32_t s_height;
+    sgl_int32_t d_width;
+    sgl_int32_t d_height;
+    sgl_int32_t s_width;
+    sgl_int32_t s_height;
     bicubic_column_lookup_t col_lookup;
     bicubic_row_lookup_t row_lookup;
 };

@@ -14,13 +14,9 @@ extern "C" {
  *                          INCLUDES
  *******************************************************************
  */
-#if !defined(__cplusplus)
-#   include <stdbool.h>
-#endif
-#include <stddef.h>
-#include <stdint.h>
-#include <sgl-config.h>
 #include <sgl-compiler.h>
+#include <sgl-type.h>
+#include <sgl-config.h>
 
 /*
  *******************************************************************
@@ -90,19 +86,19 @@ typedef void(*sgl_threadpool_routine_t)(void *SGL_RESTRICT current, void *SGL_RE
  * type of the object whose size was requested. The pool guarantees alignment
  * suitable for every supported object type.
  */
-sgl_result_t sgl_memory_pool_initialize(void *memory, size_t size);
+sgl_result_t sgl_memory_pool_initialize(void *memory, sgl_size_t size);
 sgl_result_t sgl_memory_pool_deinitialize(void);
-void *sgl_malloc(size_t size);
-void *sgl_calloc(size_t count, size_t size);
+void *sgl_malloc(sgl_size_t size);
+void *sgl_calloc(sgl_size_t count, sgl_size_t size);
 void sgl_free(void *memory);
 
 
 /*******************************************************************
  *                          Resize
  *******************************************************************/
-sgl_nearest_neighbor_lookup_t *sgl_generic_create_nearest_neighbor_lut(int32_t d_width, int32_t d_height, int32_t s_width, int32_t s_height);
-sgl_bilinear_lookup_t *sgl_generic_create_bilinear_lut(int32_t d_width, int32_t d_height, int32_t s_width, int32_t s_height);
-sgl_bicubic_lookup_t *sgl_generic_create_bicubic_lut(int32_t d_width, int32_t d_height, int32_t s_width, int32_t s_height);
+sgl_nearest_neighbor_lookup_t *sgl_generic_create_nearest_neighbor_lut(sgl_int32_t d_width, sgl_int32_t d_height, sgl_int32_t s_width, sgl_int32_t s_height);
+sgl_bilinear_lookup_t *sgl_generic_create_bilinear_lut(sgl_int32_t d_width, sgl_int32_t d_height, sgl_int32_t s_width, sgl_int32_t s_height);
+sgl_bicubic_lookup_t *sgl_generic_create_bicubic_lut(sgl_int32_t d_width, sgl_int32_t d_height, sgl_int32_t s_width, sgl_int32_t s_height);
 
 void sgl_generic_destroy_nearest_neighbor_lut(sgl_nearest_neighbor_lookup_t *lut);
 void sgl_generic_destroy_bilinear_lut(sgl_bilinear_lookup_t *lut);
@@ -110,48 +106,48 @@ void sgl_generic_destroy_bicubic_lut(sgl_bicubic_lookup_t *lut);
 
 /* Generic Resize */
 sgl_result_t sgl_generic_resize_nearest(
-                sgl_threadpool_t *SGL_RESTRICT pool, sgl_nearest_neighbor_lookup_t *SGL_RESTRICT ext_lut, 
-                uint8_t *SGL_RESTRICT dst, int32_t d_width, int32_t d_height, 
-                uint8_t *SGL_RESTRICT src, int32_t s_width, int32_t s_height, 
-                int32_t bpp);
+                sgl_threadpool_t *SGL_RESTRICT pool, sgl_nearest_neighbor_lookup_t *SGL_RESTRICT ext_lut,
+                sgl_uint8_t *SGL_RESTRICT dst, sgl_int32_t d_width, sgl_int32_t d_height,
+                sgl_uint8_t *SGL_RESTRICT src, sgl_int32_t s_width, sgl_int32_t s_height,
+                sgl_int32_t bpp);
 
 sgl_result_t sgl_generic_resize_bilinear(
-                sgl_threadpool_t *SGL_RESTRICT pool, sgl_bilinear_lookup_t *SGL_RESTRICT ext_lut, 
-                uint8_t *SGL_RESTRICT dst, int32_t d_width, int32_t d_height, 
-                uint8_t *SGL_RESTRICT src, int32_t s_width, int32_t s_height, 
-                int32_t bpp);
+                sgl_threadpool_t *SGL_RESTRICT pool, sgl_bilinear_lookup_t *SGL_RESTRICT ext_lut,
+                sgl_uint8_t *SGL_RESTRICT dst, sgl_int32_t d_width, sgl_int32_t d_height,
+                sgl_uint8_t *SGL_RESTRICT src, sgl_int32_t s_width, sgl_int32_t s_height,
+                sgl_int32_t bpp);
 
 sgl_result_t sgl_generic_resize_bicubic(
-                sgl_threadpool_t *SGL_RESTRICT pool, sgl_bicubic_lookup_t *SGL_RESTRICT ext_lut, 
-                uint8_t *SGL_RESTRICT dst, int32_t d_width, int32_t d_height, 
-                uint8_t *SGL_RESTRICT src, int32_t s_width, int32_t s_height, 
-                int32_t bpp);
+                sgl_threadpool_t *SGL_RESTRICT pool, sgl_bicubic_lookup_t *SGL_RESTRICT ext_lut,
+                sgl_uint8_t *SGL_RESTRICT dst, sgl_int32_t d_width, sgl_int32_t d_height,
+                sgl_uint8_t *SGL_RESTRICT src, sgl_int32_t s_width, sgl_int32_t s_height,
+                sgl_int32_t bpp);
 
 /* SIMD Resize */
 #if defined(SGL_CFG_HAS_SIMD)
 sgl_result_t sgl_simd_resize_nearest(
-                sgl_threadpool_t *SGL_RESTRICT pool, sgl_nearest_neighbor_lookup_t *SGL_RESTRICT ext_lut, 
-                uint8_t *SGL_RESTRICT dst, int32_t d_width, int32_t d_height, 
-                uint8_t *SGL_RESTRICT src, int32_t s_width, int32_t s_height, 
-                int32_t bpp);
+                sgl_threadpool_t *SGL_RESTRICT pool, sgl_nearest_neighbor_lookup_t *SGL_RESTRICT ext_lut,
+                sgl_uint8_t *SGL_RESTRICT dst, sgl_int32_t d_width, sgl_int32_t d_height,
+                sgl_uint8_t *SGL_RESTRICT src, sgl_int32_t s_width, sgl_int32_t s_height,
+                sgl_int32_t bpp);
 
 sgl_result_t sgl_simd_resize_bilinear(
-                sgl_threadpool_t *SGL_RESTRICT pool, sgl_bilinear_lookup_t *SGL_RESTRICT ext_lut, 
-                uint8_t *SGL_RESTRICT dst, int32_t d_width, int32_t d_height, 
-                uint8_t *SGL_RESTRICT src, int32_t s_width, int32_t s_height, 
-                int32_t bpp);
+                sgl_threadpool_t *SGL_RESTRICT pool, sgl_bilinear_lookup_t *SGL_RESTRICT ext_lut,
+                sgl_uint8_t *SGL_RESTRICT dst, sgl_int32_t d_width, sgl_int32_t d_height,
+                sgl_uint8_t *SGL_RESTRICT src, sgl_int32_t s_width, sgl_int32_t s_height,
+                sgl_int32_t bpp);
 sgl_result_t sgl_simd_resize_bicubic(
-                sgl_threadpool_t *SGL_RESTRICT pool, sgl_bicubic_lookup_t *SGL_RESTRICT ext_lut, 
-                uint8_t *SGL_RESTRICT dst, int32_t d_width, int32_t d_height, 
-                uint8_t *SGL_RESTRICT src, int32_t s_width, int32_t s_height, 
-                int32_t bpp);
+                sgl_threadpool_t *SGL_RESTRICT pool, sgl_bicubic_lookup_t *SGL_RESTRICT ext_lut,
+                sgl_uint8_t *SGL_RESTRICT dst, sgl_int32_t d_width, sgl_int32_t d_height,
+                sgl_uint8_t *SGL_RESTRICT src, sgl_int32_t s_width, sgl_int32_t s_height,
+                sgl_int32_t bpp);
 #endif  /* !SGL_CFG_HAS_SIMD */
 
 
 /*******************************************************************
  *                          Queue
  *******************************************************************/
-sgl_queue_t *sgl_queue_create(size_t capacity);
+sgl_queue_t *sgl_queue_create(sgl_size_t capacity);
 void sgl_queue_destroy(sgl_queue_t **queue);
 sgl_result_t sgl_queue_copy(sgl_queue_t *SGL_RESTRICT dst, const sgl_queue_t *SGL_RESTRICT src);
 sgl_result_t sgl_queue_unsafe_enqueue(sgl_queue_t *SGL_RESTRICT queue, const void *SGL_RESTRICT data);
@@ -160,15 +156,15 @@ void *sgl_queue_dequeue(sgl_queue_t *queue);
 void *sgl_queue_peek(sgl_queue_t *queue);
 sgl_result_t sgl_queue_is_empty(const sgl_queue_t *queue);
 sgl_result_t sgl_queue_is_full(const sgl_queue_t *queue);
-size_t sgl_queue_get_capacity(const sgl_queue_t *queue);
-size_t sgl_queue_get_count(const sgl_queue_t *queue);
+sgl_size_t sgl_queue_get_capacity(const sgl_queue_t *queue);
+sgl_size_t sgl_queue_get_count(const sgl_queue_t *queue);
 
 
 /*******************************************************************
  *                          Threadpool
  *******************************************************************/
 #if defined(SGL_CFG_HAS_THREAD)
-sgl_threadpool_t *sgl_threadpool_create(size_t num_threads, size_t max_routine_lists, const char *base_name);
+sgl_threadpool_t *sgl_threadpool_create(sgl_size_t num_threads, sgl_size_t max_routine_lists, const char *base_name);
 sgl_result_t sgl_threadpool_destroy(sgl_threadpool_t *pool);
 sgl_result_t sgl_threadpool_attach_routine(sgl_threadpool_t *SGL_RESTRICT pool, sgl_threadpool_routine_t routine, sgl_queue_t *SGL_RESTRICT operations, void *SGL_RESTRICT cookie);
 #endif  /* !SGL_CFG_HAS_THREAD */

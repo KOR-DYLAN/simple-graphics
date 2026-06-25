@@ -11,11 +11,11 @@
 
 /* Util */
 #ifndef TRUE
-#define TRUE    true
+#define TRUE    SGL_TRUE
 #endif  /* !TRUE */
 
 #ifndef FALSE
-#define FALSE   false
+#define FALSE   SGL_FALSE
 #endif  /* !FALSE */
 
 /* Architecture */

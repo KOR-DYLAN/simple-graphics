@@ -48,6 +48,7 @@ install(
     FILES
         ${CMAKE_SOURCE_DIR}/include/sgl-compiler.h
         ${CMAKE_SOURCE_DIR}/include/sgl-core.h
+        ${CMAKE_SOURCE_DIR}/include/sgl-type.h
     DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
 

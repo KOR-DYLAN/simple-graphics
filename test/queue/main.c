@@ -38,7 +38,7 @@ int main(int argc, char *argv[]) {
                 sgl_queue_enqueue(queue, (const void *)cheat_string[i]);
             }
 
-            while (true) {
+            while (SGL_TRUE) {
                 data = (const char *)sgl_queue_dequeue(queue);
                 if (data == NULL) {
                     break;

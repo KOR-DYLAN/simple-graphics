@@ -1,8 +1,8 @@
 #ifndef SGL_FIXED_POINT_GENERIC_H_
 #define SGL_FIXED_POINT_GENERIC_H_
 
-typedef int16_t                     sgl_q11_t;
-typedef int32_t                     sgl_q11_ext_t;
+typedef sgl_int16_t     sgl_q11_t;
+typedef sgl_int32_t     sgl_q11_ext_t;
 
 enum {
     SGL_Q11_FRAC_BITS = 11,
@@ -58,11 +58,11 @@ static SGL_ALWAYS_INLINE sgl_q11_ext_t sgl_q11_ext_mul(sgl_q11_ext_t a, sgl_q11_
     return sgl_q11_shift_down(prod); /* Q11 */
 }
 
-static SGL_ALWAYS_INLINE uint8_t sgl_clamp_u8_i32(int32_t val)
+static SGL_ALWAYS_INLINE sgl_uint8_t sgl_clamp_u8_i32(sgl_int32_t val)
 {
-    uint8_t u8_val = (uint8_t)val;
+    sgl_uint8_t u8_val = (sgl_uint8_t)val;
 
-    if ((val & ~0xFF) != 0) { 
+    if ((val & ~0xFF) != 0) {
         if (val < 0) {
             u8_val = 0U;
         }

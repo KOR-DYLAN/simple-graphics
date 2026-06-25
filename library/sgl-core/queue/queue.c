@@ -2,7 +2,6 @@
 /* cppcheck-suppress-file variableScope */
 /* SGL-QUEUE-DEV-001: the generic queue transports opaque object pointers. */
 /* cppcheck-suppress-file misra-c2012-11.6 */
-#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sgl-core.h>
@@ -84,7 +83,7 @@ sgl_result_t sgl_queue_unsafe_enqueue(sgl_queue_t *SGL_RESTRICT queue, const voi
 {
     sgl_result_t result = SGL_SUCCESS;
     size_t head;
-    const uintptr_t data_addr = (const uintptr_t)data;
+    const sgl_uintptr_t data_addr = (const sgl_uintptr_t)data;
 
     if ((queue != NULL) && (data != NULL)) {
         result = sgl_queue_is_full(queue);
@@ -109,7 +108,7 @@ sgl_result_t sgl_queue_enqueue(sgl_queue_t *SGL_RESTRICT queue, const void *SGL_
 {
     sgl_result_t result = SGL_SUCCESS;
     size_t head;
-    const uintptr_t data_addr = (const uintptr_t)data;
+    const sgl_uintptr_t data_addr = (const sgl_uintptr_t)data;
 
     if ((queue != NULL) && (data != NULL)) {
         sgl_osal_spinlock_lock(&queue->lock);
