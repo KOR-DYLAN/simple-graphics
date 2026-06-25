@@ -4,7 +4,7 @@
 #include <pthread.h>
 
 #define NULL_THREAD     (sgl_osal_thread_t)(0)
-#define EXIT_ROUTINE    return NULL;
+#define EXIT_ROUTINE    return SGL_NULL;
 
 typedef pthread_t           sgl_osal_thread_t;
 typedef void*               sgl_osal_thread_return_t;
@@ -18,13 +18,13 @@ typedef pthread_cond_t      sgl_osal_cond_t;
 static SGL_ALWAYS_INLINE sgl_osal_thread_t sgl_thread_create(sgl_osal_thread_entry_t start_routine, sgl_osal_thread_arg_t arg)
 {
     pthread_t thread = NULL_THREAD;
-    pthread_create(&thread, NULL, start_routine, arg);
+    pthread_create(&thread, SGL_NULL, start_routine, arg);
     return thread;
 }
 
 static SGL_ALWAYS_INLINE void sgl_osal_thread_join(sgl_osal_thread_t thread)
 {
-    pthread_join(thread, NULL);
+    pthread_join(thread, SGL_NULL);
 }
 
 static SGL_ALWAYS_INLINE void sgl_osal_thread_exit(sgl_osal_thread_return_t retval)
@@ -56,7 +56,7 @@ static SGL_ALWAYS_INLINE void sgl_osal_spinlock_destroy(sgl_osal_spinlock_t *spi
 /* Mutex */
 static SGL_ALWAYS_INLINE void sgl_osal_mutex_init(sgl_osal_mutex_t *mutex)
 {
-    pthread_mutex_init(mutex, NULL);
+    pthread_mutex_init(mutex, SGL_NULL);
 }
 
 static SGL_ALWAYS_INLINE void sgl_osal_mutex_lock(sgl_osal_mutex_t *mutex)
@@ -77,7 +77,7 @@ static SGL_ALWAYS_INLINE void sgl_osal_mutex_destroy(sgl_osal_mutex_t *mutex)
 /* Conditional Variable */
 static SGL_ALWAYS_INLINE void sgl_osal_cond_init(sgl_osal_cond_t *cond)
 {
-    pthread_cond_init(cond, NULL);
+    pthread_cond_init(cond, SGL_NULL);
 }
 
 static SGL_ALWAYS_INLINE void sgl_osal_cond_wait(sgl_osal_cond_t *cond, sgl_osal_mutex_t *mutex)

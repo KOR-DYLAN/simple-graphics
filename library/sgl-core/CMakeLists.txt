@@ -24,6 +24,13 @@ set_property(TARGET ${PROJECT_NAME} PROPERTY C_STANDARD 99)
 set_property(TARGET ${PROJECT_NAME} PROPERTY C_STANDARD_REQUIRED ON)
 set_property(TARGET ${PROJECT_NAME} PROPERTY C_EXTENSIONS ON)
 
+if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(${PROJECT_NAME} PRIVATE
+        -fno-builtin-memcpy
+        -fno-builtin-memset
+    )
+endif()
+
 if(WITH_CPPCHECK)
     set_property(TARGET ${PROJECT_NAME} PROPERTY C_CPPCHECK "${SGL_C_CPPCHECK}")
     set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_CPPCHECK "${SGL_CXX_CPPCHECK}")

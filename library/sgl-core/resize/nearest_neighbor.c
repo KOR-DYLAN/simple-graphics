@@ -1,34 +1,32 @@
 /* SGL-C89-DEV-001: declarations remain at block start for C89 compatibility. */
 /* cppcheck-suppress-file variableScope */
-#include <stdint.h>
-#include <stdlib.h>
 #include <sgl-core.h>
 #include "nearest_neighbor.h"
 
-sgl_nearest_neighbor_lookup_t *sgl_generic_create_nearest_neighbor_lut(int32_t d_width, int32_t d_height, int32_t s_width, int32_t s_height)
+sgl_nearest_neighbor_lookup_t *sgl_generic_create_nearest_neighbor_lut(sgl_int32_t d_width, sgl_int32_t d_height, sgl_int32_t s_width, sgl_int32_t s_height)
 {
     sgl_nearest_neighbor_lookup_t *lut;
-    int32_t col;
-    int32_t row;
-    int32_t rx;
-    int32_t ry;
+    sgl_int32_t col;
+    sgl_int32_t row;
+    sgl_int32_t rx;
+    sgl_int32_t ry;
 
     /* SGL-MEM-DEV-001: typed conversion from the generic allocator. */
     /* cppcheck-suppress misra-c2012-11.5 */
     lut = (sgl_nearest_neighbor_lookup_t *)sgl_malloc(sizeof(sgl_nearest_neighbor_lookup_t));
-    if (lut != NULL) {
+    if (lut != SGL_NULL) {
         lut->d_width = d_width;
         lut->d_height = d_height;
         lut->s_width = s_width;
         lut->s_height = s_height;
         /* SGL-MEM-DEV-001: typed conversion from the generic allocator. */
         /* cppcheck-suppress misra-c2012-11.5 */
-        lut->x = (int32_t *)sgl_malloc(sizeof(int32_t) * (size_t)d_width);
+        lut->x = (sgl_int32_t *)sgl_malloc(sizeof(sgl_int32_t) * (sgl_size_t)d_width);
         /* SGL-MEM-DEV-001: typed conversion from the generic allocator. */
         /* cppcheck-suppress misra-c2012-11.5 */
-        lut->y = (int32_t *)sgl_malloc(sizeof(int32_t) * (size_t)d_height);
+        lut->y = (sgl_int32_t *)sgl_malloc(sizeof(sgl_int32_t) * (sgl_size_t)d_height);
 
-        if ((lut->x != NULL) && (lut->y != NULL)) {
+        if ((lut->x != SGL_NULL) && (lut->y != SGL_NULL)) {
             /* create 'column' lookup table */
             for (col = 0; col < d_width; ++col) {
                 rx = SGL_DIV_ROUNDUP(col * (s_width - 1), d_width - 1);
@@ -45,11 +43,11 @@ sgl_nearest_neighbor_lookup_t *sgl_generic_create_nearest_neighbor_lut(int32_t d
             SGL_SAFE_FREE(lut->x);
             SGL_SAFE_FREE(lut->y);
             SGL_SAFE_FREE(lut);
-            lut = NULL;
+            lut = SGL_NULL;
         }
     }
     else {
-        lut = NULL;
+        lut = SGL_NULL;
     }
 
     return lut;
@@ -57,7 +55,7 @@ sgl_nearest_neighbor_lookup_t *sgl_generic_create_nearest_neighbor_lut(int32_t d
 
 void sgl_generic_destroy_nearest_neighbor_lut(sgl_nearest_neighbor_lookup_t *lut)
 {
-    if (lut != NULL) {
+    if (lut != SGL_NULL) {
         SGL_SAFE_FREE(lut->x);
         SGL_SAFE_FREE(lut->y);
         sgl_free(lut);

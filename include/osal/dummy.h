@@ -7,7 +7,7 @@
 #define SGL_OSAL_DUMMY_H_
 
 #define NULL_THREAD         (sgl_osal_thread_t)(0)
-#define EXIT_ROUTINE        return NULL;
+#define EXIT_ROUTINE        return SGL_NULL;
 
 typedef sgl_uintptr_t       sgl_osal_thread_t;
 typedef void*               sgl_osal_thread_return_t;

@@ -1,6 +1,5 @@
 #include <stdint.h>
 #include <stdio.h>
-#include <string.h>
 #include <sgl-core.h>
 
 #if defined(SGL_CFG_HAS_PTHREAD)
@@ -26,6 +25,8 @@ typedef struct {
 } test_allocation_t;
 
 typedef int (*test_case_t)(void);
+typedef void *(*test_memcpy_t)(void *destination, const void *source, sgl_size_t size);
+typedef void *(*test_memset_t)(void *destination, sgl_int32_t value, sgl_size_t size);
 
 /*
  * One byte is deliberately added before the pool address. This forces the
@@ -62,6 +63,70 @@ static unsigned char test_pattern_byte(uint32_t signature, size_t index)
     mixed ^= mixed >> 16U;
 
     return (unsigned char)mixed;
+}
+
+static int test_memory_operation_implementation(
+    test_memcpy_t copy_function,
+    test_memset_t set_function)
+{
+    static const sgl_size_t sizes[] = {
+        0U, 1U, 2U, 3U, 4U, 5U, 7U, 8U, 9U, 15U, 16U, 17U,
+        63U, 64U, 65U, 127U, 128U, 129U, 257U
+    };
+    sgl_uint8_t source[260U];
+    sgl_uint8_t destination[260U];
+    sgl_size_t size_index;
+    sgl_size_t byte_index;
+    int result;
+
+    result = 0;
+    for (byte_index = 0U; byte_index < sizeof(source); ++byte_index) {
+        source[byte_index] = (sgl_uint8_t)((byte_index * 37U) ^ 0xA5U);
+    }
+
+    for (size_index = 0U;
+         (size_index < (sizeof(sizes) / sizeof(sizes[0]))) && (result == 0);
+         ++size_index) {
+        if (set_function(destination, 0x3C, sizeof(destination)) != destination) {
+            result = 1;
+        }
+        if ((result == 0) &&
+            (set_function(&destination[1], 0xA5, sizes[size_index]) !=
+             &destination[1])) {
+            result = 1;
+        }
+        for (byte_index = 0U;
+             (byte_index < sizes[size_index]) && (result == 0);
+             ++byte_index) {
+            if (destination[byte_index + 1U] != 0xA5U) {
+                result = 1;
+            }
+        }
+
+        if ((result == 0) &&
+            (copy_function(&destination[1], &source[1], sizes[size_index]) !=
+             &destination[1])) {
+            result = 1;
+        }
+        for (byte_index = 0U;
+             (byte_index < sizes[size_index]) && (result == 0);
+             ++byte_index) {
+            if (destination[byte_index + 1U] != source[byte_index + 1U]) {
+                result = 1;
+            }
+        }
+        if ((destination[0] != 0x3CU) ||
+            (destination[sizes[size_index] + 1U] != 0x3CU)) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+static int test_memory_operations(void)
+{
+    return test_memory_operation_implementation(sgl_memcpy, sgl_memset);
 }
 
 static void test_fill_allocation(test_allocation_t *allocation)
@@ -133,7 +198,7 @@ static int test_verify_all_active(
 
 static void test_prepare_pool_storage(void)
 {
-    memset(test_pool_storage, TEST_POOL_GUARD_VALUE, sizeof(test_pool_storage));
+    sgl_memset(test_pool_storage, TEST_POOL_GUARD_VALUE, sizeof(test_pool_storage));
 }
 
 static int test_verify_pool_guards(void)
@@ -668,6 +733,14 @@ static int test_run_pool_case(const char *name, test_case_t test_case)
 int main(void)
 {
     int result = 0;
+
+    if (test_memory_operations() != 0) {
+        puts("[FAIL] memory operations");
+        result = 1;
+    }
+    else {
+        puts("[PASS] memory operations");
+    }
 
     if (test_uninitialized_pool_contract() != 0) {
         puts("[FAIL] uninitialized pool contract");

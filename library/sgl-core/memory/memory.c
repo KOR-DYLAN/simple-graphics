@@ -12,7 +12,6 @@
 /* cppcheck-suppress-file unreadVariable */
 /* cppcheck-suppress-file misra-c2012-8.7 */
 /* cppcheck-suppress-file misra-config */
-#include <string.h>
 #include <sgl-core.h>
 #include "sgl-osal.h"
 
@@ -60,14 +59,14 @@ typedef union {
      */
     long double value;
     void *pointer;
-    size_t size;
+    sgl_size_t size;
 } sgl_memory_alignment_t;
 
 typedef union sgl_memory_block sgl_memory_block_t;
 
 union sgl_memory_block {
     struct {
-        size_t size;
+        sgl_size_t size;
         sgl_memory_block_t *previous_physical;
         sgl_memory_block_t *previous_free;
         sgl_memory_block_t *next_free;
@@ -81,17 +80,17 @@ typedef struct {
     sgl_uintptr_t begin;
     sgl_uintptr_t end;
     sgl_memory_block_t *free_list;
-    size_t allocation_count;
+    sgl_size_t allocation_count;
     sgl_bool_t is_initialized;
     sgl_osal_mutex_t lock;
 } sgl_memory_pool_t;
 
 static sgl_memory_pool_t sgl_memory_pool;
 
-static size_t sgl_memory_align_size(size_t size)
+static sgl_size_t sgl_memory_align_size(sgl_size_t size)
 {
-    const size_t alignment = sizeof(sgl_memory_alignment_t);
-    size_t aligned_size = 0U;
+    const sgl_size_t alignment = sizeof(sgl_memory_alignment_t);
+    sgl_size_t aligned_size = 0U;
 
     /* Check the addition before rounding upward to the next alignment unit. */
     if (size <= (SGL_SIZE_MAX - (alignment - 1U))) {
@@ -104,7 +103,7 @@ static size_t sgl_memory_align_size(size_t size)
 static sgl_memory_block_t *sgl_memory_next_physical(sgl_memory_block_t *block)
 {
     sgl_uintptr_t next;
-    sgl_memory_block_t *next_block = NULL;
+    sgl_memory_block_t *next_block = SGL_NULL;
 
     /*
      * Physical blocks do not need a next pointer because the next header begins
@@ -121,38 +120,38 @@ static sgl_memory_block_t *sgl_memory_next_physical(sgl_memory_block_t *block)
 static void sgl_memory_remove_free_block(sgl_memory_block_t *block)
 {
     /* Detach a block without changing its physical neighbours. */
-    if (block->fields.previous_free != NULL) {
+    if (block->fields.previous_free != SGL_NULL) {
         block->fields.previous_free->fields.next_free = block->fields.next_free;
     }
     else {
         sgl_memory_pool.free_list = block->fields.next_free;
     }
 
-    if (block->fields.next_free != NULL) {
+    if (block->fields.next_free != SGL_NULL) {
         block->fields.next_free->fields.previous_free = block->fields.previous_free;
     }
 
-    block->fields.previous_free = NULL;
-    block->fields.next_free = NULL;
+    block->fields.previous_free = SGL_NULL;
+    block->fields.next_free = SGL_NULL;
 }
 
 static void sgl_memory_insert_free_block(sgl_memory_block_t *block)
 {
     /* Free-list order is not address order; insertion at the head is O(1). */
     block->fields.is_free = SGL_TRUE;
-    block->fields.previous_free = NULL;
+    block->fields.previous_free = SGL_NULL;
     block->fields.next_free = sgl_memory_pool.free_list;
-    if (sgl_memory_pool.free_list != NULL) {
+    if (sgl_memory_pool.free_list != SGL_NULL) {
         sgl_memory_pool.free_list->fields.previous_free = block;
     }
     sgl_memory_pool.free_list = block;
 }
 
-static void sgl_memory_split_block(sgl_memory_block_t *block, size_t size)
+static void sgl_memory_split_block(sgl_memory_block_t *block, sgl_size_t size)
 {
     sgl_memory_block_t *remainder;
     sgl_memory_block_t *next;
-    size_t remainder_size;
+    sgl_size_t remainder_size;
 
     /*
      * Split only when the remainder can contain another header and at least one
@@ -173,14 +172,14 @@ static void sgl_memory_split_block(sgl_memory_block_t *block, size_t size)
         remainder = (sgl_memory_block_t *)((sgl_uintptr_t)block + sizeof(sgl_memory_block_t) + size);
         remainder->fields.size = remainder_size;
         remainder->fields.previous_physical = block;
-        remainder->fields.previous_free = NULL;
-        remainder->fields.next_free = NULL;
+        remainder->fields.previous_free = SGL_NULL;
+        remainder->fields.next_free = SGL_NULL;
         remainder->fields.magic = SGL_MEMORY_BLOCK_MAGIC;
         remainder->fields.is_free = SGL_TRUE;
 
         block->fields.size = size;
         next = sgl_memory_next_physical(remainder);
-        if (next != NULL) {
+        if (next != SGL_NULL) {
             next->fields.previous_physical = remainder;
         }
 
@@ -206,11 +205,11 @@ static sgl_memory_block_t *sgl_memory_merge_with_next(sgl_memory_block_t *block)
      *   +--------+----------------------------+
      */
     next = sgl_memory_next_physical(block);
-    if ((next != NULL) && (next->fields.magic == SGL_MEMORY_BLOCK_MAGIC) && next->fields.is_free) {
+    if ((next != SGL_NULL) && (next->fields.magic == SGL_MEMORY_BLOCK_MAGIC) && next->fields.is_free) {
         sgl_memory_remove_free_block(next);
         block->fields.size += sizeof(sgl_memory_block_t) + next->fields.size;
         after_next = sgl_memory_next_physical(block);
-        if (after_next != NULL) {
+        if (after_next != SGL_NULL) {
             after_next->fields.previous_physical = block;
         }
     }
@@ -218,13 +217,13 @@ static sgl_memory_block_t *sgl_memory_merge_with_next(sgl_memory_block_t *block)
     return block;
 }
 
-sgl_result_t sgl_memory_pool_initialize(void *memory, size_t size)
+sgl_result_t sgl_memory_pool_initialize(void *memory, sgl_size_t size)
 {
     sgl_uintptr_t raw_address;
     sgl_uintptr_t aligned_address;
-    size_t alignment;
-    size_t offset;
-    size_t usable_size;
+    sgl_size_t alignment;
+    sgl_size_t offset;
+    sgl_size_t usable_size;
     sgl_memory_block_t *first;
     sgl_result_t result = SGL_ERROR_INVALID_ARGUMENTS;
 
@@ -232,11 +231,11 @@ sgl_result_t sgl_memory_pool_initialize(void *memory, size_t size)
      * Align the beginning inward and the usable size downward. Any bytes lost
      * to alignment remain owned by the caller but are outside the pool.
      */
-    if ((memory != NULL) && (sgl_memory_pool.is_initialized == SGL_FALSE)) {
+    if ((memory != SGL_NULL) && (sgl_memory_pool.is_initialized == SGL_FALSE)) {
         alignment = sizeof(sgl_memory_alignment_t);
         raw_address = (sgl_uintptr_t)memory;
         aligned_address = (raw_address + alignment - 1U) & ~(sgl_uintptr_t)(alignment - 1U);
-        offset = (size_t)(aligned_address - raw_address);
+        offset = (sgl_size_t)(aligned_address - raw_address);
         if ((size > offset) &&
             ((size - offset) >= (sizeof(sgl_memory_block_t) + SGL_MEMORY_MIN_PAYLOAD_SIZE))) {
             usable_size = (size - offset) & ~(alignment - 1U);
@@ -251,9 +250,9 @@ sgl_result_t sgl_memory_pool_initialize(void *memory, size_t size)
              */
             first = (sgl_memory_block_t *)aligned_address;
             first->fields.size = usable_size - sizeof(sgl_memory_block_t);
-            first->fields.previous_physical = NULL;
-            first->fields.previous_free = NULL;
-            first->fields.next_free = NULL;
+            first->fields.previous_physical = SGL_NULL;
+            first->fields.previous_free = SGL_NULL;
+            first->fields.next_free = SGL_NULL;
             first->fields.magic = SGL_MEMORY_BLOCK_MAGIC;
             first->fields.is_free = SGL_TRUE;
             sgl_memory_pool.free_list = first;
@@ -280,7 +279,7 @@ sgl_result_t sgl_memory_pool_deinitialize(void)
             sgl_memory_pool.is_initialized = SGL_FALSE;
             sgl_memory_pool.begin = 0U;
             sgl_memory_pool.end = 0U;
-            sgl_memory_pool.free_list = NULL;
+            sgl_memory_pool.free_list = SGL_NULL;
             result = SGL_SUCCESS;
         }
         else {
@@ -295,19 +294,19 @@ sgl_result_t sgl_memory_pool_deinitialize(void)
     return result;
 }
 
-void *sgl_malloc(size_t size)
+void *sgl_malloc(sgl_size_t size)
 {
-    sgl_memory_block_t *block = NULL;
-    size_t aligned_size = 0U;
-    void *memory = NULL;
+    sgl_memory_block_t *block = SGL_NULL;
+    sgl_size_t aligned_size = 0U;
+    void *memory = SGL_NULL;
 
     if (size != 0U) {
         if (sgl_memory_pool.is_initialized == SGL_FALSE) {
             /*
-             * A pool is mandatory. Returning NULL keeps the allocator independent
+             * A pool is mandatory. Returning SGL_NULL keeps the allocator independent
              * from the C runtime heap and makes missing initialization explicit.
              */
-            memory = NULL;
+            memory = SGL_NULL;
         }
         else {
             aligned_size = sgl_memory_align_size(size);
@@ -315,11 +314,11 @@ void *sgl_malloc(size_t size)
                 sgl_osal_mutex_lock(&sgl_memory_pool.lock);
                 /* First-fit balances implementation size and predictable cost. */
                 block = sgl_memory_pool.free_list;
-                while ((block != NULL) && (block->fields.size < aligned_size)) {
+                while ((block != SGL_NULL) && (block->fields.size < aligned_size)) {
                     block = block->fields.next_free;
                 }
 
-                if (block != NULL) {
+                if (block != SGL_NULL) {
                     sgl_memory_remove_free_block(block);
                     sgl_memory_split_block(block, aligned_size);
                     block->fields.is_free = SGL_FALSE;
@@ -334,17 +333,17 @@ void *sgl_malloc(size_t size)
     return memory;
 }
 
-void *sgl_calloc(size_t count, size_t size)
+void *sgl_calloc(sgl_size_t count, sgl_size_t size)
 {
-    size_t total_size;
-    void *memory = NULL;
+    sgl_size_t total_size;
+    void *memory = SGL_NULL;
 
     /* Division-based overflow check avoids evaluating count * size too early. */
     if ((size == 0U) || (count <= (SGL_SIZE_MAX / size))) {
         total_size = count * size;
         memory = sgl_malloc(total_size);
-        if (memory != NULL) {
-            (void)memset(memory, 0, total_size);
+        if (memory != SGL_NULL) {
+            (void)sgl_memset(memory, 0, total_size);
         }
     }
 
@@ -357,7 +356,7 @@ void sgl_free(void *memory)
     sgl_memory_block_t *previous;
     sgl_uintptr_t address;
 
-    if (memory != NULL) {
+    if (memory != SGL_NULL) {
         address = (sgl_uintptr_t)memory;
         if ((sgl_memory_pool.is_initialized == SGL_TRUE) &&
             (address >= sgl_memory_pool.begin) && (address < sgl_memory_pool.end)) {
@@ -372,12 +371,12 @@ void sgl_free(void *memory)
                 block->fields.is_free = SGL_TRUE;
                 block = sgl_memory_merge_with_next(block);
                 previous = block->fields.previous_physical;
-                if ((previous != NULL) && previous->fields.is_free) {
+                if ((previous != SGL_NULL) && previous->fields.is_free) {
                     sgl_memory_remove_free_block(previous);
                     previous->fields.size += sizeof(sgl_memory_block_t) + block->fields.size;
                     block = previous;
                     previous = sgl_memory_next_physical(block);
-                    if (previous != NULL) {
+                    if (previous != SGL_NULL) {
                         previous->fields.previous_physical = block;
                     }
                 }

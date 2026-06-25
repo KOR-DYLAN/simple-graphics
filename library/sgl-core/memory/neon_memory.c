@@ -1,0 +1,99 @@
+/* SGL-C89-DEV-001: declarations remain at block start for C89 compatibility. */
+/* cppcheck-suppress-file variableScope */
+/* SGL-MEM-DEV-001: generic byte storage is accessed through character types. */
+/* cppcheck-suppress-file misra-c2012-11.5 */
+#include <arm_neon.h>
+#include "memory_operation.h"
+
+#define SGL_NEON_VECTOR_SIZE       (16U)
+#define SGL_NEON_BULK_SIZE         (64U)
+
+void *sgl_simd_memcpy(void *SGL_RESTRICT destination,
+                      const void *SGL_RESTRICT source,
+                      sgl_size_t size)
+{
+    sgl_uint8_t *destination_bytes;
+    const sgl_uint8_t *source_bytes;
+    sgl_size_t offset;
+    uint8x16_t vector0;
+    uint8x16_t vector1;
+    uint8x16_t vector2;
+    uint8x16_t vector3;
+
+    destination_bytes = (sgl_uint8_t *)destination;
+    source_bytes = (const sgl_uint8_t *)source;
+    offset = 0U;
+
+    /*
+     * Select the widest useful path from the requested size:
+     *
+     *   64-byte bulk blocks -> 16-byte vectors -> generic byte tail
+     */
+    if (size >= SGL_NEON_BULK_SIZE) {
+        while ((size - offset) >= SGL_NEON_BULK_SIZE) {
+            vector0 = vld1q_u8(&source_bytes[offset]);
+            vector1 = vld1q_u8(&source_bytes[offset + 16U]);
+            vector2 = vld1q_u8(&source_bytes[offset + 32U]);
+            vector3 = vld1q_u8(&source_bytes[offset + 48U]);
+            vst1q_u8(&destination_bytes[offset], vector0);
+            vst1q_u8(&destination_bytes[offset + 16U], vector1);
+            vst1q_u8(&destination_bytes[offset + 32U], vector2);
+            vst1q_u8(&destination_bytes[offset + 48U], vector3);
+            offset += SGL_NEON_BULK_SIZE;
+        }
+    }
+
+    if ((size - offset) >= SGL_NEON_VECTOR_SIZE) {
+        while ((size - offset) >= SGL_NEON_VECTOR_SIZE) {
+            vector0 = vld1q_u8(&source_bytes[offset]);
+            vst1q_u8(&destination_bytes[offset], vector0);
+            offset += SGL_NEON_VECTOR_SIZE;
+        }
+    }
+
+    if (offset < size) {
+        (void)sgl_generic_memcpy(&destination_bytes[offset],
+                                 &source_bytes[offset],
+                                 size - offset);
+    }
+
+    return destination;
+}
+
+void *sgl_simd_memset(void *destination, sgl_int32_t value, sgl_size_t size)
+{
+    sgl_uint8_t *destination_bytes;
+    sgl_uint8_t byte_value;
+    sgl_size_t offset;
+    uint8x16_t vector;
+
+    destination_bytes = (sgl_uint8_t *)destination;
+    byte_value = (sgl_uint8_t)value;
+    offset = 0U;
+    vector = vdupq_n_u8(byte_value);
+
+    if (size >= SGL_NEON_BULK_SIZE) {
+        while ((size - offset) >= SGL_NEON_BULK_SIZE) {
+            vst1q_u8(&destination_bytes[offset], vector);
+            vst1q_u8(&destination_bytes[offset + 16U], vector);
+            vst1q_u8(&destination_bytes[offset + 32U], vector);
+            vst1q_u8(&destination_bytes[offset + 48U], vector);
+            offset += SGL_NEON_BULK_SIZE;
+        }
+    }
+
+    if ((size - offset) >= SGL_NEON_VECTOR_SIZE) {
+        while ((size - offset) >= SGL_NEON_VECTOR_SIZE) {
+            vst1q_u8(&destination_bytes[offset], vector);
+            offset += SGL_NEON_VECTOR_SIZE;
+        }
+    }
+
+    if (offset < size) {
+        (void)sgl_generic_memset(&destination_bytes[offset],
+                                 value,
+                                 size - offset);
+    }
+
+    return destination;
+}

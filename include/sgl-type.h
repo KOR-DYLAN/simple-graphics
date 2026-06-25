@@ -82,4 +82,10 @@ typedef _Bool               sgl_bool_t;
 #define SGL_TRUE            ((sgl_bool_t)1)
 #define SGL_SIZE_MAX        ((sgl_size_t)-1)
 
+#if defined(__cplusplus)
+#define SGL_NULL            0
+#else
+#define SGL_NULL            ((void *)0)
+#endif
+
 #endif  /* SGL_TYPE_H_ */

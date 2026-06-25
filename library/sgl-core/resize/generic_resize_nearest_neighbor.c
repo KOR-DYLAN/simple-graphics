@@ -3,8 +3,6 @@
 /* SGL-CALLBACK-DEV-001: thread callbacks recover typed context from void *. */
 /* cppcheck-suppress-file misra-c2012-11.5 */
 /* cppcheck-suppress-file constParameterCallback */
-#include <stdint.h>
-#include <stdlib.h>
 #include <sgl-core.h>
 #include "nearest_neighbor.h"
 
@@ -12,16 +10,16 @@
 static void sgl_generic_resize_nearest_neighbor_routine(void *SGL_RESTRICT current, void *SGL_RESTRICT cookie);
 #endif  /* !SGL_CFG_HAS_THREAD */
 
-static SGL_ALWAYS_INLINE void sgl_generic_resize_nearest_neighbor_line_stripe(int32_t row, sgl_nearest_neighbor_data_t *data) {
+static SGL_ALWAYS_INLINE void sgl_generic_resize_nearest_neighbor_line_stripe(sgl_int32_t row, sgl_nearest_neighbor_data_t *data) {
     sgl_nearest_neighbor_lookup_t *lut = data->lut;
-    int32_t col;
-    int32_t ch;
-    int32_t d_width;
-    int32_t bpp;
-    const int32_t *x;
-    uint8_t *src_y_buf;
-    const uint8_t *src;
-    uint8_t *dst;
+    sgl_int32_t col;
+    sgl_int32_t ch;
+    sgl_int32_t d_width;
+    sgl_int32_t bpp;
+    const sgl_int32_t *x;
+    sgl_uint8_t *src_y_buf;
+    const sgl_uint8_t *src;
+    sgl_uint8_t *dst;
 
     d_width = lut->d_width;
     bpp = data->bpp;
@@ -63,19 +61,19 @@ static SGL_ALWAYS_INLINE void sgl_generic_resize_nearest_neighbor_line_stripe(in
 
 sgl_result_t sgl_generic_resize_nearest(
                 sgl_threadpool_t *SGL_RESTRICT pool, sgl_nearest_neighbor_lookup_t *SGL_RESTRICT ext_lut,
-                uint8_t *SGL_RESTRICT dst, int32_t d_width, int32_t d_height,
-                uint8_t *SGL_RESTRICT src, int32_t s_width, int32_t s_height,
-                int32_t bpp)
+                sgl_uint8_t *SGL_RESTRICT dst, sgl_int32_t d_width, sgl_int32_t d_height,
+                sgl_uint8_t *SGL_RESTRICT src, sgl_int32_t s_width, sgl_int32_t s_height,
+                sgl_int32_t bpp)
 {
     sgl_result_t result = SGL_SUCCESS;
-    int32_t row;
+    sgl_int32_t row;
     sgl_nearest_neighbor_data_t data;
-    sgl_nearest_neighbor_lookup_t *lut = NULL;
-    sgl_nearest_neighbor_lookup_t *temp_lut = NULL;
-    int32_t errcnt = 0;
+    sgl_nearest_neighbor_lookup_t *lut = SGL_NULL;
+    sgl_nearest_neighbor_lookup_t *temp_lut = SGL_NULL;
+    sgl_int32_t errcnt = 0;
 
     /* check buffer address */
-    if ((dst == NULL) || (src == NULL)) {
+    if ((dst == SGL_NULL) || (src == SGL_NULL)) {
         errcnt += 1;
     }
 
@@ -91,7 +89,7 @@ sgl_result_t sgl_generic_resize_nearest(
 
     /* check error count */
     if (errcnt == 0) {
-         if (ext_lut != NULL) {
+         if (ext_lut != SGL_NULL) {
             if ((ext_lut->d_width == d_width) && (ext_lut->d_height == d_height) &&
                 (ext_lut->s_width == s_width) && (ext_lut->s_height == s_height))
             {
@@ -100,13 +98,13 @@ sgl_result_t sgl_generic_resize_nearest(
             }
         }
 
-        if (lut == NULL) {
+        if (lut == SGL_NULL) {
             /* create temp look-up table */
             temp_lut = sgl_generic_create_nearest_neighbor_lut(d_width, d_height, s_width, s_height);
             lut = temp_lut;
         }
 
-        if (lut != NULL) {
+        if (lut != SGL_NULL) {
             /* set data */
             data.bpp = bpp;
             data.src = src;
@@ -115,7 +113,7 @@ sgl_result_t sgl_generic_resize_nearest(
             data.src_stride = s_width * bpp;
             data.dst_stride = d_width * bpp;
 
-            if (pool == NULL) {
+            if (pool == SGL_NULL) {
                 /* single-threaded resize */
                 for (row = 0; row < d_height; ++row) {
                     sgl_generic_resize_nearest_neighbor_line_stripe(row, (void *)&data);
@@ -124,10 +122,10 @@ sgl_result_t sgl_generic_resize_nearest(
 #if defined(SGL_CFG_HAS_THREAD)
             else {
                 sgl_nearest_neighbor_current_t *currents;
-                sgl_queue_t *operations = NULL;
-                int32_t i;
-                int32_t num_operations;
-                int32_t mod_operations;
+                sgl_queue_t *operations = SGL_NULL;
+                sgl_int32_t i;
+                sgl_int32_t num_operations;
+                sgl_int32_t mod_operations;
 
                 num_operations = d_height / SGL_GENERIC_BULK_SIZE;
                 mod_operations = d_height % SGL_GENERIC_BULK_SIZE;
@@ -135,11 +133,11 @@ sgl_result_t sgl_generic_resize_nearest(
                     num_operations += 1;
                 }
 
-                operations = sgl_queue_create((size_t)num_operations);
+                operations = sgl_queue_create((sgl_size_t)num_operations);
                 /* SGL-MEM-DEV-001: typed conversion from the generic allocator. */
                 /* cppcheck-suppress misra-c2012-11.5 */
-                currents = (sgl_nearest_neighbor_current_t *)sgl_malloc(sizeof(sgl_nearest_neighbor_current_t) * (size_t)num_operations);
-                if ((operations != NULL) && (currents != NULL)) {
+                currents = (sgl_nearest_neighbor_current_t *)sgl_malloc(sizeof(sgl_nearest_neighbor_current_t) * (sgl_size_t)num_operations);
+                if ((operations != SGL_NULL) && (currents != SGL_NULL)) {
                     for (i = 0; i < num_operations; ++i) {
                         currents[i].row = i * SGL_GENERIC_BULK_SIZE;
                         currents[i].count = SGL_GENERIC_BULK_SIZE;
@@ -167,7 +165,7 @@ sgl_result_t sgl_generic_resize_nearest(
             }
 #endif  /* !SGL_CFG_HAS_THREAD */
 
-            if (temp_lut != NULL) {
+            if (temp_lut != SGL_NULL) {
                 /* destroy temp look-up table */
                 sgl_generic_destroy_nearest_neighbor_lut(temp_lut);
             }
@@ -185,7 +183,7 @@ static void sgl_generic_resize_nearest_neighbor_routine(void *SGL_RESTRICT curre
 {
     const sgl_nearest_neighbor_current_t *cur = (const sgl_nearest_neighbor_current_t *)current;
     sgl_nearest_neighbor_data_t *data = (sgl_nearest_neighbor_data_t *)cookie;
-    int32_t row;
+    sgl_int32_t row;
 
     for (row = cur->row; row < (cur->row + cur->count); ++row) {
         sgl_generic_resize_nearest_neighbor_line_stripe(row, data);

@@ -25,7 +25,7 @@ extern "C" {
  */
 #define SGL_UNUSED_PARAM(p)                         SGL_UNUSED(p)
 #define SGL_DIV_ROUNDUP(n, d)                       (((n) + (d) - 1) / (d))
-#define SGL_SAFE_FREE(p)                            if ((p) != NULL) { sgl_free((p)); (p) = NULL; }
+#define SGL_SAFE_FREE(p)                            if ((p) != SGL_NULL) { sgl_free((p)); (p) = SGL_NULL; }
 #define SGL_THREADPOOL_DEFAULT_MAX_ROUTINE_LISTS    (4U)
 #define SGL_GENERIC_BULK_SIZE                       (4)
 #define SGL_SIMD_BULK_SIZE                          (8)
@@ -59,6 +59,22 @@ typedef struct sgl_bicubic_lookup_table             sgl_bicubic_lookup_t;
 typedef struct sgl_queue                            sgl_queue_t;
 typedef struct sgl_threadpool                       sgl_threadpool_t;
 typedef void(*sgl_threadpool_routine_t)(void *SGL_RESTRICT current, void *SGL_RESTRICT cookie);
+
+
+/*******************************************************************
+ *                          Memory Operations
+ *******************************************************************/
+/*
+ * Copy operations require non-overlapping source and destination ranges.
+ * Set operations store the low eight bits of value in every destination byte.
+ *
+ * sgl_memcpy() and sgl_memset() select the accelerated implementation when
+ * the configured target provides one.
+ */
+void *sgl_memcpy(void *SGL_RESTRICT destination,
+                 const void *SGL_RESTRICT source,
+                 sgl_size_t size);
+void *sgl_memset(void *destination, sgl_int32_t value, sgl_size_t size);
 
 
 /*******************************************************************
