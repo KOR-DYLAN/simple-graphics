@@ -20,52 +20,14 @@ extern "C" {
 #include <stddef.h>
 #include <stdint.h>
 #include <sgl-config.h>
-
-/*
- *******************************************************************
- *                          COMPILER
- *******************************************************************
- */
-#if defined(_MSC_VER)
-    #define SGL_ALWAYS_INLINE __forceinline
-#elif defined(__GNUC__) || defined(__clang__)
-    #define SGL_ALWAYS_INLINE inline __attribute__((always_inline))
-#else
-    #define SGL_ALWAYS_INLINE inline
-#endif
-
-#if defined(_MSC_VER)
-    #define SGL_RESTRICT __restrict
-#elif defined(__GNUC__) || defined(__clang__)
-    #define SGL_RESTRICT __restrict__
-#else
-    #define SGL_RESTRICT
-#endif
-
-#if defined(_MSC_VER)
-    #define SGL_ALIGNED(n) __declspec(align(n))
-#elif defined(__GNUC__) || defined(__clang__)
-    #define SGL_ALIGNED(n) __attribute__((aligned(n)))
-#else
-    #define SGL_ALIGNED(n)
-#endif
-
-#if defined(_MSC_VER)
-#   define SGL_UNUSED(x) (void)(x)
-#elif defined(__GNUC__) || defined(__clang__)
-#   define SGL_UNUSED(x) (void)(x)
-#else
-#   define SGL_UNUSED(x) (void)(x)
-#endif
-
-
+#include <sgl-compiler.h>
 
 /*
  *******************************************************************
  *                          DEFINES
  *******************************************************************
  */
-#define SGL_UNUSED_PARAM(p)                         (void)(p)
+#define SGL_UNUSED_PARAM(p)                         SGL_UNUSED(p)
 #define SGL_DIV_ROUNDUP(n, d)                       (((n) + (d) - 1) / (d))
 #define SGL_SAFE_FREE(p)                            if ((p) != NULL) { sgl_free((p)); (p) = NULL; }
 #define SGL_THREADPOOL_DEFAULT_MAX_ROUTINE_LISTS    (4U)
