@@ -1,0 +1,5 @@
+{
+    "script": "misra.py",
+    "args": [@CPPCHECK_MISRA_ARGS_JSON@],
+    "ctu": true
+}

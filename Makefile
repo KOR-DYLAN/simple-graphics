@@ -11,10 +11,16 @@ HOSTENV			:=TRUE
 QEMU			:=qemu-aarch64
 
 # Options(ON,OFF)
-# WITH_TEST_APP	?=OFF
-# WITH_CLANG_TIDY	?=ON
-# WITH_SIMD		?=OFF
-# WITH_THREAD		?=OFF
+# WITH_COMPILER_WARNINGS	?=ON
+# WITH_CPPCHECK				?=OFF
+# WITH_CPPCHECK_MISRA		?=OFF
+# WITH_CPPCHECK_WARNINGS_AS_ERRORS	?=OFF
+# WITH_TEST_APP				?=OFF
+# WITH_SIMD					?=OFF
+# WITH_THREAD				?=OFF
+
+# Optional licensed MISRA C rule headlines file
+# CPPCHECK_MISRA_RULE_TEXTS	?=/path/to/misra-rule-headlines.txt
 
 # aarch64-none-linux-llvm | aarch64-none-linux-gnu |
 # llvm | gnu
@@ -40,7 +46,7 @@ config:
 	$(CMAKE) $(CMAKE_FLAGS) -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) -S$(WORKSPACE) -B$(BUILD)
 
 phony+=build
-build:
+build: config
 	$(CMAKE) --build $(BUILD) -j $(NPROC) $(VERBOSE)
 
 phony+=install

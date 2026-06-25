@@ -1,3 +1,8 @@
+/* SGL-C89-DEV-001: declarations remain at block start for C89 compatibility. */
+/* cppcheck-suppress-file variableScope */
+/* SGL-CALLBACK-DEV-001: thread callbacks recover typed context from void *. */
+/* cppcheck-suppress-file misra-c2012-11.5 */
+/* cppcheck-suppress-file constParameterCallback */
 #include <stdint.h>
 #include <stdlib.h>
 #include <sgl-core.h>
@@ -10,26 +15,41 @@ static void sgl_generic_resize_bilinear_routine(void *SGL_RESTRICT current, void
 static SGL_ALWAYS_INLINE void sgl_generic_resize_bilinear_line_stripe(int32_t row, sgl_bilinear_data_t *data) {
     bilinear_column_lookup_t *col_lookup;
     bilinear_row_lookup_t *row_lookup;
-    int32_t col; 
-    int32_t d_width, bpp;
-    int32_t x1_off, x2_off;
-    int32_t y1, y2;
-    sgl_q11_t p, inv_p;
-    sgl_q11_t q, inv_q;
-    sgl_q11_t w00, w01, w10, w11;
-    sgl_q11_ext_t acc, value;
-    uint8_t *src, *dst;
-    int32_t ch, src_stride, dst_stride;
-    uint8_t *src_y1_buf, *src_y2_buf;
-    uint8_t *src_y1x1, *src_y1x2;
-    uint8_t *src_y2x1, *src_y2x2;
+    int32_t col;
+    int32_t d_width;
+    int32_t bpp;
+    int32_t x1_off;
+    int32_t x2_off;
+    int32_t y1;
+    int32_t y2;
+    sgl_q11_t p;
+    sgl_q11_t inv_p;
+    sgl_q11_t q;
+    sgl_q11_t inv_q;
+    sgl_q11_t w00;
+    sgl_q11_t w01;
+    sgl_q11_t w10;
+    sgl_q11_t w11;
+    sgl_q11_ext_t acc;
+    sgl_q11_ext_t value;
+    const uint8_t *src;
+    uint8_t *dst;
+    int32_t ch;
+    int32_t src_stride;
+    int32_t dst_stride;
+    const uint8_t *src_y1_buf;
+    const uint8_t *src_y2_buf;
+    const uint8_t *src_y1x1;
+    const uint8_t *src_y1x2;
+    const uint8_t *src_y2x1;
+    const uint8_t *src_y2x2;
 
     /* set common data */
     row_lookup = &data->lut->row_lookup;
     col_lookup = &data->lut->col_lookup;
     d_width = data->lut->d_width;
     bpp = data->bpp;
-    
+
     /* set 'row' data */
     y1 = row_lookup->y1[row];
     y2 = row_lookup->y2[row];
@@ -38,11 +58,11 @@ static SGL_ALWAYS_INLINE void sgl_generic_resize_bilinear_line_stripe(int32_t ro
 
     src_stride = data->src_stride;
     src = data->src;
-    src_y1_buf = src + (y1 * src_stride);
-    src_y2_buf = src + (y2 * src_stride);
+    src_y1_buf = &src[y1 * src_stride];
+    src_y2_buf = &src[y2 * src_stride];
 
     dst_stride = data->dst_stride;
-    dst = data->dst + (row * dst_stride);
+    dst = &data->dst[row * dst_stride];
 
     for (col = 0; col < d_width; ++col) {
         x1_off = col_lookup->x1[col] * bpp;
@@ -55,35 +75,36 @@ static SGL_ALWAYS_INLINE void sgl_generic_resize_bilinear_line_stripe(int32_t ro
         w10 = sgl_q11_mul(inv_p,     q); /* Q11 */
         w11 = sgl_q11_mul(    p,     q); /* Q11 */
 
-        src_y1x1 = src_y1_buf + x1_off;
-        src_y1x2 = src_y1_buf + x2_off;
-        src_y2x1 = src_y2_buf + x1_off;
-        src_y2x2 = src_y2_buf + x2_off;
+        src_y1x1 = &src_y1_buf[x1_off];
+        src_y1x2 = &src_y1_buf[x2_off];
+        src_y2x1 = &src_y2_buf[x1_off];
+        src_y2x2 = &src_y2_buf[x2_off];
 
         for (ch = 0; ch < bpp; ++ch) {
-            acc =   ((sgl_q11_ext_t)w00 * src_y1x1[ch]) + 
-                    ((sgl_q11_ext_t)w01 * src_y1x2[ch]) +
-                    ((sgl_q11_ext_t)w10 * src_y2x1[ch]) + 
-                    ((sgl_q11_ext_t)w11 * src_y2x2[ch]);
-            value = SGL_Q11_SHIFTDOWN(SGL_Q11_ROUNDUP(acc));
+            acc =   ((sgl_q11_ext_t)w00 * (sgl_q11_ext_t)src_y1x1[ch]) +
+                    ((sgl_q11_ext_t)w01 * (sgl_q11_ext_t)src_y1x2[ch]) +
+                    ((sgl_q11_ext_t)w10 * (sgl_q11_ext_t)src_y2x1[ch]) +
+                    ((sgl_q11_ext_t)w11 * (sgl_q11_ext_t)src_y2x2[ch]);
+            value = sgl_q11_shift_down(sgl_q11_round_up(acc));
 
             /* Q11 -> u8 */
             dst[ch] = sgl_clamp_u8_i32(value);
         }
-        dst += bpp;
+        dst = &dst[bpp];
     }
 }
 
 sgl_result_t sgl_generic_resize_bilinear(
-                sgl_threadpool_t *SGL_RESTRICT pool, sgl_bilinear_lookup_t *SGL_RESTRICT ext_lut, 
-                uint8_t *SGL_RESTRICT dst, int32_t d_width, int32_t d_height, 
-                uint8_t *SGL_RESTRICT src, int32_t s_width, int32_t s_height, 
+                sgl_threadpool_t *SGL_RESTRICT pool, sgl_bilinear_lookup_t *SGL_RESTRICT ext_lut,
+                uint8_t *SGL_RESTRICT dst, int32_t d_width, int32_t d_height,
+                uint8_t *SGL_RESTRICT src, int32_t s_width, int32_t s_height,
                 int32_t bpp)
 {
     sgl_result_t result = SGL_SUCCESS;
     int32_t row;
     sgl_bilinear_data_t data;
-    sgl_bilinear_lookup_t *lut = NULL, *temp_lut = NULL;
+    sgl_bilinear_lookup_t *lut = NULL;
+    sgl_bilinear_lookup_t *temp_lut = NULL;
     int32_t errcnt = 0;
 
     /* check buffer address */
@@ -137,7 +158,9 @@ sgl_result_t sgl_generic_resize_bilinear(
             else {
                 sgl_bilinear_current_t *currents;
                 sgl_queue_t *operations = NULL;
-                int32_t i, num_operations, mod_operations;
+                int32_t i;
+                int32_t num_operations;
+                int32_t mod_operations;
 
                 num_operations = d_height / SGL_GENERIC_BULK_SIZE;
                 mod_operations = d_height % SGL_GENERIC_BULK_SIZE;
@@ -146,12 +169,14 @@ sgl_result_t sgl_generic_resize_bilinear(
                 }
 
                 operations = sgl_queue_create((size_t)num_operations);
+                /* SGL-MEM-DEV-001: typed conversion from the generic allocator. */
+                /* cppcheck-suppress misra-c2012-11.5 */
                 currents = (sgl_bilinear_current_t *)sgl_malloc(sizeof(sgl_bilinear_current_t) * (size_t)num_operations);
                 if ((operations != NULL) && (currents != NULL)) {
                     for (i = 0; i < num_operations; ++i) {
                         currents[i].row = i * SGL_GENERIC_BULK_SIZE;
                         currents[i].count = SGL_GENERIC_BULK_SIZE;
-                        sgl_queue_unsafe_enqueue(operations, (const void *)&currents[i]);
+                        (void)sgl_queue_unsafe_enqueue(operations, (const void *)&currents[i]);
                     }
 
                     if (mod_operations != 0) {
@@ -159,7 +184,7 @@ sgl_result_t sgl_generic_resize_bilinear(
                     }
 
                     /* multi-threaded resize */
-                    sgl_threadpool_attach_routine(pool, sgl_generic_resize_bilinear_routine, operations, (void *)&data);
+                    (void)sgl_threadpool_attach_routine(pool, sgl_generic_resize_bilinear_routine, operations, (void *)&data);
                     sgl_queue_destroy(&operations);
                 }
                 else {
@@ -191,7 +216,7 @@ sgl_result_t sgl_generic_resize_bilinear(
 #if defined(SGL_CFG_HAS_THREAD)
 static void sgl_generic_resize_bilinear_routine(void *SGL_RESTRICT current, void *SGL_RESTRICT cookie)
 {
-    sgl_bilinear_current_t *cur = (sgl_bilinear_current_t *)current;
+    const sgl_bilinear_current_t *cur = (const sgl_bilinear_current_t *)current;
     sgl_bilinear_data_t *data = (sgl_bilinear_data_t *)cookie;
     int32_t row;
 

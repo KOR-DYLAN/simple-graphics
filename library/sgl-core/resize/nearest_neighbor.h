@@ -1,3 +1,9 @@
+/*
+ * SGL-HDR-DEV-002: resize data types are shared by generic, SIMD, and threaded
+ * implementations that intentionally use different subsets.
+ */
+/* cppcheck-suppress-file misra-c2012-2.3 */
+/* cppcheck-suppress-file misra-c2012-2.4 */
 #ifndef NEAREST_NEIGHBOR_H_
 #define NEAREST_NEIGHBOR_H_
 
@@ -18,9 +24,12 @@ typedef struct  {
 } sgl_nearest_neighbor_current_t;
 
 struct sgl_nearest_neighbor_lookup_table {
-    int32_t d_width, d_height;
-    int32_t s_width, s_height;
-    int32_t *SGL_RESTRICT x, *SGL_RESTRICT y;
+    int32_t d_width;
+    int32_t d_height;
+    int32_t s_width;
+    int32_t s_height;
+    int32_t *SGL_RESTRICT x;
+    int32_t *SGL_RESTRICT y;
 };
 
 #endif  /* !NEAREST_NEIGHBOR_H_ */

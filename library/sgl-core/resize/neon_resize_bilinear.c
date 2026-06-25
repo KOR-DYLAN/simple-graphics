@@ -1,3 +1,8 @@
+/* SGL-C89-DEV-001: declarations remain at block start for C89 compatibility. */
+/* cppcheck-suppress-file variableScope */
+/* SGL-CALLBACK-DEV-001: thread callbacks recover typed context from void *. */
+/* cppcheck-suppress-file misra-c2012-11.5 */
+/* cppcheck-suppress-file constParameterCallback */
 #include <stdint.h>
 #include <stdlib.h>
 #include <arm_neon.h>
@@ -19,7 +24,8 @@ static SGL_ALWAYS_INLINE uint8x8_t sgl_neon_bilinear_interpolation(
     uint16x8_t src_y2x1, uint16x8_t src_y2x2,
     sgl_simd_q11_t w00, sgl_simd_q11_t w01, sgl_simd_q11_t w10, sgl_simd_q11_t w11)
 {
-    int32x4_t acc_lo, acc_hi;
+    int32x4_t acc_lo;
+    int32x4_t acc_hi;
 
     /* Process Low Lanes (0-3) */
     acc_lo = vmull_s16(vget_low_s16(w00), vget_low_u16(src_y1x1));
@@ -47,15 +53,23 @@ static SGL_ALWAYS_INLINE uint8_t *sgl_simd_resize_bilinear_upscale_line_stripe(
 {
     bilinear_column_lookup_t *col_lookup;
     bilinear_row_lookup_t *row_lookup;
-    int32_t col, ch, lane, i;
-    int32_t x1_off, x2_off;
-    uint8_t *src_y1_buf, *src_y2_buf;
+    int32_t col;
+    int32_t ch;
+    int32_t lane;
+    int32_t i;
+    int32_t x1_off;
+    int32_t x2_off;
+    uint8_t *src_y1_buf;
+    uint8_t *src_y2_buf;
     uint8_t *dst;
 
-    SGL_ALIGNED(16) uint8_t x1_col[NEON_LANE_SIZE], x2_col[NEON_LANE_SIZE];
+    SGL_ALIGNED(16) uint8_t x1_col[NEON_LANE_SIZE];
+    SGL_ALIGNED(16) uint8_t x2_col[NEON_LANE_SIZE];
 
-    sgl_simd_q11_t vec_p, vec_p_inv;
-    sgl_simd_q11_t vec_q, vec_q_inv;
+    sgl_simd_q11_t vec_p;
+    sgl_simd_q11_t vec_p_inv;
+    sgl_simd_q11_t vec_q;
+    sgl_simd_q11_t vec_q_inv;
 
     sgl_simd_q11_t vec_w00;
     sgl_simd_q11_t vec_w01;
@@ -67,25 +81,42 @@ static SGL_ALWAYS_INLINE uint8_t *sgl_simd_resize_bilinear_upscale_line_stripe(
     uint8x8x2_t value2;
     uint8x8_t value1;
 
-    int32_t x1_col_base, x2_col_base;
-    uint8x16x4_t vtbl4_src_y1x1, vtbl4_src_y1x2, vtbl4_src_y2x1, vtbl4_src_y2x2;
-    uint8x16x3_t vtbl3_src_y1x1, vtbl3_src_y1x2, vtbl3_src_y2x1, vtbl3_src_y2x2;
-    uint8x16x2_t vtbl2_src_y1x1, vtbl2_src_y1x2, vtbl2_src_y2x1, vtbl2_src_y2x2;
-    uint8x16_t vtbl1_src_y1x1, vtbl1_src_y1x2, vtbl1_src_y2x1, vtbl1_src_y2x2;
-    uint8x8_t vec_src_y1x1, vec_src_y1x2, vec_src_y2x1, vec_src_y2x2;
-    uint8x8_t vec_x1_col, vec_x2_col;
+    int32_t x1_col_base;
+    int32_t x2_col_base;
+    uint8x16x4_t vtbl4_src_y1x1;
+    uint8x16x4_t vtbl4_src_y1x2;
+    uint8x16x4_t vtbl4_src_y2x1;
+    uint8x16x4_t vtbl4_src_y2x2;
+    uint8x16x3_t vtbl3_src_y1x1;
+    uint8x16x3_t vtbl3_src_y1x2;
+    uint8x16x3_t vtbl3_src_y2x1;
+    uint8x16x3_t vtbl3_src_y2x2;
+    uint8x16x2_t vtbl2_src_y1x1;
+    uint8x16x2_t vtbl2_src_y1x2;
+    uint8x16x2_t vtbl2_src_y2x1;
+    uint8x16x2_t vtbl2_src_y2x2;
+    uint8x16_t vtbl1_src_y1x1;
+    uint8x16_t vtbl1_src_y1x2;
+    uint8x16_t vtbl1_src_y2x1;
+    uint8x16_t vtbl1_src_y2x2;
+    uint8x8_t vec_src_y1x1;
+    uint8x8_t vec_src_y1x2;
+    uint8x8_t vec_src_y2x1;
+    uint8x8_t vec_src_y2x2;
+    uint8x8_t vec_x1_col;
+    uint8x8_t vec_x2_col;
 
     /* set common data */
     row_lookup = &data->lut->row_lookup;
     col_lookup = &data->lut->col_lookup;
-    
+
     /* set 'row' data */
     vec_q = vdupq_n_s16(row_lookup->q[row]);
     vec_q_inv = vdupq_n_s16(row_lookup->inv_q[row]);
 
-    src_y1_buf = data->src + (row_lookup->y1[row] * data->src_stride);
-    src_y2_buf = data->src + (row_lookup->y2[row] * data->src_stride);
-    dst = data->dst + (row * data->dst_stride);
+    src_y1_buf = &data->src[row_lookup->y1[row] * data->src_stride];
+    src_y2_buf = &data->src[row_lookup->y2[row] * data->src_stride];
+    dst = &data->dst[row * data->dst_stride];
 
     for (lane = 0; lane < num_lanes; ++lane) {
         col = (lane * NEON_LANE_SIZE);
@@ -100,8 +131,8 @@ static SGL_ALWAYS_INLINE uint8_t *sgl_simd_resize_bilinear_upscale_line_stripe(
         vec_w11 = sgl_simd_q11_mul(vec_p, vec_q);
 
         for (i = 0; i < NEON_LANE_SIZE; ++i) {
-            x1_col[i] = (uint8_t)(col_lookup->x1[col] - x1_col_base);
-            x2_col[i] = (uint8_t)(col_lookup->x2[col] - x2_col_base);
+            x1_col[i] = sgl_clamp_u8_i32(col_lookup->x1[col] - x1_col_base);
+            x2_col[i] = sgl_clamp_u8_i32(col_lookup->x2[col] - x2_col_base);
             col++;
         }
 
@@ -114,10 +145,10 @@ static SGL_ALWAYS_INLINE uint8_t *sgl_simd_resize_bilinear_upscale_line_stripe(
 
         switch (bpp) {
         case 4:
-            vtbl4_src_y1x1 = vld4q_u8(src_y1_buf + x1_off);
-            vtbl4_src_y1x2 = vld4q_u8(src_y1_buf + x2_off);
-            vtbl4_src_y2x1 = vld4q_u8(src_y2_buf + x1_off);
-            vtbl4_src_y2x2 = vld4q_u8(src_y2_buf + x2_off);
+            vtbl4_src_y1x1 = vld4q_u8(&src_y1_buf[x1_off]);
+            vtbl4_src_y1x2 = vld4q_u8(&src_y1_buf[x2_off]);
+            vtbl4_src_y2x1 = vld4q_u8(&src_y2_buf[x1_off]);
+            vtbl4_src_y2x2 = vld4q_u8(&src_y2_buf[x2_off]);
 
             for (ch = 0; ch < 4; ++ch) {
                 vec_src_y1x1 = vqtbl1_u8(vtbl4_src_y1x1.val[ch], vec_x1_col);
@@ -133,10 +164,10 @@ static SGL_ALWAYS_INLINE uint8_t *sgl_simd_resize_bilinear_upscale_line_stripe(
             vst4_u8(dst, value4);
             break;
         case 3:
-            vtbl3_src_y1x1 = vld3q_u8(src_y1_buf + x1_off);
-            vtbl3_src_y1x2 = vld3q_u8(src_y1_buf + x2_off);
-            vtbl3_src_y2x1 = vld3q_u8(src_y2_buf + x1_off);
-            vtbl3_src_y2x2 = vld3q_u8(src_y2_buf + x2_off);
+            vtbl3_src_y1x1 = vld3q_u8(&src_y1_buf[x1_off]);
+            vtbl3_src_y1x2 = vld3q_u8(&src_y1_buf[x2_off]);
+            vtbl3_src_y2x1 = vld3q_u8(&src_y2_buf[x1_off]);
+            vtbl3_src_y2x2 = vld3q_u8(&src_y2_buf[x2_off]);
 
             for (ch = 0; ch < 3; ++ch) {
                 vec_src_y1x1 = vqtbl1_u8(vtbl3_src_y1x1.val[ch], vec_x1_col);
@@ -151,10 +182,10 @@ static SGL_ALWAYS_INLINE uint8_t *sgl_simd_resize_bilinear_upscale_line_stripe(
             vst3_u8(dst, value3);
             break;
         case 2:
-            vtbl2_src_y1x1 = vld2q_u8(src_y1_buf + x1_off);
-            vtbl2_src_y1x2 = vld2q_u8(src_y1_buf + x2_off);
-            vtbl2_src_y2x1 = vld2q_u8(src_y2_buf + x1_off);
-            vtbl2_src_y2x2 = vld2q_u8(src_y2_buf + x2_off);
+            vtbl2_src_y1x1 = vld2q_u8(&src_y1_buf[x1_off]);
+            vtbl2_src_y1x2 = vld2q_u8(&src_y1_buf[x2_off]);
+            vtbl2_src_y2x1 = vld2q_u8(&src_y2_buf[x1_off]);
+            vtbl2_src_y2x2 = vld2q_u8(&src_y2_buf[x2_off]);
 
             for (ch = 0; ch < 2; ++ch) {
                 vec_src_y1x1 = vqtbl1_u8(vtbl2_src_y1x1.val[ch], vec_x1_col);
@@ -169,10 +200,10 @@ static SGL_ALWAYS_INLINE uint8_t *sgl_simd_resize_bilinear_upscale_line_stripe(
             vst2_u8(dst, value2);
             break;
         case 1:
-            vtbl1_src_y1x1 = vld1q_u8(src_y1_buf + x1_off);
-            vtbl1_src_y1x2 = vld1q_u8(src_y1_buf + x2_off);
-            vtbl1_src_y2x1 = vld1q_u8(src_y2_buf + x1_off);
-            vtbl1_src_y2x2 = vld1q_u8(src_y2_buf + x2_off);
+            vtbl1_src_y1x1 = vld1q_u8(&src_y1_buf[x1_off]);
+            vtbl1_src_y1x2 = vld1q_u8(&src_y1_buf[x2_off]);
+            vtbl1_src_y2x1 = vld1q_u8(&src_y2_buf[x1_off]);
+            vtbl1_src_y2x2 = vld1q_u8(&src_y2_buf[x2_off]);
 
             vec_src_y1x1 = vqtbl1_u8(vtbl1_src_y1x1, vec_x1_col);
             vec_src_y1x2 = vqtbl1_u8(vtbl1_src_y1x2, vec_x2_col);
@@ -190,7 +221,7 @@ static SGL_ALWAYS_INLINE uint8_t *sgl_simd_resize_bilinear_upscale_line_stripe(
             break;
         }
 
-        dst += step;
+        dst = &dst[step];
     }
 
     return dst;
@@ -202,11 +233,18 @@ static SGL_ALWAYS_INLINE uint8_t *sgl_simd_resize_bilinear_downscale_line_stripe
 {
     bilinear_column_lookup_t *col_lookup;
     bilinear_row_lookup_t *row_lookup;
-    int32_t col, ch, lane, i;
-    int32_t x1_off, x2_off;
-    uint8_t *src_y1_buf, *src_y2_buf;
-    uint8_t *src_y1x1, *src_y1x2;
-    uint8_t *src_y2x1, *src_y2x2;
+    int32_t col;
+    int32_t ch;
+    int32_t lane;
+    int32_t i;
+    int32_t x1_off;
+    int32_t x2_off;
+    uint8_t *src_y1_buf;
+    uint8_t *src_y2_buf;
+    const uint8_t *src_y1x1;
+    const uint8_t *src_y1x2;
+    const uint8_t *src_y2x1;
+    const uint8_t *src_y2x2;
     uint8_t *dst;
 
     SGL_ALIGNED(16) uint8_t serialized_src_y1x1[SGL_BPP32][NEON_LANE_SIZE];
@@ -214,8 +252,10 @@ static SGL_ALWAYS_INLINE uint8_t *sgl_simd_resize_bilinear_downscale_line_stripe
     SGL_ALIGNED(16) uint8_t serialized_src_y2x1[SGL_BPP32][NEON_LANE_SIZE];
     SGL_ALIGNED(16) uint8_t serialized_src_y2x2[SGL_BPP32][NEON_LANE_SIZE];
 
-    sgl_simd_q11_t vec_p, vec_p_inv;
-    sgl_simd_q11_t vec_q, vec_q_inv;
+    sgl_simd_q11_t vec_p;
+    sgl_simd_q11_t vec_p_inv;
+    sgl_simd_q11_t vec_q;
+    sgl_simd_q11_t vec_q_inv;
 
     sgl_simd_q11_t vec_w00;
     sgl_simd_q11_t vec_w01;
@@ -230,14 +270,14 @@ static SGL_ALWAYS_INLINE uint8_t *sgl_simd_resize_bilinear_downscale_line_stripe
     /* set common data */
     row_lookup = &data->lut->row_lookup;
     col_lookup = &data->lut->col_lookup;
-    
+
     /* set 'row' data */
     vec_q = vdupq_n_s16(row_lookup->q[row]);
     vec_q_inv = vdupq_n_s16(row_lookup->inv_q[row]);
 
-    src_y1_buf = data->src + (row_lookup->y1[row] * data->src_stride);
-    src_y2_buf = data->src + (row_lookup->y2[row] * data->src_stride);
-    dst = data->dst + (row * data->dst_stride);
+    src_y1_buf = &data->src[row_lookup->y1[row] * data->src_stride];
+    src_y2_buf = &data->src[row_lookup->y2[row] * data->src_stride];
+    dst = &data->dst[row * data->dst_stride];
 
     for (lane = 0; lane < num_lanes; ++lane) {
         col = (lane * NEON_LANE_SIZE);
@@ -254,10 +294,10 @@ static SGL_ALWAYS_INLINE uint8_t *sgl_simd_resize_bilinear_downscale_line_stripe
             x2_off = col_lookup->x2[col] * bpp;
             col++;
 
-            src_y1x1 = src_y1_buf + x1_off;
-            src_y1x2 = src_y1_buf + x2_off;
-            src_y2x1 = src_y2_buf + x1_off;
-            src_y2x2 = src_y2_buf + x2_off;
+            src_y1x1 = &src_y1_buf[x1_off];
+            src_y1x2 = &src_y1_buf[x2_off];
+            src_y2x1 = &src_y2_buf[x1_off];
+            src_y2x2 = &src_y2_buf[x2_off];
 
             for (ch = 0; ch < bpp; ++ch) {
                 serialized_src_y1x1[ch][i] = src_y1x1[ch];
@@ -266,7 +306,7 @@ static SGL_ALWAYS_INLINE uint8_t *sgl_simd_resize_bilinear_downscale_line_stripe
                 serialized_src_y2x2[ch][i] = src_y2x2[ch];
             }
         }
-    
+
         switch (bpp) {
         case 4:
             for (ch = 0; ch < 4; ++ch) {
@@ -307,7 +347,7 @@ static SGL_ALWAYS_INLINE uint8_t *sgl_simd_resize_bilinear_downscale_line_stripe
             break;
         }
 
-        dst += step;
+        dst = &dst[step];
     }
 
     return dst;
@@ -316,20 +356,33 @@ static SGL_ALWAYS_INLINE uint8_t *sgl_simd_resize_bilinear_downscale_line_stripe
 static SGL_ALWAYS_INLINE void sgl_simd_resize_bilinear_line_stripe(int32_t row, sgl_bilinear_data_t *data) {
     bilinear_column_lookup_t *col_lookup;
     bilinear_row_lookup_t *row_lookup;
-    int32_t d_width, bpp, step;
-    int32_t col, ch;
-    int32_t x1_off, x2_off;
-    uint8_t *src_y1_buf, *src_y2_buf;
-    uint8_t *src_y1x1, *src_y1x2;
-    uint8_t *src_y2x1, *src_y2x2;
+    int32_t d_width;
+    int32_t bpp;
+    int32_t step;
+    int32_t col;
+    int32_t ch;
+    int32_t x1_off;
+    int32_t x2_off;
+    uint8_t *src_y1_buf;
+    uint8_t *src_y2_buf;
+    const uint8_t *src_y1x1;
+    const uint8_t *src_y1x2;
+    const uint8_t *src_y2x1;
+    const uint8_t *src_y2x2;
     uint8_t *dst;
 
     int32_t num_lanes;
 
-    sgl_q11_t p, inv_p;
-    sgl_q11_t q, inv_q;
-    sgl_q11_t w00, w01, w10, w11;
-    int32_t acc, value;
+    sgl_q11_t p;
+    sgl_q11_t inv_p;
+    sgl_q11_t q;
+    sgl_q11_t inv_q;
+    sgl_q11_t w00;
+    sgl_q11_t w01;
+    sgl_q11_t w10;
+    sgl_q11_t w11;
+    int32_t acc;
+    int32_t value;
 
     d_width = data->lut->d_width;
     bpp = data->bpp;
@@ -346,12 +399,12 @@ static SGL_ALWAYS_INLINE void sgl_simd_resize_bilinear_line_stripe(int32_t row, 
     /* set common data */
     row_lookup = &data->lut->row_lookup;
     col_lookup = &data->lut->col_lookup;
-    
+
     /* set 'row' data */
     q = row_lookup->q[row];
     inv_q = row_lookup->inv_q[row];
-    src_y1_buf = data->src + (row_lookup->y1[row] * data->src_stride);
-    src_y2_buf = data->src + (row_lookup->y2[row] * data->src_stride);
+    src_y1_buf = &data->src[row_lookup->y1[row] * data->src_stride];
+    src_y2_buf = &data->src[row_lookup->y2[row] * data->src_stride];
 
     for (col = num_lanes * NEON_LANE_SIZE; col < d_width; ++col) {
         p = col_lookup->p[col];
@@ -365,35 +418,36 @@ static SGL_ALWAYS_INLINE void sgl_simd_resize_bilinear_line_stripe(int32_t row, 
         x1_off = col_lookup->x1[col] * bpp;
         x2_off = col_lookup->x2[col] * bpp;
 
-        src_y1x1 = src_y1_buf + x1_off;
-        src_y1x2 = src_y1_buf + x2_off;
-        src_y2x1 = src_y2_buf + x1_off;
-        src_y2x2 = src_y2_buf + x2_off;
+        src_y1x1 = &src_y1_buf[x1_off];
+        src_y1x2 = &src_y1_buf[x2_off];
+        src_y2x1 = &src_y2_buf[x1_off];
+        src_y2x2 = &src_y2_buf[x2_off];
 
         for (ch = 0; ch < bpp; ++ch) {
-            acc =   (w00 * src_y1x1[ch]) + 
-                    (w01 * src_y1x2[ch]) +
-                    (w10 * src_y2x1[ch]) + 
-                    (w11 * src_y2x2[ch]);
-            value = SGL_Q11_SHIFTDOWN(SGL_Q11_ROUNDUP(acc));
+            acc =   ((sgl_q11_ext_t)w00 * (sgl_q11_ext_t)src_y1x1[ch]) +
+                    ((sgl_q11_ext_t)w01 * (sgl_q11_ext_t)src_y1x2[ch]) +
+                    ((sgl_q11_ext_t)w10 * (sgl_q11_ext_t)src_y2x1[ch]) +
+                    ((sgl_q11_ext_t)w11 * (sgl_q11_ext_t)src_y2x2[ch]);
+            value = sgl_q11_shift_down(sgl_q11_round_up(acc));
 
             /* Q11 -> u8 */
             dst[ch] = sgl_clamp_u8_i32(value);
         }
-        dst += bpp;
+        dst = &dst[bpp];
     }
 }
 
 sgl_result_t sgl_simd_resize_bilinear(
-                sgl_threadpool_t *SGL_RESTRICT pool, sgl_bilinear_lookup_t *SGL_RESTRICT ext_lut, 
-                uint8_t *SGL_RESTRICT dst, int32_t d_width, int32_t d_height, 
-                uint8_t *SGL_RESTRICT src, int32_t s_width, int32_t s_height, 
+                sgl_threadpool_t *SGL_RESTRICT pool, sgl_bilinear_lookup_t *SGL_RESTRICT ext_lut,
+                uint8_t *SGL_RESTRICT dst, int32_t d_width, int32_t d_height,
+                uint8_t *SGL_RESTRICT src, int32_t s_width, int32_t s_height,
                 int32_t bpp)
 {
     sgl_result_t result = SGL_SUCCESS;
     int32_t row;
     sgl_bilinear_data_t data;
-    sgl_bilinear_lookup_t *lut = NULL, *temp_lut = NULL;
+    sgl_bilinear_lookup_t *lut = NULL;
+    sgl_bilinear_lookup_t *temp_lut = NULL;
     int32_t errcnt = 0;
 
     /* check buffer address */
@@ -447,7 +501,9 @@ sgl_result_t sgl_simd_resize_bilinear(
             else {
                 sgl_bilinear_current_t *currents;
                 sgl_queue_t *operations = NULL;
-                int32_t i, num_operations, mod_operations;
+                int32_t i;
+                int32_t num_operations;
+                int32_t mod_operations;
 
                 num_operations = d_height / SGL_SIMD_BULK_SIZE;
                 mod_operations = d_height % SGL_SIMD_BULK_SIZE;
@@ -456,12 +512,14 @@ sgl_result_t sgl_simd_resize_bilinear(
                 }
 
                 operations = sgl_queue_create((size_t)num_operations);
+                /* SGL-MEM-DEV-001: typed conversion from the generic allocator. */
+                /* cppcheck-suppress misra-c2012-11.5 */
                 currents = (sgl_bilinear_current_t *)sgl_malloc(sizeof(sgl_bilinear_current_t) * (size_t)num_operations);
                 if ((operations != NULL) && (currents != NULL)) {
                     for (i = 0; i < num_operations; ++i) {
                         currents[i].row = i * SGL_SIMD_BULK_SIZE;
                         currents[i].count = SGL_SIMD_BULK_SIZE;
-                        sgl_queue_unsafe_enqueue(operations, (const void *)&currents[i]);
+                        (void)sgl_queue_unsafe_enqueue(operations, (const void *)&currents[i]);
                     }
 
                     if (mod_operations != 0) {
@@ -469,7 +527,7 @@ sgl_result_t sgl_simd_resize_bilinear(
                     }
 
                     /* multi-threaded resize */
-                    sgl_threadpool_attach_routine(pool, sgl_simd_resize_bilinear_routine, operations, (void *)&data);
+                    (void)sgl_threadpool_attach_routine(pool, sgl_simd_resize_bilinear_routine, operations, (void *)&data);
                     sgl_queue_destroy(&operations);
                 }
                 else {
@@ -501,7 +559,7 @@ sgl_result_t sgl_simd_resize_bilinear(
 #if defined(SGL_CFG_HAS_THREAD)
 static void sgl_simd_resize_bilinear_routine(void *SGL_RESTRICT current, void *SGL_RESTRICT cookie)
 {
-    sgl_bilinear_current_t *cur = (sgl_bilinear_current_t *)current;
+    const sgl_bilinear_current_t *cur = (const sgl_bilinear_current_t *)current;
     sgl_bilinear_data_t *data = (sgl_bilinear_data_t *)cookie;
     int32_t row;
 

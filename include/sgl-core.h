@@ -1,3 +1,8 @@
+/*
+ * SGL-HDR-DEV-001: public macros are intentionally shared by translation
+ * units that use different subsets of the interface.
+ */
+/* cppcheck-suppress-file misra-c2012-2.5 */
 #ifndef SGL_CORE_H_
 #define SGL_CORE_H_
 
@@ -43,14 +48,6 @@ extern "C" {
     #define SGL_ALIGNED(n) __attribute__((aligned(n)))
 #else
     #define SGL_ALIGNED(n)
-#endif
-
-#if defined(_MSC_VER)
-    #define SGL_TYPEOF(var)
-#elif defined(__GNUC__) || defined(__clang__)
-    #define SGL_TYPEOF(var) typeof(var)
-#else
-    #define SGL_TYPEOF(var)
 #endif
 
 #if defined(_MSC_VER)
@@ -123,6 +120,13 @@ typedef void(*sgl_threadpool_routine_t)(void *SGL_RESTRICT current, void *SGL_RE
  * Deinitialization returns SGL_FAILURE while pool allocations remain alive.
  * sgl_free(NULL) is valid. Pointers outside the active pool are ignored. A pool
  * pointer must be released exactly once before successful deinitialization.
+ *
+ * MISRA deviation SGL-MEM-DEV-001:
+ * MISRA C:2012 Rule 11.5 is deviated at typed allocation sites. The allocator
+ * intentionally follows the standard malloc interface and therefore returns
+ * void *. Each allocation site explicitly converts that result to the pointer
+ * type of the object whose size was requested. The pool guarantees alignment
+ * suitable for every supported object type.
  */
 sgl_result_t sgl_memory_pool_initialize(void *memory, size_t size);
 sgl_result_t sgl_memory_pool_deinitialize(void);
@@ -187,15 +191,15 @@ sgl_result_t sgl_simd_resize_bicubic(
  *******************************************************************/
 sgl_queue_t *sgl_queue_create(size_t capacity);
 void sgl_queue_destroy(sgl_queue_t **queue);
-sgl_result_t sgl_queue_copy(sgl_queue_t *SGL_RESTRICT dst, sgl_queue_t *SGL_RESTRICT src);
+sgl_result_t sgl_queue_copy(sgl_queue_t *SGL_RESTRICT dst, const sgl_queue_t *SGL_RESTRICT src);
 sgl_result_t sgl_queue_unsafe_enqueue(sgl_queue_t *SGL_RESTRICT queue, const void *SGL_RESTRICT data);
 sgl_result_t sgl_queue_enqueue(sgl_queue_t *SGL_RESTRICT queue, const void *SGL_RESTRICT data);
 void *sgl_queue_dequeue(sgl_queue_t *queue);
 void *sgl_queue_peek(sgl_queue_t *queue);
-sgl_result_t sgl_queue_is_empty(sgl_queue_t *queue);
-sgl_result_t sgl_queue_is_full(sgl_queue_t *queue);
-size_t sgl_queue_get_capacity(sgl_queue_t *queue);
-size_t sgl_queue_get_count(sgl_queue_t *queue);
+sgl_result_t sgl_queue_is_empty(const sgl_queue_t *queue);
+sgl_result_t sgl_queue_is_full(const sgl_queue_t *queue);
+size_t sgl_queue_get_capacity(const sgl_queue_t *queue);
+size_t sgl_queue_get_count(const sgl_queue_t *queue);
 
 
 /*******************************************************************

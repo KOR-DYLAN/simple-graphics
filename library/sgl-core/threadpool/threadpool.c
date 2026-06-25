@@ -1,3 +1,10 @@
+/*
+ * SGL-CALLBACK-DEV-001: the generic queue and thread entry points transport
+ * typed routine state through the required void-pointer callback interface.
+ */
+/* cppcheck-suppress-file misra-c2012-11.5 */
+/* SGL-C89-DEV-001: declarations remain at block start for C89 compatibility. */
+/* cppcheck-suppress-file variableScope */
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -5,7 +12,8 @@
 #include "sgl-osal.h"
 
 typedef struct {
-    sgl_queue_t *in, *out;
+    sgl_queue_t *in;
+    sgl_queue_t *out;
     sgl_osal_mutex_t lock;
     sgl_osal_cond_t cond;
     sgl_threadpool_routine_t routine;
@@ -43,13 +51,13 @@ static SGL_ALWAYS_INLINE void sgl_threadpool_routine_handle_initialize(sgl_threa
 
 static SGL_ALWAYS_INLINE void sgl_threadpool_routine_handle_deinitialize(sgl_threadpool_routine_handle_t *routine_handle)
 {
-    sgl_queue_copy(routine_handle->in, routine_handle->out);
+    (void)sgl_queue_copy(routine_handle->in, routine_handle->out);
     sgl_queue_destroy(&routine_handle->out);
 
     sgl_osal_mutex_destroy(&routine_handle->lock);
     sgl_osal_cond_destroy(&routine_handle->cond);
 
-    memset(routine_handle, 0, sizeof(sgl_threadpool_routine_handle_t));
+    (void)memset(routine_handle, 0, sizeof(sgl_threadpool_routine_handle_t));
 }
 
 sgl_threadpool_t *sgl_threadpool_create(size_t num_threads, size_t max_routine_lists, const char *base_name)
@@ -58,42 +66,45 @@ sgl_threadpool_t *sgl_threadpool_create(size_t num_threads, size_t max_routine_l
     size_t i;
 
     /* create instance handle */
+    /* SGL-MEM-DEV-001: typed conversion from the generic allocator. */
+    /* cppcheck-suppress misra-c2012-11.5 */
     pool = (sgl_threadpool_t *)sgl_calloc(1, sizeof(sgl_threadpool_t));
-    if (pool == NULL) {
-        return NULL;
+    if (pool != NULL) {
+        pool->num_threads = num_threads;
+        pool->is_exit_threadpool = false;
+
+        /* create queue for task list */
+        pool->routine_lists = sgl_queue_create(max_routine_lists);
+        if (pool->routine_lists != NULL) {
+            /* create mutex & conditional variable */
+            sgl_osal_mutex_init(&pool->lock);
+            sgl_osal_cond_init(&pool->cond);
+
+            /* allocate thread basket */
+            /* SGL-MEM-DEV-001: typed conversion from the generic allocator. */
+            /* cppcheck-suppress misra-c2012-11.5 */
+            pool->threads = (sgl_osal_thread_t *)sgl_malloc(num_threads * sizeof(sgl_osal_thread_t));
+            if (pool->threads != NULL) {
+                /* create threads */
+                pool->base_name = base_name;
+                for (i = 0; i < num_threads; ++i) {
+                    pool->threads[i] = sgl_thread_create(sgl_threadpool_routine, (sgl_osal_thread_arg_t)pool);
+                }
+            }
+            else {
+                sgl_osal_mutex_destroy(&pool->lock);
+                sgl_osal_cond_destroy(&pool->cond);
+                sgl_queue_destroy(&pool->routine_lists);
+                sgl_free(pool);
+                pool = NULL;
+            }
+        }
+        else {
+            sgl_free(pool);
+            pool = NULL;
+        }
     }
-    pool->num_threads = num_threads;
-    pool->is_exit_threadpool = false;
 
-    /* create queue for task list */
-    pool->routine_lists = sgl_queue_create(max_routine_lists);
-    if (pool->routine_lists == NULL) {
-        goto release_resource;
-    }
-
-    /* create mutex & conditional variable */
-    sgl_osal_mutex_init(&pool->lock);
-    sgl_osal_cond_init(&pool->cond);
-
-    /* allocate thread basket */
-    pool->threads = (sgl_osal_thread_t *)sgl_malloc(num_threads * sizeof(sgl_osal_thread_t));
-    if (pool->threads == NULL) {
-        goto release_resource;
-    }
-
-    /* create threads */
-    pool->base_name = base_name;
-    for (i = 0; i < num_threads; ++i) {
-        pool->threads[i] = sgl_thread_create(sgl_threadpool_routine, (sgl_osal_thread_arg_t)pool);
-    }
-
-    goto exit_function;
-
-release_resource:
-    SGL_SAFE_FREE(pool->threads);
-    SGL_SAFE_FREE(pool);
-
-exit_function:
     return pool;
 }
 
@@ -149,7 +160,7 @@ sgl_result_t sgl_threadpool_attach_routine(sgl_threadpool_t *SGL_RESTRICT pool, 
         sgl_threadpool_routine_handle_initialize(&routine_handle, operations, routine, cookie);
 
         /* attach routine */
-        sgl_queue_enqueue(pool->routine_lists, (const void *)&routine_handle);
+        (void)sgl_queue_enqueue(pool->routine_lists, (const void *)&routine_handle);
 
         /* broadcast */
         sgl_osal_cond_broadcast(&pool->cond);
@@ -176,14 +187,6 @@ sgl_result_t sgl_threadpool_attach_routine(sgl_threadpool_t *SGL_RESTRICT pool, 
     return result;
 }
 
-#if defined(__GNUC__)
-#   pragma GCC diagnostic push
-#   pragma GCC diagnostic ignored "-Wcast-qual"
-#elif defined(__clang__)
-#   pragma clang diagnostic push
-#   pragma clang diagnostic ignored "-Wcast-qual"
-#   pragma clang diagnostic ignored "-Wdiscarded-qualifiers"
-#endif
 static sgl_osal_thread_return_t sgl_threadpool_routine(sgl_osal_thread_arg_t arg)
 {
     sgl_threadpool_t *pool = (sgl_threadpool_t *)arg;
@@ -202,7 +205,7 @@ static sgl_osal_thread_return_t sgl_threadpool_routine(sgl_osal_thread_arg_t arg
                 routine_handle->routine(current, routine_handle->cookie);
 
                 /* record completed routine */
-                sgl_queue_enqueue(routine_handle->out, current);
+                (void)sgl_queue_enqueue(routine_handle->out, current);
                 result = sgl_queue_is_full(routine_handle->out);
                 if (result == SGL_QUEUE_IS_FULL) {
                     /* signal */
@@ -230,8 +233,3 @@ static sgl_osal_thread_return_t sgl_threadpool_routine(sgl_osal_thread_arg_t arg
 
     EXIT_ROUTINE
 }
-#if defined(__GNUC__)
-#   pragma GCC diagnostic pop
-#elif defined(__clang__)
-#   pragma clang diagnostic pop
-#endif

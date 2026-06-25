@@ -1,15 +1,27 @@
+/*
+ * SGL-HDR-DEV-002: resize data types are shared by generic, SIMD, and threaded
+ * implementations that intentionally use different subsets.
+ */
+/* cppcheck-suppress-file misra-c2012-2.3 */
+/* cppcheck-suppress-file misra-c2012-2.4 */
 #ifndef BICUBIC_H_
 #define BICUBIC_H_
 
 #include "sgl-fixed_point.h"
 
 typedef struct {
-    int32_t *SGL_RESTRICT x1, *SGL_RESTRICT x2, *SGL_RESTRICT x3, *SGL_RESTRICT x4;
+    int32_t *SGL_RESTRICT x1;
+    int32_t *SGL_RESTRICT x2;
+    int32_t *SGL_RESTRICT x3;
+    int32_t *SGL_RESTRICT x4;
     sgl_q11_t *SGL_RESTRICT p;   /* Q11 */
 } bicubic_column_lookup_t;
 
 typedef struct {
-    int32_t *SGL_RESTRICT y1, *SGL_RESTRICT y2, *SGL_RESTRICT y3, *SGL_RESTRICT y4;
+    int32_t *SGL_RESTRICT y1;
+    int32_t *SGL_RESTRICT y2;
+    int32_t *SGL_RESTRICT y3;
+    int32_t *SGL_RESTRICT y4;
     sgl_q11_t *SGL_RESTRICT q;   /* Q11 */
 } bicubic_row_lookup_t;
 
@@ -28,8 +40,10 @@ typedef struct  {
 } sgl_bicubic_current_t;
 
 struct sgl_bicubic_lookup_table {
-    int32_t d_width, d_height;
-    int32_t s_width, s_height;
+    int32_t d_width;
+    int32_t d_height;
+    int32_t s_width;
+    int32_t s_height;
     bicubic_column_lookup_t col_lookup;
     bicubic_row_lookup_t row_lookup;
 };
