@@ -13,17 +13,17 @@ sgl_bilinear_lookup_t *sgl_generic_create_bilinear_lut(int32_t d_width, int32_t 
     int32_t x2, y2;
     sgl_q11_t p, q;
 
-    lut = (sgl_bilinear_lookup_t *)malloc(sizeof(sgl_bilinear_lookup_t));
+    lut = (sgl_bilinear_lookup_t *)sgl_malloc(sizeof(sgl_bilinear_lookup_t));
     if (lut != NULL) {
-        lut->col_lookup.x1      = (int32_t *)malloc(sizeof(int32_t) * (size_t)d_width);
-        lut->col_lookup.x2      = (int32_t *)malloc(sizeof(int32_t) * (size_t)d_width);
-        lut->col_lookup.p       = (sgl_q11_t *)malloc(sizeof(sgl_q11_t) * (size_t)d_width);
-        lut->col_lookup.inv_p   = (sgl_q11_t *)malloc(sizeof(sgl_q11_t) * (size_t)d_width);
+        lut->col_lookup.x1      = (int32_t *)sgl_malloc(sizeof(int32_t) * (size_t)d_width);
+        lut->col_lookup.x2      = (int32_t *)sgl_malloc(sizeof(int32_t) * (size_t)d_width);
+        lut->col_lookup.p       = (sgl_q11_t *)sgl_malloc(sizeof(sgl_q11_t) * (size_t)d_width);
+        lut->col_lookup.inv_p   = (sgl_q11_t *)sgl_malloc(sizeof(sgl_q11_t) * (size_t)d_width);
 
-        lut->row_lookup.y1      = (int32_t *)malloc(sizeof(int32_t) * (size_t)d_height);
-        lut->row_lookup.y2      = (int32_t *)malloc(sizeof(int32_t) * (size_t)d_height);
-        lut->row_lookup.q       = (sgl_q11_t *)malloc(sizeof(sgl_q11_t) * (size_t)d_height);
-        lut->row_lookup.inv_q   = (sgl_q11_t *)malloc(sizeof(sgl_q11_t) * (size_t)d_height);
+        lut->row_lookup.y1      = (int32_t *)sgl_malloc(sizeof(int32_t) * (size_t)d_height);
+        lut->row_lookup.y2      = (int32_t *)sgl_malloc(sizeof(int32_t) * (size_t)d_height);
+        lut->row_lookup.q       = (sgl_q11_t *)sgl_malloc(sizeof(sgl_q11_t) * (size_t)d_height);
+        lut->row_lookup.inv_q   = (sgl_q11_t *)sgl_malloc(sizeof(sgl_q11_t) * (size_t)d_height);
 
         if ((lut->col_lookup.x1 != NULL) && (lut->col_lookup.x2 != NULL) && (lut->col_lookup.p != NULL) && (lut->col_lookup.inv_p != NULL) &&
             (lut->row_lookup.y1 != NULL) && (lut->row_lookup.y2 != NULL) && (lut->row_lookup.q != NULL) && (lut->row_lookup.inv_q != NULL)) {
@@ -109,6 +109,6 @@ void sgl_generic_destroy_bilinear_lut(sgl_bilinear_lookup_t *lut)
         SGL_SAFE_FREE(lut->row_lookup.q);
         SGL_SAFE_FREE(lut->row_lookup.inv_q);
 
-        free(lut);
+        sgl_free(lut);
     }
 }

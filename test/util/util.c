@@ -1,8 +1,8 @@
 #include <png.h>
-#include <stdlib.h>
 #include <stdint.h>
 #include <unistd.h>
 #include <time.h>
+#include <sgl-core.h>
 #include "util.h"
 
 typedef struct {
@@ -15,6 +15,24 @@ static png_t *sgl_test_png_read_init(const char *path);
 static png_t *sgl_test_png_write_init(const char *path);
 static void sgl_test_png_read_deinit(png_t *handle);
 static void sgl_test_png_write_deinit(png_t *handle);
+static png_voidp sgl_test_png_malloc(png_structp png, png_alloc_size_t size);
+static void sgl_test_png_free(png_structp png, png_voidp memory);
+
+static png_voidp sgl_test_png_malloc(png_structp png, png_alloc_size_t size)
+{
+    png_voidp memory;
+
+    SGL_UNUSED_PARAM(png);
+    memory = sgl_malloc((size_t)size);
+
+    return memory;
+}
+
+static void sgl_test_png_free(png_structp png, png_voidp memory)
+{
+    SGL_UNUSED_PARAM(png);
+    sgl_free(memory);
+}
 
 sgl_test_png_t *sgl_test_load_png(const char *path)
 {
@@ -31,7 +49,7 @@ sgl_test_png_t *sgl_test_load_png(const char *path)
     if (handle != NULL) {
         png_read_info(handle->png, handle->info);
 
-        test_handle = (sgl_test_png_t *)malloc(sizeof(sgl_test_png_t));
+        test_handle = (sgl_test_png_t *)sgl_malloc(sizeof(sgl_test_png_t));
         if (test_handle != NULL) {
             color_type = png_get_color_type(handle->png, handle->info);
             bit_depth  = png_get_bit_depth(handle->png, handle->info);
@@ -70,9 +88,9 @@ sgl_test_png_t *sgl_test_load_png(const char *path)
             test_handle->channels = (int32_t)png_get_channels(handle->png, handle->info);
 
             rowbytes = (int32_t)png_get_rowbytes(handle->png, handle->info);
-            test_handle->data = (unsigned char*)malloc((size_t)rowbytes * (size_t)test_handle->height);
+            test_handle->data = (unsigned char*)sgl_malloc((size_t)rowbytes * (size_t)test_handle->height);
             if (test_handle->data != NULL) {
-                row_pointers = (png_bytep*)malloc(sizeof(png_bytep) * (size_t)test_handle->height);
+                row_pointers = (png_bytep*)sgl_malloc(sizeof(png_bytep) * (size_t)test_handle->height);
                 if (row_pointers != NULL) {
                     for (row = 0; row < test_handle->height; row++) {
                         row_pointers[row] = test_handle->data + (row * rowbytes);
@@ -81,7 +99,7 @@ sgl_test_png_t *sgl_test_load_png(const char *path)
                     png_read_image(handle->png, row_pointers);
 
                     sgl_test_png_read_deinit(handle);
-                    free(row_pointers);
+                    sgl_free(row_pointers);
                 }
                 else {
                     sgl_test_png_read_deinit(handle);
@@ -133,7 +151,7 @@ int32_t sgl_test_save_png(sgl_test_png_t *png, const char *path)
 
     /* rowbytes in bytes per row, check overflow */
     rowbytes = (size_t)png->width * (size_t)png->channels;
-    row_pointers = (png_bytep*)malloc(sizeof(png_bytep) * (size_t)png->height);
+    row_pointers = (png_bytep*)sgl_malloc(sizeof(png_bytep) * (size_t)png->height);
     if (row_pointers == NULL) {
         sgl_test_png_write_deinit(handle);
         return -1;
@@ -147,7 +165,7 @@ int32_t sgl_test_save_png(sgl_test_png_t *png, const char *path)
     png_write_end(handle->png, NULL);
 
     sgl_test_png_write_deinit(handle);
-    free(row_pointers);
+    sgl_free(row_pointers);
 
     return 0;
 }
@@ -157,9 +175,9 @@ void sgl_test_release_png(sgl_test_png_t *png)
 {
     if (png != NULL) {
         if (png->data != NULL) {
-            free (png->data);
+            sgl_free(png->data);
         }
-        free(png);
+        sgl_free(png);
     }
 }
 
@@ -185,9 +203,16 @@ static png_t *sgl_test_png_read_init(const char *path)
     png_t *handle = NULL;
     int32_t result;
 
-    handle = (png_t *)malloc(sizeof(png_t));
+    handle = (png_t *)sgl_malloc(sizeof(png_t));
     if (handle != NULL) {
-        handle->png = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+        handle->png = png_create_read_struct_2(
+            PNG_LIBPNG_VER_STRING,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            sgl_test_png_malloc,
+            sgl_test_png_free);
         if (handle->png != NULL) {
             handle->info = png_create_info_struct(handle->png);
             if (handle->info != NULL) {
@@ -219,12 +244,19 @@ static png_t *sgl_test_png_read_init(const char *path)
 
 static png_t *sgl_test_png_write_init(const char *path)
 {
-    png_t *handle = (png_t *)malloc(sizeof(png_t));
+    png_t *handle = (png_t *)sgl_malloc(sizeof(png_t));
     if (!handle) {
         return NULL;
     }
 
-    handle->png = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+    handle->png = png_create_write_struct_2(
+        PNG_LIBPNG_VER_STRING,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        sgl_test_png_malloc,
+        sgl_test_png_free);
     if (!handle->png) {
         sgl_test_png_write_deinit(handle);
         return NULL;
@@ -264,7 +296,7 @@ static void sgl_test_png_read_deinit(png_t *handle)
             fclose(handle->fp);
         }
 
-        free(handle);
+        sgl_free(handle);
     }
 }
 
@@ -279,7 +311,7 @@ static void sgl_test_png_write_deinit(png_t *handle)
             fclose(handle->fp);
         }
 
-        free(handle);
+        sgl_free(handle);
     }
 }
 

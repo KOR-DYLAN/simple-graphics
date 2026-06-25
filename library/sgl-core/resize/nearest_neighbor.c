@@ -9,14 +9,14 @@ sgl_nearest_neighbor_lookup_t *sgl_generic_create_nearest_neighbor_lut(int32_t d
     int32_t row, col;
     int32_t rx, ry;
 
-    lut = (sgl_nearest_neighbor_lookup_t *)malloc(sizeof(sgl_nearest_neighbor_lookup_t));
+    lut = (sgl_nearest_neighbor_lookup_t *)sgl_malloc(sizeof(sgl_nearest_neighbor_lookup_t));
     if (lut != NULL) {
         lut->d_width = d_width;
         lut->d_height = d_height;
         lut->s_width = s_width;
         lut->s_height = s_height;
-        lut->x = (int32_t *)malloc(sizeof(int32_t) * (size_t)d_width);
-        lut->y = (int32_t *)malloc(sizeof(int32_t) * (size_t)d_height);
+        lut->x = (int32_t *)sgl_malloc(sizeof(int32_t) * (size_t)d_width);
+        lut->y = (int32_t *)sgl_malloc(sizeof(int32_t) * (size_t)d_height);
 
         if ((lut->x != NULL) && (lut->y != NULL)) {
             /* create 'column' lookup table */

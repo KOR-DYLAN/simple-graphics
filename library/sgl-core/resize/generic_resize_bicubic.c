@@ -177,7 +177,7 @@ sgl_result_t sgl_generic_resize_bicubic(
                 }
 
                 operations = sgl_queue_create((size_t)num_operations);
-                currents = (sgl_bicubic_current_t *)malloc(sizeof(sgl_bicubic_current_t) * (size_t)num_operations);
+                currents = (sgl_bicubic_current_t *)sgl_malloc(sizeof(sgl_bicubic_current_t) * (size_t)num_operations);
                 if ((operations != NULL) && (currents != NULL)) {
                     for (i = 0; i < num_operations; ++i) {
                         currents[i].row = i * SGL_GENERIC_BULK_SIZE;

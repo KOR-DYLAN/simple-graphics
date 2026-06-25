@@ -18,9 +18,9 @@ sgl_queue_t *sgl_queue_create(size_t capacity)
     sgl_queue_t *queue = NULL;
 
     if (0 < capacity) {
-        queue = (sgl_queue_t *)malloc(sizeof(sgl_queue_t));
+        queue = (sgl_queue_t *)sgl_malloc(sizeof(sgl_queue_t));
         if (queue != NULL) {
-            queue->data = (void **)malloc(sizeof(void *) * capacity);
+            queue->data = (void **)sgl_malloc(sizeof(void *) * capacity);
             if (queue->data != NULL) {
                 queue->head = 0;
                 queue->tail = 0;
@@ -29,7 +29,7 @@ sgl_queue_t *sgl_queue_create(size_t capacity)
                 sgl_osal_spinlock_init(&queue->lock);
             }
             else {
-                free(queue);
+                sgl_free(queue);
                 queue = NULL;
             }
         }
@@ -43,8 +43,8 @@ void sgl_queue_destroy(sgl_queue_t **queue)
     if (queue != NULL) {
         if (*queue != NULL) {
             sgl_osal_spinlock_destroy(&(*queue)->lock);
-            free((*queue)->data);
-            free(*queue);
+            sgl_free((*queue)->data);
+            sgl_free(*queue);
             *queue = NULL;
         }
     }

@@ -6,12 +6,18 @@ project(sgl-core
 )
 
 add_library(${PROJECT_NAME})
+add_subdirectory(memory)
 add_subdirectory(convert)
 add_subdirectory(crop)
 add_subdirectory(resize)
 add_subdirectory(rotate)
 add_subdirectory(queue)
 add_subdirectory(threadpool)
+
+if(SGL_CFG_HAS_PTHREAD)
+    find_package(Threads REQUIRED)
+    target_link_libraries(${PROJECT_NAME} PUBLIC Threads::Threads)
+endif()
 
 # Apply C99
 set_property(TARGET ${PROJECT_NAME} PROPERTY C_STANDARD 99)

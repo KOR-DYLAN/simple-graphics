@@ -70,7 +70,7 @@ extern "C" {
  */
 #define SGL_UNUSED_PARAM(p)                         (void)(p)
 #define SGL_DIV_ROUNDUP(n, d)                       (((n) + (d) - 1) / (d))
-#define SGL_SAFE_FREE(p)                            if ((p) != NULL) { free((p)); (p) = NULL; }
+#define SGL_SAFE_FREE(p)                            if ((p) != NULL) { sgl_free((p)); (p) = NULL; }
 #define SGL_THREADPOOL_DEFAULT_MAX_ROUTINE_LISTS    (4U)
 #define SGL_GENERIC_BULK_SIZE                       (4)
 #define SGL_SIMD_BULK_SIZE                          (8)
@@ -104,6 +104,31 @@ typedef struct sgl_bicubic_lookup_table             sgl_bicubic_lookup_t;
 typedef struct sgl_queue                            sgl_queue_t;
 typedef struct sgl_threadpool                       sgl_threadpool_t;
 typedef void(*sgl_threadpool_routine_t)(void *SGL_RESTRICT current, void *SGL_RESTRICT cookie);
+
+
+/*******************************************************************
+ *                          Memory
+ *******************************************************************/
+/*
+ * Registers a caller-owned buffer as the single process-wide SGL memory pool.
+ * The buffer may be unaligned; the implementation adjusts the usable range.
+ * The caller must keep the buffer alive and unchanged until deinitialization
+ * succeeds. Initialize/deinitialize only while no other thread uses SGL memory.
+ *
+ * A pool must be initialized before any SGL operation that allocates memory.
+ * sgl_malloc and sgl_calloc return NULL before initialization or when the pool
+ * cannot satisfy the request. The implementation never falls back to the C
+ * runtime heap.
+ *
+ * Deinitialization returns SGL_FAILURE while pool allocations remain alive.
+ * sgl_free(NULL) is valid. Pointers outside the active pool are ignored. A pool
+ * pointer must be released exactly once before successful deinitialization.
+ */
+sgl_result_t sgl_memory_pool_initialize(void *memory, size_t size);
+sgl_result_t sgl_memory_pool_deinitialize(void);
+void *sgl_malloc(size_t size);
+void *sgl_calloc(size_t count, size_t size);
+void sgl_free(void *memory);
 
 
 /*******************************************************************

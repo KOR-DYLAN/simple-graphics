@@ -58,13 +58,13 @@ sgl_threadpool_t *sgl_threadpool_create(size_t num_threads, size_t max_routine_l
     size_t i;
 
     /* create instance handle */
-    pool = (sgl_threadpool_t *)calloc(1, sizeof(sgl_threadpool_t));
+    pool = (sgl_threadpool_t *)sgl_calloc(1, sizeof(sgl_threadpool_t));
     if (pool == NULL) {
         return NULL;
     }
     pool->num_threads = num_threads;
     pool->is_exit_threadpool = false;
-    
+
     /* create queue for task list */
     pool->routine_lists = sgl_queue_create(max_routine_lists);
     if (pool->routine_lists == NULL) {
@@ -76,7 +76,7 @@ sgl_threadpool_t *sgl_threadpool_create(size_t num_threads, size_t max_routine_l
     sgl_osal_cond_init(&pool->cond);
 
     /* allocate thread basket */
-    pool->threads = (sgl_osal_thread_t *)malloc(num_threads * sizeof(sgl_osal_thread_t));
+    pool->threads = (sgl_osal_thread_t *)sgl_malloc(num_threads * sizeof(sgl_osal_thread_t));
     if (pool->threads == NULL) {
         goto release_resource;
     }
@@ -104,33 +104,33 @@ sgl_result_t sgl_threadpool_destroy(sgl_threadpool_t *pool)
     if (pool != NULL) {
         /* Set exit flag so worker threads can break out of their loop */
         pool->is_exit_threadpool = true;
-    
+
         /* Wake up all worker threads that might be waiting on the condition variable */
         sgl_osal_mutex_lock(&pool->lock);
         sgl_osal_cond_broadcast(&pool->cond);
         sgl_osal_mutex_unlock(&pool->lock);
-    
+
        /* Join all worker threads to ensure they have finished execution */
         for (size_t i = 0; i < pool->num_threads; ++i) {
             if (pool->threads[i] != NULL_THREAD) {
                 sgl_osal_thread_join(pool->threads[i]);
             }
         }
-    
+
         /* Destroy the routine list queue */
         if (pool->routine_lists != NULL) {
             sgl_queue_destroy(&pool->routine_lists);
         }
-    
+
         /* Destroy synchronization primitives */
         sgl_osal_mutex_destroy(&pool->lock);
         sgl_osal_cond_destroy(&pool->cond);
-    
+
         /* Free thread array */
         SGL_SAFE_FREE(pool->threads);
-    
+
         /* Free the pool object itself */
-        free(pool);
+        sgl_free(pool);
     }
     else {
         result = SGL_ERROR_INVALID_ARGUMENTS;
@@ -143,17 +143,17 @@ sgl_result_t sgl_threadpool_attach_routine(sgl_threadpool_t *SGL_RESTRICT pool, 
 {
     sgl_result_t result = SGL_SUCCESS;
     sgl_threadpool_routine_handle_t routine_handle;
-  
+
     if ((pool != NULL) && (routine != NULL) && (operations != NULL)) {
         /* initialize routine handle */
         sgl_threadpool_routine_handle_initialize(&routine_handle, operations, routine, cookie);
-    
+
         /* attach routine */
         sgl_queue_enqueue(pool->routine_lists, (const void *)&routine_handle);
-    
+
         /* broadcast */
         sgl_osal_cond_broadcast(&pool->cond);
-    
+
         /* wait for routine... */
         sgl_osal_mutex_lock(&routine_handle.lock);
         while (routine_handle.is_done == false) {
@@ -165,7 +165,7 @@ sgl_result_t sgl_threadpool_attach_routine(sgl_threadpool_t *SGL_RESTRICT pool, 
         while (routine_handle.is_removable == false) {
             // sgl_osal_yield_thread();
         }
-    
+
         /* deinitialize routine handle */
         sgl_threadpool_routine_handle_deinitialize(&routine_handle);
     }

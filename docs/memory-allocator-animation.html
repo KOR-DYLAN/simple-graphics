@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SGL Memory Pool Allocator</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #09101d;
+      --panel: #111b2e;
+      --panel-2: #17243a;
+      --text: #edf5ff;
+      --muted: #91a4bf;
+      --free: #20c997;
+      --free-dark: #0e806b;
+      --used-a: #60a5fa;
+      --used-b: #a78bfa;
+      --used-c: #fb7185;
+      --header: #334155;
+      --accent: #fbbf24;
+      --danger: #fb7185;
+      --line: #425674;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 15% 10%, #172c4a 0, transparent 30rem),
+        radial-gradient(circle at 90% 85%, #123c38 0, transparent 26rem),
+        var(--bg);
+      color: var(--text);
+      font-family: Inter, "Noto Sans KR", system-ui, sans-serif;
+    }
+
+    main {
+      width: min(1180px, calc(100% - 32px));
+      margin: 28px auto;
+    }
+
+    header {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(24px, 4vw, 42px);
+      letter-spacing: -0.04em;
+    }
+
+    header p {
+      max-width: 590px;
+      margin: 8px 0 0;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .badge {
+      flex: none;
+      padding: 8px 12px;
+      border: 1px solid #355071;
+      border-radius: 999px;
+      background: #101d31cc;
+      color: #bad4f3;
+      font: 13px ui-monospace, monospace;
+    }
+
+    .stage {
+      overflow: hidden;
+      border: 1px solid #263955;
+      border-radius: 20px;
+      background: linear-gradient(145deg, #111c30e8, #0b1424ed);
+      box-shadow: 0 24px 80px #0008;
+    }
+
+    svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      aspect-ratio: 16 / 9;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: auto auto 1fr auto;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+      border-top: 1px solid #263955;
+      background: #0b1424;
+    }
+
+    button {
+      min-width: 42px;
+      height: 38px;
+      border: 1px solid #355071;
+      border-radius: 10px;
+      background: #182742;
+      color: var(--text);
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    button:hover { background: #213654; }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--free);
+    }
+
+    #counter {
+      min-width: 66px;
+      color: var(--muted);
+      text-align: right;
+      font: 13px ui-monospace, monospace;
+    }
+
+    .notes {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .note {
+      padding: 14px 16px;
+      border: 1px solid #263955;
+      border-radius: 14px;
+      background: #111b2ecc;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .note strong { color: var(--text); }
+
+    @media (max-width: 760px) {
+      header { align-items: start; flex-direction: column; }
+      .notes { grid-template-columns: 1fr; }
+      .controls { grid-template-columns: auto auto 1fr; }
+      #counter { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>SGL Memory Pool Allocator</h1>
+        <p>
+          A step-by-step visualization of the first-fit search, block splitting,
+          free-list insertion, and right-first coalescing implemented in <code>memory.c</code>.
+        </p>
+      </div>
+      <div class="badge">library/sgl-core/memory/memory.c</div>
+    </header>
+
+    <section class="stage">
+      <svg id="scene" viewBox="0 0 1120 630" role="img"
+           aria-label="Animation of the SGL memory pool allocator"></svg>
+      <div class="controls">
+        <button id="previous" aria-label="Previous step">←</button>
+        <button id="play" aria-label="Play or pause">Ⅱ</button>
+        <input id="timeline" type="range" min="0" max="9" step="1" value="0"
+               aria-label="Animation step">
+        <span id="counter">1 / 10</span>
+      </div>
+    </section>
+
+    <section class="notes">
+      <div class="note"><strong>Physical order</strong><br>The next block is calculated from the current header address and payload size.</div>
+      <div class="note"><strong>Free-list order</strong><br>Only free blocks belong to the separate doubly linked list, with insertion at the head.</div>
+      <div class="note"><strong>Thread safety</strong><br>The pool mutex serializes all metadata changes performed during allocation and release.</div>
+    </section>
+  </main>
+
+  <script>
+    const NS = "http://www.w3.org/2000/svg";
+    const colors = {
+      free: "#20c997", freeDark: "#0e806b", A: "#60a5fa",
+      B: "#a78bfa", C: "#fb7185", D: "#f59e0b",
+      header: "#334155", text: "#edf5ff", muted: "#91a4bf",
+      accent: "#fbbf24", line: "#425674", panel: "#111b2e"
+    };
+
+    const steps = [
+      {
+        title: "1. Pool initialization",
+        operation: "sgl_memory_pool_initialize(memory, size)",
+        description: "The entire aligned usable range is initialized as one free block.",
+        blocks: [{ id: "F0", size: 100, free: true }],
+        freeList: ["F0"], count: 0, focus: "F0", code: "initialize"
+      },
+      {
+        title: "2. malloc(A, 22) → align to 24",
+        operation: "sgl_malloc(22)",
+        description: "The first free-list block is selected and split into A and a remainder.",
+        blocks: [{ id: "A", size: 24 }, { id: "F1", size: 70, free: true }],
+        freeList: ["F1"], count: 1, focus: "A", code: "split"
+      },
+      {
+        title: "3. malloc(B, 18) → align to 24",
+        operation: "sgl_malloc(18)",
+        description: "First-fit immediately selects F1, the current free-list head.",
+        blocks: [{ id: "A", size: 24 }, { id: "B", size: 24 }, { id: "F2", size: 40, free: true }],
+        freeList: ["F2"], count: 2, focus: "B", code: "split"
+      },
+      {
+        title: "4. malloc(C, 12) → align to 16",
+        operation: "sgl_malloc(12)",
+        description: "After C is split out, the remaining space becomes a new free block.",
+        blocks: [{ id: "A", size: 24 }, { id: "B", size: 24 }, { id: "C", size: 16 }, { id: "F3", size: 18, free: true }],
+        freeList: ["F3"], count: 3, focus: "C", code: "split"
+      },
+      {
+        title: "5. free(B) → hole",
+        operation: "sgl_free(B)",
+        description: "Both adjacent blocks are in use, so B becomes the free-list head without merging.",
+        blocks: [{ id: "A", size: 24 }, { id: "B", size: 24, free: true }, { id: "C", size: 16 }, { id: "F3", size: 18, free: true }],
+        freeList: ["B", "F3"], count: 2, focus: "B", code: "insert"
+      },
+      {
+        title: "6. malloc(D, 14) reuses B",
+        operation: "sgl_malloc(14)",
+        description: "The search follows free-list order rather than address order, so the middle hole is reused first.",
+        blocks: [{ id: "A", size: 24 }, { id: "D", size: 24 }, { id: "C", size: 16 }, { id: "F3", size: 18, free: true }],
+        freeList: ["F3"], count: 3, focus: "D", code: "first-fit"
+      },
+      {
+        title: "7. free(C) → merge right",
+        operation: "sgl_free(C)",
+        description: "Because F3 on the right is free, C absorbs it to form one larger free block.",
+        blocks: [{ id: "A", size: 24 }, { id: "D", size: 24 }, { id: "C+F3", size: 40, free: true }],
+        freeList: ["C+F3"], count: 2, focus: "C+F3", code: "merge-right"
+      },
+      {
+        title: "8. free(D) → merge right",
+        operation: "sgl_free(D)",
+        description: "D also absorbs the free block on its right, leaving A as the only live allocation.",
+        blocks: [{ id: "A", size: 24 }, { id: "D+C+F3", size: 70, free: true }],
+        freeList: ["D+C+F3"], count: 1, focus: "D+C+F3", code: "merge-right"
+      },
+      {
+        title: "9. free(A) → full coalescing",
+        operation: "sgl_free(A)",
+        description: "A merges with the free block on its right, restoring the original single free block.",
+        blocks: [{ id: "F0", size: 100, free: true }],
+        freeList: ["F0"], count: 0, focus: "F0", code: "merge-right"
+      },
+      {
+        title: "10. Pool deinitialization",
+        operation: "sgl_memory_pool_deinitialize()",
+        description: "Because allocation_count is zero, the mutex and pool metadata can be safely detached.",
+        blocks: [], freeList: [], count: 0, focus: null, code: "deinitialize"
+      }
+    ];
+
+    const codeLines = {
+      initialize: ["first->fields.size = usable_size - header;", "first->fields.is_free = true;", "free_list = first;"],
+      split: ["remove_free_block(block);", "split_block(block, aligned_size);", "block->is_free = false;"],
+      "first-fit": ["while (block->size < aligned_size)", "    block = block->next_free;", "remove_free_block(block);"],
+      insert: ["block->is_free = true;", "block->next_free = free_list;", "free_list = block;"],
+      "merge-right": ["next = next_physical(block);", "remove_free_block(next);", "block->size += header + next->size;"],
+      deinitialize: ["if (allocation_count == 0) {", "    free_list = NULL;", "    mutex_destroy(&lock);", "}"]
+    };
+
+    const svg = document.querySelector("#scene");
+    const timeline = document.querySelector("#timeline");
+    const playButton = document.querySelector("#play");
+    const counter = document.querySelector("#counter");
+    let index = 0;
+    let playing = true;
+    let timer = null;
+
+    function el(name, attrs = {}, text = "") {
+      const node = document.createElementNS(NS, name);
+      for (const [key, value] of Object.entries(attrs)) node.setAttribute(key, value);
+      if (text) node.textContent = text;
+      return node;
+    }
+
+    function text(x, y, value, size = 16, fill = colors.text, weight = 400, anchor = "start") {
+      return el("text", { x, y, fill, "font-size": size, "font-weight": weight, "text-anchor": anchor }, value);
+    }
+
+    function roundedRect(x, y, width, height, fill, stroke = "none", radius = 12) {
+      return el("rect", { x, y, width, height, rx: radius, fill, stroke, "stroke-width": 2 });
+    }
+
+    function drawArrow(x1, y1, x2, y2, color = colors.accent) {
+      const group = el("g");
+      group.append(el("line", { x1, y1, x2, y2, stroke: color, "stroke-width": 3 }));
+      const angle = Math.atan2(y2 - y1, x2 - x1);
+      const d = 9;
+      const p1 = [x2 - d * Math.cos(angle - .55), y2 - d * Math.sin(angle - .55)];
+      const p2 = [x2 - d * Math.cos(angle + .55), y2 - d * Math.sin(angle + .55)];
+      group.append(el("path", { d: `M ${x2} ${y2} L ${p1[0]} ${p1[1]} L ${p2[0]} ${p2[1]} Z`, fill: color }));
+      return group;
+    }
+
+    function blockColor(block) {
+      if (block.free) return colors.freeDark;
+      return colors[block.id] || colors.D;
+    }
+
+    function render(stepIndex) {
+      index = (stepIndex + steps.length) % steps.length;
+      const step = steps[index];
+      svg.replaceChildren();
+
+      const defs = el("defs");
+      const glow = el("filter", { id: "glow", x: "-50%", y: "-50%", width: "200%", height: "200%" });
+      glow.append(el("feGaussianBlur", { stdDeviation: 6, result: "blur" }));
+      const merge = el("feMerge");
+      merge.append(el("feMergeNode", { in: "blur" }), el("feMergeNode", { in: "SourceGraphic" }));
+      glow.append(merge);
+      defs.append(glow);
+      svg.append(defs);
+
+      svg.append(roundedRect(24, 24, 1072, 582, "#0d1728", "#263955", 18));
+      svg.append(text(54, 70, step.title, 27, colors.text, 750));
+      svg.append(text(54, 99, step.operation, 16, colors.accent, 650));
+      svg.append(text(54, 128, step.description, 15, colors.muted));
+
+      svg.append(text(54, 177, "PHYSICAL MEMORY ORDER", 12, colors.muted, 700));
+      const poolX = 54, poolY = 197, poolW = 1012, poolH = 120;
+      svg.append(roundedRect(poolX, poolY, poolW, poolH, "#09111f", "#425674", 10));
+
+      if (step.blocks.length === 0) {
+        svg.append(text(560, 258, "POOL DETACHED", 24, colors.muted, 700, "middle"));
+      } else {
+        const total = step.blocks.reduce((sum, block) => sum + block.size, 0);
+        let x = poolX + 6;
+        const usable = poolW - 12;
+        step.blocks.forEach((block) => {
+          const width = usable * block.size / total;
+          const headerWidth = Math.min(27, Math.max(17, width * .18));
+          const active = block.id === step.focus;
+          const group = el("g", active ? { filter: "url(#glow)" } : {});
+          group.append(roundedRect(x, poolY + 7, width - 3, poolH - 14, blockColor(block), active ? colors.accent : "#18263b", 5));
+          group.append(el("rect", {
+            x, y: poolY + 7, width: Math.min(headerWidth, width - 3), height: poolH - 14,
+            rx: 5, fill: colors.header, stroke: active ? colors.accent : "#18263b", "stroke-width": 2
+          }));
+          if (width > 90) {
+            group.append(text(x + headerWidth / 2, poolY + 65, "H", 13, colors.muted, 700, "middle"));
+            group.append(text(x + headerWidth + (width - headerWidth) / 2, poolY + 57,
+              block.free ? `${block.id} · FREE` : `${block.id} · USED`, 16, colors.text, 750, "middle"));
+            group.append(text(x + headerWidth + (width - headerWidth) / 2, poolY + 81,
+              `payload ${block.size}`, 12, "#d5e3f5", 500, "middle"));
+          } else {
+            group.append(text(x + width / 2, poolY + 61, block.id, 13, colors.text, 750, "middle"));
+          }
+          svg.append(group);
+          x += width;
+        });
+      }
+
+      svg.append(text(poolX, 341, "begin", 12, colors.muted));
+      svg.append(text(poolX + poolW, 341, "end", 12, colors.muted, 400, "end"));
+
+      svg.append(roundedRect(54, 374, 510, 180, colors.panel, "#263955", 14));
+      svg.append(text(78, 407, "FREE LIST", 12, colors.muted, 700));
+      if (step.freeList.length === 0) {
+        svg.append(text(309, 474, "NULL", 22, colors.muted, 700, "middle"));
+      } else {
+        const itemW = Math.min(122, (440 - (step.freeList.length - 1) * 48) / step.freeList.length);
+        let x = 80;
+        step.freeList.forEach((name, i) => {
+          svg.append(roundedRect(x, 436, itemW, 58, colors.freeDark, colors.free, 10));
+          svg.append(text(x + itemW / 2, 471, name, 15, colors.text, 750, "middle"));
+          if (i < step.freeList.length - 1) {
+            svg.append(drawArrow(x + itemW + 5, 465, x + itemW + 39, 465, colors.free));
+          }
+          x += itemW + 48;
+        });
+        svg.append(text(80, 522, `head → ${step.freeList[0]}`, 13, colors.free, 650));
+      }
+
+      svg.append(roundedRect(586, 374, 480, 180, "#0b1321", "#263955", 14));
+      svg.append(text(610, 407, "ACTIVE CODE PATH", 12, colors.muted, 700));
+      const lines = codeLines[step.code];
+      lines.forEach((line, i) => {
+        svg.append(text(614, 442 + i * 26, line, 14, i === 1 ? colors.accent : "#c8d8ec", i === 1 ? 700 : 450));
+      });
+
+      svg.append(text(54, 586, `allocation_count = ${step.count}`, 14,
+        step.count === 0 ? colors.free : colors.accent, 700));
+      svg.append(text(1066, 586, "mutex: operation locked", 13, colors.muted, 500, "end"));
+
+      timeline.value = index;
+      counter.textContent = `${index + 1} / ${steps.length}`;
+    }
+
+    function schedule() {
+      clearInterval(timer);
+      if (playing) timer = setInterval(() => render(index + 1), 2200);
+      playButton.textContent = playing ? "Ⅱ" : "▶";
+    }
+
+    document.querySelector("#previous").addEventListener("click", () => {
+      render(index - 1);
+      schedule();
+    });
+    playButton.addEventListener("click", () => {
+      playing = !playing;
+      schedule();
+    });
+    timeline.addEventListener("input", (event) => {
+      render(Number(event.target.value));
+      schedule();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowRight") render(index + 1);
+      if (event.key === "ArrowLeft") render(index - 1);
+      if (event.key === " ") {
+        event.preventDefault();
+        playing = !playing;
+        schedule();
+      }
+    });
+
+    render(0);
+    schedule();
+  </script>
+</body>
+</html>

@@ -15,19 +15,19 @@ sgl_bicubic_lookup_t *sgl_generic_create_bicubic_lut(int32_t d_width, int32_t d_
     int32_t x4, y4;
     sgl_q11_t p, q;
 
-    lut = (sgl_bicubic_lookup_t *)malloc(sizeof(sgl_bicubic_lookup_t));
+    lut = (sgl_bicubic_lookup_t *)sgl_malloc(sizeof(sgl_bicubic_lookup_t));
     if (lut != NULL) {
-        lut->col_lookup.x1      = (int32_t *)malloc(sizeof(int32_t) * (size_t)d_width);
-        lut->col_lookup.x2      = (int32_t *)malloc(sizeof(int32_t) * (size_t)d_width);
-        lut->col_lookup.x3      = (int32_t *)malloc(sizeof(int32_t) * (size_t)d_width);
-        lut->col_lookup.x4      = (int32_t *)malloc(sizeof(int32_t) * (size_t)d_width);
-        lut->col_lookup.p       = (sgl_q11_t *)malloc(sizeof(sgl_q11_t) * (size_t)d_width);
+        lut->col_lookup.x1      = (int32_t *)sgl_malloc(sizeof(int32_t) * (size_t)d_width);
+        lut->col_lookup.x2      = (int32_t *)sgl_malloc(sizeof(int32_t) * (size_t)d_width);
+        lut->col_lookup.x3      = (int32_t *)sgl_malloc(sizeof(int32_t) * (size_t)d_width);
+        lut->col_lookup.x4      = (int32_t *)sgl_malloc(sizeof(int32_t) * (size_t)d_width);
+        lut->col_lookup.p       = (sgl_q11_t *)sgl_malloc(sizeof(sgl_q11_t) * (size_t)d_width);
 
-        lut->row_lookup.y1      = (int32_t *)malloc(sizeof(int32_t) * (size_t)d_height);
-        lut->row_lookup.y2      = (int32_t *)malloc(sizeof(int32_t) * (size_t)d_height);
-        lut->row_lookup.y3      = (int32_t *)malloc(sizeof(int32_t) * (size_t)d_height);
-        lut->row_lookup.y4      = (int32_t *)malloc(sizeof(int32_t) * (size_t)d_height);
-        lut->row_lookup.q       = (sgl_q11_t *)malloc(sizeof(sgl_q11_t) * (size_t)d_height);
+        lut->row_lookup.y1      = (int32_t *)sgl_malloc(sizeof(int32_t) * (size_t)d_height);
+        lut->row_lookup.y2      = (int32_t *)sgl_malloc(sizeof(int32_t) * (size_t)d_height);
+        lut->row_lookup.y3      = (int32_t *)sgl_malloc(sizeof(int32_t) * (size_t)d_height);
+        lut->row_lookup.y4      = (int32_t *)sgl_malloc(sizeof(int32_t) * (size_t)d_height);
+        lut->row_lookup.q       = (sgl_q11_t *)sgl_malloc(sizeof(sgl_q11_t) * (size_t)d_height);
 
         if ((lut->col_lookup.x1 != NULL) && (lut->col_lookup.x2 != NULL) && (lut->col_lookup.x3 != NULL) && (lut->col_lookup.x4 != NULL) && (lut->col_lookup.p != NULL) &&
             (lut->row_lookup.y1 != NULL) && (lut->row_lookup.y2 != NULL) && (lut->row_lookup.y3 != NULL) && (lut->row_lookup.y4 != NULL) && (lut->row_lookup.q != NULL)) {
@@ -129,6 +129,6 @@ void sgl_generic_destroy_bicubic_lut(sgl_bicubic_lookup_t *lut)
         SGL_SAFE_FREE(lut->row_lookup.y4);
         SGL_SAFE_FREE(lut->row_lookup.q);
 
-        free(lut);
+        sgl_free(lut);
     }
 }

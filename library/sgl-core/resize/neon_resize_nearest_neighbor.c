@@ -339,7 +339,7 @@ sgl_result_t sgl_simd_resize_nearest(
                 }
 
                 operations = sgl_queue_create((size_t)num_operations);
-                currents = (sgl_nearest_neighbor_current_t *)malloc(sizeof(sgl_nearest_neighbor_current_t) * (size_t)num_operations);
+                currents = (sgl_nearest_neighbor_current_t *)sgl_malloc(sizeof(sgl_nearest_neighbor_current_t) * (size_t)num_operations);
                 if ((operations != NULL) && (currents != NULL)) {
                     for (i = 0; i < num_operations; ++i) {
                         currents[i].row = i * SGL_SIMD_BULK_SIZE;

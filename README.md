@@ -114,3 +114,27 @@ Notes
 - qemu-aarch64 is only required for non-host (cross) execution.
 - The default input argument is `resource/sample.png`.
 
+Memory Pool
+-----------
+SGL uses `sgl_malloc`, `sgl_calloc`, and `sgl_free` internally. Their calling
+conventions match `malloc`, `calloc`, and `free`, but they never use the C
+runtime heap. A caller-owned pool must be registered before using an SGL
+operation that allocates memory:
+
+```c
+static unsigned char sgl_pool[1024 * 1024];
+
+if (sgl_memory_pool_initialize(sgl_pool, sizeof(sgl_pool)) != SGL_SUCCESS) {
+    /* handle initialization failure */
+}
+
+/* Use SGL normally. */
+
+if (sgl_memory_pool_deinitialize() != SGL_SUCCESS) {
+    /* Pool allocations are still alive. */
+}
+```
+
+The allocator supports variable-size blocks, splits and coalesces free blocks,
+and serializes allocation/free operations when thread support is enabled.
+Initialize and deinitialize the pool outside concurrent SGL activity.
