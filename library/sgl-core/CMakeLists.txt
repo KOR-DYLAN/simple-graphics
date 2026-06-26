@@ -69,14 +69,14 @@ install(
     NAMESPACE ${SGL_CORE_EXPORT_NAME}::)
 
 configure_package_config_file(
-    ${CMAKE_SOURCE_DIR}/script/config/${SGL_CORE_PACKAGE_CONFIGNAME}-config.cmake.in
+    ${CMAKE_SOURCE_DIR}/script/config/package/${SGL_CORE_PACKAGE_CONFIGNAME}-config.cmake.in
     ${CMAKE_BINARY_DIR}/${SGL_CORE_PACKAGE_CONFIGNAME}-config.cmake
     INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${SGL_CORE_EXPORT_NAME}
     PATH_VARS INCLUDE_INSTALL_DIR LIB_INSTALL_DIR
 )
 write_basic_package_version_file(
     ${CMAKE_BINARY_DIR}/${SGL_CORE_PACKAGE_CONFIGNAME}-config-version.cmake
-    VERSION ${PACKAGE_VERSION}
+    VERSION ${SGL_FULL_VERSION}
     COMPATIBILITY AnyNewerVersion
 )
 install(

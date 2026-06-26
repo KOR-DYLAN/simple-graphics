@@ -1,10 +1,10 @@
-set(sgl_VERSION @SGL_HEADER_VERSION@)
+set(sgl_VERSION @SGL_FULL_VERSION@)
 
 @PACKAGE_INIT@
 
 set_and_check(sgl_INCLUDE_DIR "@PACKAGE_INCLUDE_INSTALL_DIR@")
 set_and_check(sgl_LIB_DIR "@PACKAGE_LIB_INSTALL_DIR@")
 
-include("${CMAKE_CURRENT_LIST_DIR}/sgl-targets.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/@SGL_CORE_EXPORT_NAME@-targets.cmake")
 
 check_required_components(sgl-core)
