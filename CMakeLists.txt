@@ -44,7 +44,7 @@ set(CPACK_SOURCE_GENERATOR
     ZIP
     TGZ
 )
-set(CPACK_SOURCE_IGNORE_FILES .git/ _CPack_Packages/ package .vscode 3rd-party .gitmodules .gitignore prebuild "${CMAKE_BINARY_DIR}/")
+set(CPACK_SOURCE_IGNORE_FILES .git/ _CPack_Packages/ package .vscode .gitignore downloads "${CMAKE_BINARY_DIR}/")
 
 set(CPACK_PACKAGE_NAME "sgl")
 set(CPACK_PACKAGE_VERSION ${SGL_FULL_VERSION})

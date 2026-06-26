@@ -75,18 +75,13 @@ endfunction()
 
 function(sgl_toolchain_append_project_find_roots SGL_EXTRA_ROOT SGL_PROGRAM_MODE)
     # Cross builds must prefer target libraries and headers over host files.
-    # The prebuild directories contain target-side third-party dependencies used
-    # by this project.  Some toolchains also need their sysroot in the CMake
-    # find root list; pass it as SGL_EXTRA_ROOT when that is required.
+    # Some toolchains also need their sysroot in the CMake find root list; pass
+    # it as SGL_EXTRA_ROOT when that is required.
     set(SGL_FIND_ROOTS)
 
     if(NOT "${SGL_EXTRA_ROOT}" STREQUAL "")
         list(APPEND SGL_FIND_ROOTS "${SGL_EXTRA_ROOT}")
     endif()
-
-    list(APPEND SGL_FIND_ROOTS
-        "${CMAKE_SOURCE_DIR}/prebuild/libpng"
-        "${CMAKE_SOURCE_DIR}/prebuild/zlib")
 
     list(APPEND CMAKE_FIND_ROOT_PATH ${SGL_FIND_ROOTS})
     set(CMAKE_FIND_ROOT_PATH "${CMAKE_FIND_ROOT_PATH}" PARENT_SCOPE)
