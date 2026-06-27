@@ -85,6 +85,8 @@ function(sgl_print_configuration_summary)
     sgl_set_enabled_status(CPPCHECK_ERRORS_STATUS
         "ON" "OFF" WITH_CPPCHECK_WARNINGS_AS_ERRORS)
     sgl_set_enabled_status(TEST_APP_STATUS "ON" "OFF" WITH_TEST_APP)
+    sgl_set_enabled_status(BENCHMARK_COMPARE_STATUS
+        "ON" "OFF" WITH_BENCHMARK_COMPARE)
     sgl_set_simd_status(SIMD_STATUS)
     sgl_set_thread_status(THREAD_STATUS)
 
@@ -99,6 +101,7 @@ function(sgl_print_configuration_summary)
     message(STATUS "  cppcheck MISRA C:2012 ........ ${CPPCHECK_MISRA_STATUS}")
     message(STATUS "  cppcheck findings as errors .. ${CPPCHECK_ERRORS_STATUS}")
     message(STATUS "  Test applications ............ ${TEST_APP_STATUS}")
+    message(STATUS "  Benchmark comparison ......... ${BENCHMARK_COMPARE_STATUS}")
     message(STATUS "  SIMD ......................... ${SIMD_STATUS}")
     message(STATUS "  Threading .................... ${THREAD_STATUS}")
     message(STATUS "")

@@ -86,13 +86,13 @@ static SGL_ALWAYS_INLINE sgl_simd_q11_ext_t sgl_neon_bicubic_interpolation(sgl_s
     p4 = vmlsq_n_s32(p4, v3, 3);
     p4 = vaddq_s32(p4, v4);
 
-    v = sgl_simd_q11_mul(d, p4);
+    v = sgl_simd_q11_ext_mul(d, p4);
     v = vaddq_s32(p3, v);
 
-    v = sgl_simd_q11_mul(d, v);
+    v = sgl_simd_q11_ext_mul(d, v);
     v = vaddq_s32(p2, v);
 
-    v = sgl_simd_q11_mul(d, v);
+    v = sgl_simd_q11_ext_mul(d, v);
     v = vaddq_s32(p1, v);
 
     return vshrq_n_s32(v, 1);
@@ -269,8 +269,8 @@ static SGL_ALWAYS_INLINE sgl_uint8_t *sgl_simd_resize_bicubic_upscale_line_strip
         x4_off = col_lookup->x4[col] * bpp;
 
         p = vld1q_s16(&col_lookup->p[col]);
-        p_lo = vreinterpretq_s32_u32(vmovl_u16(vget_low_s16(p)));
-        p_hi = vreinterpretq_s32_u32(vmovl_high_u16(p));
+        p_lo = vmovl_s16(vget_low_s16(p));
+        p_hi = vmovl_high_s16(p);
 
         x1_col = sgl_neon_vld_col(&col_lookup->x1[col], col_lookup->x1[col]);
         x2_col = sgl_neon_vld_col(&col_lookup->x2[col], col_lookup->x2[col]);
@@ -592,8 +592,8 @@ static SGL_ALWAYS_INLINE sgl_uint8_t *sgl_simd_resize_bicubic_downscale_line_str
     for (lane = 0; lane < num_lanes; ++lane) {
         col = (lane * NEON_LANE_SIZE);
         p = vld1q_s16(&col_lookup->p[col]);
-        p_lo = vreinterpretq_s32_u32(vmovl_u16(vget_low_s16(p)));
-        p_hi = vreinterpretq_s32_u32(vmovl_high_u16(p));
+        p_lo = vmovl_s16(vget_low_s16(p));
+        p_hi = vmovl_high_s16(p);
 
         for (ch = 0; ch < bpp; ++ch) {
             x1 = sgl_neon_vset_u8(src_y1_buf, &col_lookup->x1[col], ch, bpp);

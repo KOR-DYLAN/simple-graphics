@@ -24,18 +24,42 @@ static SGL_ALWAYS_INLINE uint8x8_t sgl_neon_bilinear_interpolation(
 {
     int32x4_t acc_lo;
     int32x4_t acc_hi;
+    int16x4_t src_y1x1_lo;
+    int16x4_t src_y1x2_lo;
+    int16x4_t src_y2x1_lo;
+    int16x4_t src_y2x2_lo;
+    int16x4_t src_y1x1_hi;
+    int16x4_t src_y1x2_hi;
+    int16x4_t src_y2x1_hi;
+    int16x4_t src_y2x2_hi;
+
+    /*
+     * Source lanes come from uint8 pixels widened to uint16.  The interpolation
+     * weights are signed Q11 values, and AArch64 provides a signed widening
+     * multiply-accumulate here.  Pixel lanes are only 0..255, so reinterpreting
+     * their low 16 bits as signed values preserves the numeric value while
+     * satisfying the intrinsic type contract.
+     */
+    src_y1x1_lo = vreinterpret_s16_u16(vget_low_u16(src_y1x1));
+    src_y1x2_lo = vreinterpret_s16_u16(vget_low_u16(src_y1x2));
+    src_y2x1_lo = vreinterpret_s16_u16(vget_low_u16(src_y2x1));
+    src_y2x2_lo = vreinterpret_s16_u16(vget_low_u16(src_y2x2));
+    src_y1x1_hi = vreinterpret_s16_u16(vget_high_u16(src_y1x1));
+    src_y1x2_hi = vreinterpret_s16_u16(vget_high_u16(src_y1x2));
+    src_y2x1_hi = vreinterpret_s16_u16(vget_high_u16(src_y2x1));
+    src_y2x2_hi = vreinterpret_s16_u16(vget_high_u16(src_y2x2));
 
     /* Process Low Lanes (0-3) */
-    acc_lo = vmull_s16(vget_low_s16(w00), vget_low_u16(src_y1x1));
-    acc_lo = vmlal_s16(acc_lo, vget_low_s16(w01), vget_low_u16(src_y1x2));
-    acc_lo = vmlal_s16(acc_lo, vget_low_s16(w10), vget_low_u16(src_y2x1));
-    acc_lo = vmlal_s16(acc_lo, vget_low_s16(w11), vget_low_u16(src_y2x2));
+    acc_lo = vmull_s16(vget_low_s16(w00), src_y1x1_lo);
+    acc_lo = vmlal_s16(acc_lo, vget_low_s16(w01), src_y1x2_lo);
+    acc_lo = vmlal_s16(acc_lo, vget_low_s16(w10), src_y2x1_lo);
+    acc_lo = vmlal_s16(acc_lo, vget_low_s16(w11), src_y2x2_lo);
 
     /* Process High Lanes (4-7) */
-    acc_hi = vmull_s16(vget_high_s16(w00), vget_high_u16(src_y1x1));
-    acc_hi = vmlal_s16(acc_hi, vget_high_s16(w01), vget_high_u16(src_y1x2));
-    acc_hi = vmlal_s16(acc_hi, vget_high_s16(w10), vget_high_u16(src_y2x1));
-    acc_hi = vmlal_s16(acc_hi, vget_high_s16(w11), vget_high_u16(src_y2x2));
+    acc_hi = vmull_s16(vget_high_s16(w00), src_y1x1_hi);
+    acc_hi = vmlal_s16(acc_hi, vget_high_s16(w01), src_y1x2_hi);
+    acc_hi = vmlal_s16(acc_hi, vget_high_s16(w10), src_y2x1_hi);
+    acc_hi = vmlal_s16(acc_hi, vget_high_s16(w11), src_y2x2_hi);
 
     /* Apply Rounding and Shift Right (Q11 -> Integer) */
     acc_lo = vrshrq_n_s32(acc_lo, SGL_Q11_FRAC_BITS);

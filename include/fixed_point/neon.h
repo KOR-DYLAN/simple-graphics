@@ -30,6 +30,21 @@ static SGL_ALWAYS_INLINE sgl_simd_q11_t sgl_simd_q11_mul(sgl_simd_q11_t a, sgl_s
 }
 
 /**
+ * Extended Q11 Multiplication: (a * b) >> 11
+ * Each 32-bit lane stores one Q11 value. Multiplication creates a Q22
+ * intermediate, then a rounding right shift restores the Q11 scale.
+ */
+static SGL_ALWAYS_INLINE sgl_simd_q11_ext_t sgl_simd_q11_ext_mul(sgl_simd_q11_ext_t a, sgl_simd_q11_ext_t b)
+{
+    sgl_simd_q11_ext_t result;
+
+    result = vmulq_s32(a, b);
+    result = vrshrq_n_s32(result, SGL_Q11_FRAC_BITS);
+
+    return result;
+}
+
+/**
  * Optimized Clamp: int32x4_t (low/high) -> uint8x8_t
  * Performs saturating narrowing from 32-bit signed to 8-bit unsigned.
  */
