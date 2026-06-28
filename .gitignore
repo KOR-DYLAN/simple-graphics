@@ -1,5 +1,6 @@
 build/*
 downloads/*
+report/*/cppcheck-build/*
 benchmark/*
 !benchmark/
 !benchmark/resize-benchmark-summary.svg

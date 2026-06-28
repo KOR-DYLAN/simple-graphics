@@ -6,6 +6,7 @@ CPACK			:=cpack
 NPROC			?=$(shell nproc)
 V				?=0
 HOSTENV			:=TRUE
+CPPCHECK_REPORT	?=$(TOPDIR)/script/cppcheck-report.sh
 
 # qemu-aarch64
 QEMU			:=qemu-aarch64
@@ -65,5 +66,9 @@ else
 	$(eval SYSROOT := $(shell cat $(BUILD)/sysroot.txt))
 	$(QEMU) -L $(SYSROOT) $(BUILD)/$(BUILD_TYPE)/bin/$(TARGET) $(ARGS)
 endif
+
+phony+=cppcheck-report
+cppcheck-report: config
+	BUILD_DIR=$(BUILD) REPORT_ROOT=$(TOPDIR)/report WITH_CPPCHECK_MISRA=$(WITH_CPPCHECK_MISRA) CPPCHECK_MISRA_RULE_TEXTS="$(CPPCHECK_MISRA_RULE_TEXTS)" CPPCHECK_MAX_CTU_DEPTH=$(CPPCHECK_MAX_CTU_DEPTH) CPPCHECK_JOBS=$(NPROC) $(CPPCHECK_REPORT)
 
 .PHONY: $(phony)

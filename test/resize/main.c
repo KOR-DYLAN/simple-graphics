@@ -1289,10 +1289,15 @@ static void sgl_test_print_table_header(void)
 {
     (void)printf("\nResize benchmark\n");
     (void)printf("repeat count: %u\n", SGL_TEST_REPEAT_COUNT);
-    (void)printf("case  ch   method    backend      th  size         "
-                 "avg           min           max           output\n");
-    (void)printf("----  ---  --------  -----------  --  -----------  "
-                 "------------  ------------  ------------  ------\n");
+    (void)printf("%4s  %3s  %-8s  %-11s  %2s  %-11s  "
+                 "%14s  %14s  %14s  %s\n",
+                 "case", "ch", "method", "backend", "th", "size",
+                 "avg", "min", "max", "output");
+    (void)printf("%4s  %3s  %-8s  %-11s  %2s  %-11s  "
+                 "%14s  %14s  %14s  %s\n",
+                 "----", "---", "--------", "-----------", "--",
+                 "-----------", "--------------", "--------------",
+                 "--------------", "------");
 }
 
 static void sgl_test_write_csv_header(FILE *csv)

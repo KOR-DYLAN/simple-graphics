@@ -62,7 +62,7 @@
 
     .toolbar {
       display: grid;
-      grid-template-columns: 1.2fr repeat(6, minmax(120px, auto)) auto;
+      grid-template-columns: 1.2fr repeat(6, minmax(120px, auto)) auto auto;
       gap: 10px;
       align-items: end;
       margin: 18px 0;
@@ -151,6 +151,7 @@
     }
 
     .chart,
+    .external-panel,
     .table-panel,
     .export-panel {
       border: 1px solid var(--line);
@@ -171,6 +172,12 @@
       background: var(--panel-2);
     }
 
+    .head-copy {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+    }
+
     .chart-head strong,
     .table-head strong,
     .export-head strong {
@@ -188,6 +195,17 @@
       display: block;
       width: 100%;
       height: 620px;
+    }
+
+    .external-panel {
+      margin-top: 12px;
+      overflow: hidden;
+    }
+
+    #externalChart {
+      display: block;
+      width: 100%;
+      height: 420px;
     }
 
     .legend {
@@ -378,6 +396,7 @@
         <option value="speedup">Speedup vs 1 thread</option>
       </select>
     </label>
+    <button id="downloadSvgButton" type="button">Download SVG</button>
     <button id="exportButton" type="button">Export README</button>
   </section>
 
@@ -418,8 +437,10 @@
   <section class="layout">
     <section class="chart">
       <div class="chart-head">
-        <strong id="chartTitle">Latency</strong>
-        <span id="chartSubtitle">No data</span>
+        <div class="head-copy">
+          <strong id="chartTitle">Latency</strong>
+          <span id="chartSubtitle">No data</span>
+        </div>
       </div>
       <svg id="chart" role="img" aria-label="resize benchmark chart"></svg>
       <div class="legend" id="legend"></div>
@@ -450,6 +471,17 @@
     </section>
   </section>
 
+  <section class="external-panel">
+    <div class="chart-head">
+      <div class="head-copy">
+        <strong>External Backend Comparison</strong>
+        <span id="externalSubtitle">No external comparison rows</span>
+      </div>
+      <button id="downloadExternalSvgButton" type="button">Download External SVG</button>
+    </div>
+    <svg id="externalChart" role="img" aria-label="external backend comparison chart"></svg>
+  </section>
+
   <section class="export-panel">
     <div class="export-head">
       <strong>README Export</strong>
@@ -469,6 +501,13 @@
 
 const DEFAULT_CSV_PATH = "../benchmark/resize-benchmark.csv";
 const COLORS = ["#38bdf8", "#4ade80", "#facc15", "#fb7185", "#a78bfa", "#f97316"];
+const EXTERNAL_BACKENDS = [
+  { backend: "generic", threads: 1, label: "generic 1t", color: "#38bdf8" },
+  { backend: "simd", threads: 1, label: "simd 1t", color: "#fb7185" },
+  { backend: "simd-lut", threads: 8, label: "simd-lut 8t", color: "#4ade80" },
+  { backend: "cairo", threads: 1, label: "cairo 1t", color: "#f97316" },
+  { backend: "ne10", threads: 1, label: "ne10 1t", color: "#60a5fa" },
+];
 const state = {
   rows: [],
   filtered: [],
@@ -486,6 +525,7 @@ const ui = {
   metricSelect: document.getElementById("metricSelect"),
   viewSelect: document.getElementById("viewSelect"),
   fileButton: document.getElementById("fileButton"),
+  downloadSvgButton: document.getElementById("downloadSvgButton"),
   exportButton: document.getElementById("exportButton"),
   refreshExportButton: document.getElementById("refreshExportButton"),
   copyExportButton: document.getElementById("copyExportButton"),
@@ -505,6 +545,9 @@ const ui = {
   chartTitle: document.getElementById("chartTitle"),
   chartSubtitle: document.getElementById("chartSubtitle"),
   legend: document.getElementById("legend"),
+  externalChart: document.getElementById("externalChart"),
+  externalSubtitle: document.getElementById("externalSubtitle"),
+  downloadExternalSvgButton: document.getElementById("downloadExternalSvgButton"),
   tableBody: document.getElementById("tableBody"),
 };
 
@@ -747,6 +790,128 @@ function renderChart(rows) {
   }
 }
 
+function sizePixels(size) {
+  const parts = String(size).split("x").map(Number);
+  let pixels = 0;
+
+  if ((parts.length === 2) && Number.isFinite(parts[0]) && Number.isFinite(parts[1])) {
+    pixels = parts[0] * parts[1];
+  }
+
+  return pixels;
+}
+
+function preferredExternalSize() {
+  const sizes = Array.from(new Set(state.rows
+    .filter(row => (row.channels === 4) && ((row.backend === "cairo") || (row.backend === "ne10")))
+    .map(row => row.size)));
+  let size = "2560x1440";
+
+  if (!sizes.includes(size)) {
+    size = sizes.sort((a, b) => sizePixels(b) - sizePixels(a))[0];
+  }
+
+  return size;
+}
+
+function externalComparisonCases() {
+  const size = preferredExternalSize();
+  const methods = ["nearest", "bilinear"];
+  const cases = [];
+
+  if (size !== undefined) {
+    methods.forEach(method => {
+      const items = EXTERNAL_BACKENDS
+        .map(option => ({
+          ...option,
+          row: state.rows.find(row =>
+            (row.channels === 4) &&
+            (row.method === method) &&
+            (row.backend === option.backend) &&
+            (row.threads === option.threads) &&
+            (row.size === size)),
+        }))
+        .filter(item => item.row !== undefined);
+
+      if (items.length > 0) {
+        cases.push({ method, size, items });
+      }
+    });
+  }
+
+  return { size, cases };
+}
+
+function renderExternalChart() {
+  const svg = ui.externalChart;
+  const width = 1100;
+  const height = 390;
+  const left = 180;
+  const chartWidth = 760;
+  const data = externalComparisonCases();
+  const metricLabel = ui.metricSelect.options[ui.metricSelect.selectedIndex].text;
+  let legendX = 32;
+
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  clearSvg(svg);
+  svg.append(svgEl("rect", { x: 0, y: 0, width, height, fill: "#171d23" }));
+
+  if (data.cases.length === 0) {
+    ui.externalSubtitle.textContent = "No 4-channel Cairo/NE10 rows in the loaded CSV";
+    svg.append(svgText(40, 64, "No external backend rows are available.", {
+      fill: "#9ba9a7",
+      "font-size": 16,
+      "font-weight": 700,
+    }));
+    return;
+  }
+
+  ui.externalSubtitle.textContent = `4-channel ${data.size}, ${metricLabel} latency`;
+  EXTERNAL_BACKENDS.forEach(option => {
+    svg.append(svgEl("rect", { x: legendX, y: 24, width: 14, height: 10, rx: 2, fill: option.color }));
+    svg.append(svgText(legendX + 22, 34, option.label, {
+      fill: "#9ba9a7",
+      "font-size": 12,
+    }));
+    legendX += option.label.length > 9 ? 128 : 96;
+  });
+
+  data.cases.forEach((caseItem, caseIndex) => {
+    const groupTop = 78 + (caseIndex * 150);
+    const maxValue = Math.max(...caseItem.items.map(item => item.row[state.metric] / 1000), 1);
+
+    svg.append(svgText(32, groupTop, `${caseItem.method} ${caseItem.size}`, {
+      fill: "#c6d4d1",
+      "font-size": 13,
+      "font-weight": 800,
+    }));
+
+    caseItem.items.forEach((item, rowIndex) => {
+      const y = groupTop + 26 + (rowIndex * 24);
+      const value = item.row[state.metric] / 1000;
+      const barWidth = Math.max(3, (value / maxValue) * chartWidth);
+
+      svg.append(svgText(50, y + 13, item.label, {
+        fill: "#9ba9a7",
+        "font-size": 12,
+      }));
+      svg.append(svgEl("rect", {
+        x: left,
+        y,
+        width: barWidth,
+        height: 16,
+        rx: 3,
+        fill: item.color,
+      }));
+      svg.append(svgText(left + barWidth + 10, y + 13, `${value.toFixed(3)} ms`, {
+        fill: "#eef4f3",
+        "font-size": 13,
+        "font-weight": 700,
+      }));
+    });
+  });
+}
+
 function renderLegend(rows) {
   const groups = uniqueValues(rows, "backend");
   ui.legend.replaceChildren();
@@ -908,12 +1073,72 @@ function downloadReadmeExport() {
   URL.revokeObjectURL(url);
 }
 
+function exportFilePart(value) {
+  return String(value).replace(/[^A-Za-z0-9_-]+/g, "-");
+}
+
+function svgDownloadName() {
+  const parts = [
+    "resize-benchmark",
+    ui.methodFilter.value,
+    ui.backendFilter.value,
+    ui.channelFilter.value,
+    ui.sizeFilter.value,
+    state.view,
+    state.metric,
+  ];
+
+  return `${parts.map(exportFilePart).join("_")}.svg`;
+}
+
+function downloadSvgElement(svg, fileName, label) {
+  const source = svg.cloneNode(true);
+  const viewBox = source.getAttribute("viewBox") || "0 0 1100 620";
+  const viewBoxParts = viewBox.split(/\s+/);
+  const width = viewBoxParts.length >= 4 ? viewBoxParts[2] : "1100";
+  const height = viewBoxParts.length >= 4 ? viewBoxParts[3] : "620";
+  const serializer = new XMLSerializer();
+  const link = document.createElement("a");
+  let url;
+  let text;
+
+  source.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  source.setAttribute("width", width);
+  source.setAttribute("height", height);
+  source.setAttribute("role", "img");
+  source.setAttribute("aria-label", label);
+
+  text = `<?xml version="1.0" encoding="UTF-8"?>\n${serializer.serializeToString(source)}\n`;
+  url = URL.createObjectURL(new Blob([text], { type: "image/svg+xml" }));
+  link.href = url;
+  link.download = fileName;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function downloadCurrentSvg() {
+  downloadSvgElement(ui.chart, svgDownloadName(), ui.chartTitle.textContent);
+  setStatus("SVG chart downloaded.", false);
+}
+
+function externalSvgDownloadName() {
+  const size = preferredExternalSize() || "no-external-rows";
+
+  return `resize-benchmark_external_4ch_${exportFilePart(size)}_${state.metric}.svg`;
+}
+
+function downloadExternalSvg() {
+  downloadSvgElement(ui.externalChart, externalSvgDownloadName(), "external backend comparison chart");
+  setStatus("External SVG chart downloaded.", false);
+}
+
 function render() {
   const rows = state.filtered;
   const metricLabel = ui.metricSelect.options[ui.metricSelect.selectedIndex].text;
 
   updateSummary(rows);
   renderChart(rows);
+  renderExternalChart();
   renderLegend(rows);
   renderTable(rows);
 
@@ -969,6 +1194,8 @@ ui.fileButton.addEventListener("click", () => {
   ui.fileInput.value = "";
   ui.fileInput.click();
 });
+ui.downloadSvgButton.addEventListener("click", downloadCurrentSvg);
+ui.downloadExternalSvgButton.addEventListener("click", downloadExternalSvg);
 ui.exportButton.addEventListener("click", () => {
   ui.readmeExport.scrollIntoView({ behavior: "smooth", block: "center" });
   refreshReadmeExport();
