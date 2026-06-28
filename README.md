@@ -92,6 +92,13 @@ The following variables can be overridden from the command line:
   Example:
     make WITH_CPPCHECK_WARNINGS_AS_ERRORS=ON
 
+- CPPCHECK_MAX_CTU_DEPTH
+  Sets the maximum Cppcheck cross-translation-unit analysis depth used by the
+  standalone report script. Defaults to 4.
+
+  Example:
+    make cppcheck-report CPPCHECK_MAX_CTU_DEPTH=6
+
 - WITH_COMPILER_WARNINGS
   Enables the commonly used `-Wall` and `-Wextra` compiler warnings for C and
   C++. Defaults to ON.
@@ -128,6 +135,20 @@ Build Targets
   Example:
     make distclean
 
+- cppcheck-report
+  Runs the standalone Cppcheck report script with all available Cppcheck
+  checker classes enabled, exhaustive checking, inconclusive findings,
+  library checks, CTU analysis and the optional MISRA C:2012 addon. The report
+  is saved under `report/<date>-<commit>/` and includes XML, text, active
+  checker, MISRA addon summary, summary and metadata files. Cppcheck's native
+  `--checkers-report` output lists built-in checker state, so it may still say
+  `Misra is not enabled` even when MISRA addon findings are present in the XML
+  and text reports. When `cppcheck-htmlreport` is installed, an HTML report is
+  also generated at `report/<date>-<commit>/html/index.html`.
+
+  Example:
+    make cppcheck-report
+
 Running the Application
 -----------------------
 - run
@@ -145,6 +166,92 @@ Execution Behavior:
 The default execution command is equivalent to:
 
   <BUILD>/<BUILD_TYPE>/bin/resize resource/sample.png
+
+Resize Benchmark
+----------------
+The `resize` test application writes a benchmark CSV at:
+
+  benchmark/resize-benchmark.csv
+
+Resized PNG outputs for visual debugging are written separately at:
+
+  build/output/
+
+Open `tools/resize-benchmark-viewer.html` in a browser to inspect the CSV as
+latency and thread-scaling charts. The viewer can also export a representative
+Markdown snapshot for README or release notes, and download the current chart
+view or the external backend comparison chart as SVG.
+
+By default the benchmark only builds SGL rows. Configure with
+`-DWITH_BENCHMARK_COMPARE=ON` when optional comparison backends are needed:
+
+| Backend | Methods | Source |
+| --- | --- | --- |
+| Cairo + pixman | nearest, bilinear | fixed test-only tarballs, built with Meson/Ninja |
+| NE10 | bilinear | fixed test-only tarball, built with CMake |
+
+The benchmark records the source channel count in the CSV. When the input path
+ends in `sample.png`, the test runner uses prebuilt sibling inputs named
+`sample-1ch.png`, `sample-2ch.png`, `sample-3ch.png`, and `sample-4ch.png` if
+all four exist; otherwise it runs the single PNG passed on the command line.
+The comparison rows use the same output sizes, repeat count, and CSV format as
+the SGL rows. SGL `generic` and `simd` rows measure the convenience path that
+builds a temporary lookup table per resize call. SGL `generic-lut` and
+`simd-lut` rows build the lookup table once per benchmark case and reuse it in
+the timed loop, which represents repeated resizing with fixed geometry.
+External backends are recorded only as 1-thread baseline rows because they do
+not consume the SGL threadpool. Comparison dependencies are downloaded into
+`downloads/` and are built only when `WITH_BENCHMARK_COMPARE` is enabled. Cairo
+and NE10 rows are raw backend timing checks and should be treated as
+experimental until pixel-accuracy validation is added. Cairo and NE10 are
+recorded only for 4 channel rows; NE10 provides a bilinear RGBA resize API, so
+it is recorded only for bilinear rows.
+
+The default sample image is 1920x1080, so 1920x1080 rows are identity-size
+cases and are not used as representative backend comparisons below.
+
+The following SVG is a sample run from `resource/sample.png`. It highlights
+SGL path comparisons, including SIMD single-thread rows and the no-external-LUT
+convenience path, and includes the 4-channel Cairo/NE10 comparison rows. Treat
+it as a benchmark snapshot, not a universal claim; CPU model, clock policy,
+compiler, build flags, and input image all affect the result.
+
+![SGL resize benchmark summary](benchmark/resize-benchmark-summary.svg)
+
+| Environment | Value |
+| --- | --- |
+| Host CPU | Snapdragon(R) X 12-core X1E80100 |
+| Host base clock | 3.42 GHz |
+| WSL visible CPU | aarch64, Qualcomm vendor, 8 logical CPUs visible to Linux |
+| WSL CPU model string | not reported by Linux inside WSL2 |
+| OS | Windows on WSL2, Linux 6.18.33.1-microsoft-standard-WSL2 aarch64 |
+| Compiler | GCC 13.3.0, Ubuntu 13.3.0-6ubuntu2~24.04.1 |
+| Build | Release |
+| Input | resource/sample.png |
+
+Experimental nearest backend timing, using average latency:
+
+| Scenario | SGL generic 1t | SGL simd 1t | SGL simd-lut 1t | SGL simd-lut 8t | Cairo 1t |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| nearest 1280x720 | 0.792 ms | 0.941 ms | 0.954 ms | 0.382 ms | 0.564 ms |
+| nearest 2560x1440 | 3.083 ms | 1.182 ms | 1.212 ms | 0.630 ms | 1.980 ms |
+
+Experimental bilinear backend timing, using average latency:
+
+| Scenario | SGL generic 1t | SGL simd 1t | SGL simd-lut 1t | SGL simd-lut 8t | Cairo 1t | NE10 1t |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| bilinear 1280x720 | 5.164 ms | 1.286 ms | 1.377 ms | 0.437 ms | 0.993 ms | 1.424 ms |
+| bilinear 2560x1440 | 21.915 ms | 3.486 ms | 3.435 ms | 1.149 ms | 3.894 ms | 4.100 ms |
+
+Representative optimized SGL thread scaling, using average latency:
+
+| Scenario | simd-lut 1t | simd-lut 8t | Speedup |
+| --- | ---: | ---: | ---: |
+| bicubic 2560x1440 | 41.594 ms | 7.385 ms | 5.63x |
+| bicubic 1280x720 | 14.713 ms | 2.804 ms | 5.25x |
+| bilinear 2560x1440 | 3.435 ms | 1.149 ms | 2.99x |
+| nearest 1280x720 | 0.954 ms | 0.382 ms | 2.50x |
+| nearest 2560x1440 | 1.212 ms | 0.630 ms | 1.92x |
 
 Notes
 -----

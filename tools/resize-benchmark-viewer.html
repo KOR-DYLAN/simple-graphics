@@ -1,0 +1,1211 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>SGL Resize Benchmark Viewer</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #101418;
+      --panel: #171d23;
+      --panel-2: #1f262e;
+      --text: #eef4f3;
+      --muted: #9ba9a7;
+      --line: #34424a;
+      --green: #4ade80;
+      --cyan: #38bdf8;
+      --yellow: #facc15;
+      --red: #fb7185;
+      --blue: #60a5fa;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, "Noto Sans KR", system-ui, -apple-system, sans-serif;
+    }
+
+    main {
+      width: min(1440px, calc(100% - 32px));
+      margin: 24px auto 40px;
+    }
+
+    header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      align-items: end;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 30px;
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    header p {
+      max-width: 780px;
+      margin: 8px 0 0;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: 1.2fr repeat(6, minmax(120px, auto)) auto auto;
+      gap: 10px;
+      align-items: end;
+      margin: 18px 0;
+    }
+
+    label {
+      display: grid;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    select,
+    .file-button,
+    button {
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel);
+      color: var(--text);
+      padding: 8px 10px;
+      font: inherit;
+      font-size: 14px;
+    }
+
+    button,
+    .file-button {
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      font-weight: 700;
+      text-transform: none;
+    }
+
+    button:hover,
+    .file-button:hover {
+      border-color: var(--cyan);
+    }
+
+    input[type="file"] {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .metric {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      padding: 13px 14px;
+      min-width: 0;
+    }
+
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .metric strong {
+      display: block;
+      margin-top: 8px;
+      font-size: 22px;
+      line-height: 1;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 480px;
+      gap: 12px;
+      align-items: start;
+    }
+
+    .chart,
+    .external-panel,
+    .table-panel,
+    .export-panel {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      overflow: hidden;
+    }
+
+    .chart-head,
+    .table-head,
+    .export-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel-2);
+    }
+
+    .head-copy {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .chart-head strong,
+    .table-head strong,
+    .export-head strong {
+      font-size: 14px;
+    }
+
+    .chart-head span,
+    .table-head span,
+    .export-head span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    #chart {
+      display: block;
+      width: 100%;
+      height: 620px;
+    }
+
+    .external-panel {
+      margin-top: 12px;
+      overflow: hidden;
+    }
+
+    #externalChart {
+      display: block;
+      width: 100%;
+      height: 420px;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 14px;
+      padding: 10px 14px 14px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .swatch {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      font-size: 12px;
+    }
+
+    th,
+    td {
+      padding: 8px;
+      border-bottom: 1px solid #27343b;
+      text-align: right;
+      white-space: normal;
+      word-break: keep-all;
+    }
+
+    th:first-child,
+    td:first-child {
+      text-align: left;
+    }
+
+    th {
+      color: var(--muted);
+      background: #141a20;
+      font-size: 11px;
+      text-transform: uppercase;
+    }
+
+    tbody tr:hover {
+      background: #202832;
+    }
+
+    .table-case {
+      width: 52%;
+    }
+
+    .table-ms {
+      width: 18%;
+    }
+
+    .table-threads {
+      width: 14%;
+    }
+
+    .table-speedup {
+      width: 16%;
+    }
+
+    .env-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .env-grid input {
+      min-height: 38px;
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel);
+      color: var(--text);
+      padding: 8px 10px;
+      font: inherit;
+      font-size: 14px;
+    }
+
+    .export-panel {
+      margin-top: 12px;
+    }
+
+    .export-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      background: #141a20;
+    }
+
+    textarea {
+      display: block;
+      width: 100%;
+      min-height: 260px;
+      border: 0;
+      border-top: 1px solid var(--line);
+      background: #10161c;
+      color: var(--text);
+      padding: 14px;
+      font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      resize: vertical;
+    }
+
+    .status {
+      min-height: 22px;
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .status.error {
+      color: var(--red);
+    }
+
+    @media (max-width: 1100px) {
+      header,
+      .toolbar,
+      .layout,
+      .summary,
+      .env-grid {
+        grid-template-columns: 1fr;
+      }
+
+      #chart {
+        height: 520px;
+      }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>SGL Resize Benchmark Viewer</h1>
+      <p>Load resize-benchmark.csv, compare generic, SIMD, Cairo, NE10, and other backends, and inspect thread scaling by method and output size.</p>
+    </div>
+    <div class="status" id="status">Loading benchmark/resize-benchmark.csv...</div>
+  </header>
+
+  <section class="toolbar" aria-label="benchmark controls">
+    <label>
+      CSV
+      <span class="file-button" id="fileButton">Choose CSV file</span>
+      <input id="fileInput" type="file" accept=".csv,text/csv">
+    </label>
+    <label>
+      Method
+      <select id="methodFilter"></select>
+    </label>
+    <label>
+      Backend
+      <select id="backendFilter"></select>
+    </label>
+    <label>
+      Channels
+      <select id="channelFilter"></select>
+    </label>
+    <label>
+      Size
+      <select id="sizeFilter"></select>
+    </label>
+    <label>
+      Metric
+      <select id="metricSelect">
+        <option value="avg_us">Average</option>
+        <option value="min_us">Minimum</option>
+        <option value="max_us">Maximum</option>
+      </select>
+    </label>
+    <label>
+      View
+      <select id="viewSelect">
+        <option value="bars">Latency bars</option>
+        <option value="speedup">Speedup vs 1 thread</option>
+      </select>
+    </label>
+    <button id="downloadSvgButton" type="button">Download SVG</button>
+    <button id="exportButton" type="button">Export README</button>
+  </section>
+
+  <section class="env-grid" aria-label="test environment">
+    <label>
+      CPU
+      <input id="envCpu" value="Unknown CPU">
+    </label>
+    <label>
+      Clock
+      <input id="envClock" value="Unknown">
+    </label>
+    <label>
+      OS
+      <input id="envOs" value="Unknown OS">
+    </label>
+    <label>
+      Compiler
+      <input id="envCompiler" value="Unknown compiler">
+    </label>
+    <label>
+      Build
+      <input id="envBuild" value="Release">
+    </label>
+    <label>
+      Input
+      <input id="envInput" value="resource/sample-1ch.png .. sample-4ch.png">
+    </label>
+  </section>
+
+  <section class="summary" aria-label="benchmark summary">
+    <div class="metric"><span>Rows</span><strong id="rowsMetric">0</strong></div>
+    <div class="metric"><span>Best Latency</span><strong id="bestMetric">-</strong></div>
+    <div class="metric"><span>Worst Latency</span><strong id="worstMetric">-</strong></div>
+    <div class="metric"><span>Best Scaling</span><strong id="scalingMetric">-</strong></div>
+  </section>
+
+  <section class="layout">
+    <section class="chart">
+      <div class="chart-head">
+        <div class="head-copy">
+          <strong id="chartTitle">Latency</strong>
+          <span id="chartSubtitle">No data</span>
+        </div>
+      </div>
+      <svg id="chart" role="img" aria-label="resize benchmark chart"></svg>
+      <div class="legend" id="legend"></div>
+    </section>
+
+    <section class="table-panel">
+      <div class="table-head">
+        <strong>Fastest Rows</strong>
+        <span id="tableSubtitle">sorted by selected metric</span>
+      </div>
+      <table>
+        <colgroup>
+          <col class="table-case">
+          <col class="table-ms">
+          <col class="table-threads">
+          <col class="table-speedup">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Case</th>
+            <th>ms</th>
+            <th>Threads</th>
+            <th>Speedup</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </section>
+  </section>
+
+  <section class="external-panel">
+    <div class="chart-head">
+      <div class="head-copy">
+        <strong>External Backend Comparison</strong>
+        <span id="externalSubtitle">No external comparison rows</span>
+      </div>
+      <button id="downloadExternalSvgButton" type="button">Download External SVG</button>
+    </div>
+    <svg id="externalChart" role="img" aria-label="external backend comparison chart"></svg>
+  </section>
+
+  <section class="export-panel">
+    <div class="export-head">
+      <strong>README Export</strong>
+      <span>representative benchmark snapshot</span>
+    </div>
+    <div class="export-actions">
+      <button id="refreshExportButton" type="button">Refresh Markdown</button>
+      <button id="copyExportButton" type="button">Copy Markdown</button>
+      <button id="downloadExportButton" type="button">Download Markdown</button>
+    </div>
+    <textarea id="readmeExport" spellcheck="false"></textarea>
+  </section>
+</main>
+
+<script>
+"use strict";
+
+const DEFAULT_CSV_PATH = "../benchmark/resize-benchmark.csv";
+const COLORS = ["#38bdf8", "#4ade80", "#facc15", "#fb7185", "#a78bfa", "#f97316"];
+const EXTERNAL_BACKENDS = [
+  { backend: "generic", threads: 1, label: "generic 1t", color: "#38bdf8" },
+  { backend: "simd", threads: 1, label: "simd 1t", color: "#fb7185" },
+  { backend: "simd-lut", threads: 8, label: "simd-lut 8t", color: "#4ade80" },
+  { backend: "cairo", threads: 1, label: "cairo 1t", color: "#f97316" },
+  { backend: "ne10", threads: 1, label: "ne10 1t", color: "#60a5fa" },
+];
+const state = {
+  rows: [],
+  filtered: [],
+  metric: "avg_us",
+  view: "bars",
+};
+
+const ui = {
+  status: document.getElementById("status"),
+  fileInput: document.getElementById("fileInput"),
+  methodFilter: document.getElementById("methodFilter"),
+  backendFilter: document.getElementById("backendFilter"),
+  channelFilter: document.getElementById("channelFilter"),
+  sizeFilter: document.getElementById("sizeFilter"),
+  metricSelect: document.getElementById("metricSelect"),
+  viewSelect: document.getElementById("viewSelect"),
+  fileButton: document.getElementById("fileButton"),
+  downloadSvgButton: document.getElementById("downloadSvgButton"),
+  exportButton: document.getElementById("exportButton"),
+  refreshExportButton: document.getElementById("refreshExportButton"),
+  copyExportButton: document.getElementById("copyExportButton"),
+  downloadExportButton: document.getElementById("downloadExportButton"),
+  readmeExport: document.getElementById("readmeExport"),
+  envCpu: document.getElementById("envCpu"),
+  envClock: document.getElementById("envClock"),
+  envOs: document.getElementById("envOs"),
+  envCompiler: document.getElementById("envCompiler"),
+  envBuild: document.getElementById("envBuild"),
+  envInput: document.getElementById("envInput"),
+  rowsMetric: document.getElementById("rowsMetric"),
+  bestMetric: document.getElementById("bestMetric"),
+  worstMetric: document.getElementById("worstMetric"),
+  scalingMetric: document.getElementById("scalingMetric"),
+  chart: document.getElementById("chart"),
+  chartTitle: document.getElementById("chartTitle"),
+  chartSubtitle: document.getElementById("chartSubtitle"),
+  legend: document.getElementById("legend"),
+  externalChart: document.getElementById("externalChart"),
+  externalSubtitle: document.getElementById("externalSubtitle"),
+  downloadExternalSvgButton: document.getElementById("downloadExternalSvgButton"),
+  tableBody: document.getElementById("tableBody"),
+};
+
+function setStatus(message, isError) {
+  ui.status.textContent = message;
+  ui.status.className = isError ? "status error" : "status";
+}
+
+function parseCsvLine(line) {
+  const cells = [];
+  let cell = "";
+  let quoted = false;
+  let index;
+
+  for (index = 0; index < line.length; index++) {
+    const ch = line[index];
+    if (ch === "\"") {
+      quoted = !quoted;
+    } else if ((ch === ",") && !quoted) {
+      cells.push(cell);
+      cell = "";
+    } else {
+      cell += ch;
+    }
+  }
+  cells.push(cell);
+
+  return cells;
+}
+
+function parseCsv(text) {
+  const lines = text.trim().split(/\r?\n/);
+  const header = parseCsvLine(lines[0]);
+  const rows = [];
+  let lineIndex;
+
+  for (lineIndex = 1; lineIndex < lines.length; lineIndex++) {
+    const values = parseCsvLine(lines[lineIndex]);
+    const row = {};
+    let columnIndex;
+
+    for (columnIndex = 0; columnIndex < header.length; columnIndex++) {
+      row[header[columnIndex]] = values[columnIndex];
+    }
+
+    row.case = Number(row.case);
+    row.threads = Number(row.threads);
+    row.channels = Number(row.channels || 4);
+    row.width = Number(row.width);
+    row.height = Number(row.height);
+    row.avg_us = Number(row.avg_us);
+    row.min_us = Number(row.min_us);
+    row.max_us = Number(row.max_us);
+    row.size = `${row.width}x${row.height}`;
+    row.channel = `${row.channels}ch`;
+    row.label = `${row.method} ${row.backend} ${row.channel} ${row.threads}t`;
+
+    if (Number.isFinite(row.avg_us)) {
+      rows.push(row);
+    }
+  }
+
+  return rows;
+}
+
+function detectEnvironmentDefaults() {
+  const cores = navigator.hardwareConcurrency;
+  const platform = navigator.userAgentData && navigator.userAgentData.platform ?
+    navigator.userAgentData.platform :
+    navigator.platform;
+  const os = platform || navigator.userAgent || "Unknown OS";
+
+  if (cores !== undefined) {
+    ui.envCpu.value = `Unknown CPU (${cores} logical threads)`;
+  }
+  ui.envOs.value = os;
+}
+
+function uniqueValues(rows, key) {
+  return Array.from(new Set(rows.map(row => row[key]))).sort();
+}
+
+function fillSelect(select, values, allLabel) {
+  select.replaceChildren();
+  select.append(new Option(allLabel, "all"));
+  values.forEach(value => select.append(new Option(value, value)));
+}
+
+function rebuildFilters() {
+  fillSelect(ui.methodFilter, uniqueValues(state.rows, "method"), "All methods");
+  fillSelect(ui.backendFilter, uniqueValues(state.rows, "backend"), "All backends");
+  fillSelect(ui.channelFilter, uniqueValues(state.rows, "channel"), "All channels");
+  fillSelect(ui.sizeFilter, uniqueValues(state.rows, "size"), "All sizes");
+}
+
+function ms(us) {
+  return `${(us / 1000).toFixed(3)} ms`;
+}
+
+function findBaseline(row) {
+  return state.rows.find(candidate =>
+    (candidate.method === row.method) &&
+    (candidate.backend === row.backend) &&
+    (candidate.channels === row.channels) &&
+    (candidate.size === row.size) &&
+    (candidate.threads === 1));
+}
+
+function speedup(row) {
+  const baseline = findBaseline(row);
+  let value = 1;
+
+  if ((baseline !== undefined) && (row[state.metric] > 0)) {
+    value = baseline[state.metric] / row[state.metric];
+  }
+
+  return value;
+}
+
+function applyFilters() {
+  state.metric = ui.metricSelect.value;
+  state.view = ui.viewSelect.value;
+  state.filtered = state.rows.filter(row =>
+    ((ui.methodFilter.value === "all") || (row.method === ui.methodFilter.value)) &&
+    ((ui.backendFilter.value === "all") || (row.backend === ui.backendFilter.value)) &&
+    ((ui.channelFilter.value === "all") || (row.channel === ui.channelFilter.value)) &&
+    ((ui.sizeFilter.value === "all") || (row.size === ui.sizeFilter.value)));
+  render();
+}
+
+function updateSummary(rows) {
+  const sorted = [...rows].sort((a, b) => a[state.metric] - b[state.metric]);
+  const best = sorted[0];
+  const worst = sorted[sorted.length - 1];
+  const bestScaling = [...rows].sort((a, b) => speedup(b) - speedup(a))[0];
+
+  ui.rowsMetric.textContent = String(rows.length);
+  ui.bestMetric.textContent = best ? ms(best[state.metric]) : "-";
+  ui.worstMetric.textContent = worst ? ms(worst[state.metric]) : "-";
+  ui.scalingMetric.textContent = bestScaling ? `${speedup(bestScaling).toFixed(2)}x` : "-";
+}
+
+function clearSvg(svg) {
+  while (svg.firstChild) {
+    svg.removeChild(svg.firstChild);
+  }
+}
+
+function svgEl(name, attrs) {
+  const node = document.createElementNS("http://www.w3.org/2000/svg", name);
+  Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, value));
+  return node;
+}
+
+function svgText(x, y, text, attrs) {
+  const node = svgEl("text", { x, y, ...attrs });
+  node.textContent = text;
+  return node;
+}
+
+function rowValue(row) {
+  return state.view === "speedup" ? speedup(row) : row[state.metric] / 1000;
+}
+
+function rowValueLabel(row) {
+  return state.view === "speedup" ? `${speedup(row).toFixed(2)}x` : ms(row[state.metric]);
+}
+
+function backendColor(backend) {
+  const groups = uniqueValues(state.filtered, "backend");
+  const index = Math.max(groups.indexOf(backend), 0);
+
+  return COLORS[index % COLORS.length];
+}
+
+function renderChart(rows) {
+  const svg = ui.chart;
+  const width = 1100;
+  const top = 28;
+  const left = 238;
+  const right = 94;
+  const rowHeight = 28;
+  const height = Math.max(360, top + (rows.length * rowHeight) + 52);
+  const chartWidth = width - left - right;
+  const maxValue = Math.max(...rows.map(rowValue), 1);
+  let index;
+
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  clearSvg(svg);
+
+  svg.append(svgEl("rect", { x: 0, y: 0, width, height, fill: "#171d23" }));
+  if (rows.length === 0) {
+    svg.append(svgText(40, 64, "No benchmark rows match the current filters.", {
+      fill: "#9ba9a7",
+      "font-size": 16,
+      "font-weight": 700,
+    }));
+    return;
+  }
+
+  svg.append(svgEl("line", {
+    x1: left,
+    y1: top - 8,
+    x2: left,
+    y2: height - 28,
+    stroke: "#34424a",
+    "stroke-width": 1,
+  }));
+
+  for (index = 0; index < rows.length; index++) {
+    const row = rows[index];
+    const y = top + (index * rowHeight);
+    const value = rowValue(row);
+    const barWidth = Math.max(2, (value / maxValue) * chartWidth);
+    const color = backendColor(row.backend);
+
+    svg.append(svgText(14, y + 16, `${row.method} ${row.backend} ${row.channel} ${row.size}`, {
+      fill: "#eef4f3",
+      "font-size": 12,
+      "font-weight": 650,
+    }));
+    svg.append(svgText(left - 12, y + 16, `${row.threads}t`, {
+      fill: "#9ba9a7",
+      "font-size": 12,
+      "text-anchor": "end",
+    }));
+    svg.append(svgEl("rect", {
+      x: left,
+      y,
+      width: barWidth,
+      height: 19,
+      rx: 4,
+      fill: color,
+    }));
+    svg.append(svgText(left + barWidth + 8, y + 15, rowValueLabel(row), {
+      fill: "#eef4f3",
+      "font-size": 12,
+      "font-weight": 700,
+    }));
+  }
+}
+
+function sizePixels(size) {
+  const parts = String(size).split("x").map(Number);
+  let pixels = 0;
+
+  if ((parts.length === 2) && Number.isFinite(parts[0]) && Number.isFinite(parts[1])) {
+    pixels = parts[0] * parts[1];
+  }
+
+  return pixels;
+}
+
+function preferredExternalSize() {
+  const sizes = Array.from(new Set(state.rows
+    .filter(row => (row.channels === 4) && ((row.backend === "cairo") || (row.backend === "ne10")))
+    .map(row => row.size)));
+  let size = "2560x1440";
+
+  if (!sizes.includes(size)) {
+    size = sizes.sort((a, b) => sizePixels(b) - sizePixels(a))[0];
+  }
+
+  return size;
+}
+
+function externalComparisonCases() {
+  const size = preferredExternalSize();
+  const methods = ["nearest", "bilinear"];
+  const cases = [];
+
+  if (size !== undefined) {
+    methods.forEach(method => {
+      const items = EXTERNAL_BACKENDS
+        .map(option => ({
+          ...option,
+          row: state.rows.find(row =>
+            (row.channels === 4) &&
+            (row.method === method) &&
+            (row.backend === option.backend) &&
+            (row.threads === option.threads) &&
+            (row.size === size)),
+        }))
+        .filter(item => item.row !== undefined);
+
+      if (items.length > 0) {
+        cases.push({ method, size, items });
+      }
+    });
+  }
+
+  return { size, cases };
+}
+
+function renderExternalChart() {
+  const svg = ui.externalChart;
+  const width = 1100;
+  const height = 390;
+  const left = 180;
+  const chartWidth = 760;
+  const data = externalComparisonCases();
+  const metricLabel = ui.metricSelect.options[ui.metricSelect.selectedIndex].text;
+  let legendX = 32;
+
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  clearSvg(svg);
+  svg.append(svgEl("rect", { x: 0, y: 0, width, height, fill: "#171d23" }));
+
+  if (data.cases.length === 0) {
+    ui.externalSubtitle.textContent = "No 4-channel Cairo/NE10 rows in the loaded CSV";
+    svg.append(svgText(40, 64, "No external backend rows are available.", {
+      fill: "#9ba9a7",
+      "font-size": 16,
+      "font-weight": 700,
+    }));
+    return;
+  }
+
+  ui.externalSubtitle.textContent = `4-channel ${data.size}, ${metricLabel} latency`;
+  EXTERNAL_BACKENDS.forEach(option => {
+    svg.append(svgEl("rect", { x: legendX, y: 24, width: 14, height: 10, rx: 2, fill: option.color }));
+    svg.append(svgText(legendX + 22, 34, option.label, {
+      fill: "#9ba9a7",
+      "font-size": 12,
+    }));
+    legendX += option.label.length > 9 ? 128 : 96;
+  });
+
+  data.cases.forEach((caseItem, caseIndex) => {
+    const groupTop = 78 + (caseIndex * 150);
+    const maxValue = Math.max(...caseItem.items.map(item => item.row[state.metric] / 1000), 1);
+
+    svg.append(svgText(32, groupTop, `${caseItem.method} ${caseItem.size}`, {
+      fill: "#c6d4d1",
+      "font-size": 13,
+      "font-weight": 800,
+    }));
+
+    caseItem.items.forEach((item, rowIndex) => {
+      const y = groupTop + 26 + (rowIndex * 24);
+      const value = item.row[state.metric] / 1000;
+      const barWidth = Math.max(3, (value / maxValue) * chartWidth);
+
+      svg.append(svgText(50, y + 13, item.label, {
+        fill: "#9ba9a7",
+        "font-size": 12,
+      }));
+      svg.append(svgEl("rect", {
+        x: left,
+        y,
+        width: barWidth,
+        height: 16,
+        rx: 3,
+        fill: item.color,
+      }));
+      svg.append(svgText(left + barWidth + 10, y + 13, `${value.toFixed(3)} ms`, {
+        fill: "#eef4f3",
+        "font-size": 13,
+        "font-weight": 700,
+      }));
+    });
+  });
+}
+
+function renderLegend(rows) {
+  const groups = uniqueValues(rows, "backend");
+  ui.legend.replaceChildren();
+  groups.forEach((backend, index) => {
+    const item = document.createElement("span");
+    const swatch = document.createElement("span");
+    const text = document.createElement("span");
+
+    item.className = "legend-item";
+    swatch.className = "swatch";
+    swatch.style.background = COLORS[index % COLORS.length];
+    text.textContent = backend;
+
+    item.append(swatch, text);
+    ui.legend.append(item);
+  });
+}
+
+function renderTable(rows) {
+  const sorted = [...rows].sort((a, b) => a[state.metric] - b[state.metric]).slice(0, 16);
+
+  ui.tableBody.replaceChildren();
+  sorted.forEach(row => {
+    const tr = document.createElement("tr");
+    const name = `${row.method} ${row.backend} ${row.channel} ${row.size}`;
+    const cells = [
+      name,
+      (row[state.metric] / 1000).toFixed(3),
+      String(row.threads),
+      `${speedup(row).toFixed(2)}x`,
+    ];
+
+    cells.forEach(cell => {
+      const td = document.createElement("td");
+      td.textContent = cell;
+      tr.append(td);
+    });
+    ui.tableBody.append(tr);
+  });
+}
+
+function matchingBackendRows() {
+  const genericRows = state.rows.filter(row => row.backend === "generic");
+  const pairs = [];
+
+  genericRows.forEach(generic => {
+    const candidates = state.rows.filter(row =>
+      (row.backend !== "generic") &&
+      (row.method === generic.method) &&
+      (row.channels === generic.channels) &&
+      (row.size === generic.size) &&
+      (row.threads === generic.threads));
+
+    candidates.forEach(candidate => {
+      if (candidate[state.metric] > 0) {
+        pairs.push({
+          scenario: `${generic.method} ${candidate.backend} ${generic.channel} ${generic.size} ${generic.threads} thread`,
+          generic,
+          backend: candidate,
+          ratio: generic[state.metric] / candidate[state.metric],
+        });
+      }
+    });
+  });
+
+  return pairs.sort((a, b) => b.ratio - a.ratio);
+}
+
+function threadScalingRows() {
+  const rows = [];
+
+  state.rows.forEach(row => {
+    const baseline = findBaseline(row);
+    if ((baseline !== undefined) && (row.threads > 1) && (row[state.metric] > 0)) {
+      rows.push({
+        scenario: `${row.method} ${row.backend} ${row.channel} ${row.size}`,
+        row,
+        baseline,
+        speedup: baseline[state.metric] / row[state.metric],
+      });
+    }
+  });
+
+  return rows.sort((a, b) => b.speedup - a.speedup);
+}
+
+function tableLine(cells) {
+  return `| ${cells.join(" | ")} |`;
+}
+
+function buildReadmeMarkdown() {
+  const backendRows = matchingBackendRows().slice(0, 8);
+  const scalingRows = threadScalingRows().slice(0, 6);
+  const metricName = ui.metricSelect.options[ui.metricSelect.selectedIndex].text;
+  const lines = [];
+
+  lines.push("### Resize Benchmark Snapshot");
+  lines.push("");
+  lines.push(`Metric: ${metricName} latency from resize-benchmark.csv.`);
+  lines.push("");
+  lines.push("| Environment | Value |");
+  lines.push("| --- | --- |");
+  lines.push(tableLine(["CPU", ui.envCpu.value]));
+  lines.push(tableLine(["Clock", ui.envClock.value]));
+  lines.push(tableLine(["OS", ui.envOs.value]));
+  lines.push(tableLine(["Compiler", ui.envCompiler.value]));
+  lines.push(tableLine(["Build", ui.envBuild.value]));
+  lines.push(tableLine(["Input", ui.envInput.value]));
+  lines.push("");
+  lines.push("| Backend Comparison | Generic | Backend | Ratio |");
+  lines.push("| --- | ---: | ---: | ---: |");
+  backendRows.forEach(item => {
+    lines.push(tableLine([
+      item.scenario,
+      ms(item.generic[state.metric]),
+      ms(item.backend[state.metric]),
+      `${item.ratio.toFixed(2)}x`,
+    ]));
+  });
+  lines.push("");
+  lines.push("| Thread Scaling | 1 Thread | Best Threaded | Speedup |");
+  lines.push("| --- | ---: | ---: | ---: |");
+  scalingRows.forEach(item => {
+    lines.push(tableLine([
+      `${item.scenario} (${item.row.threads} threads)`,
+      ms(item.baseline[state.metric]),
+      ms(item.row[state.metric]),
+      `${item.speedup.toFixed(2)}x`,
+    ]));
+  });
+  lines.push("");
+
+  return lines.join("\n");
+}
+
+function refreshReadmeExport() {
+  ui.readmeExport.value = buildReadmeMarkdown();
+}
+
+async function copyReadmeExport() {
+  refreshReadmeExport();
+  try {
+    await navigator.clipboard.writeText(ui.readmeExport.value);
+    setStatus("README Markdown copied to clipboard.", false);
+  } catch (error) {
+    ui.readmeExport.select();
+    setStatus("Clipboard is unavailable. Markdown is selected.", false);
+  }
+}
+
+function downloadReadmeExport() {
+  const blob = new Blob([buildReadmeMarkdown()], { type: "text/markdown" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = "resize-benchmark-readme.md";
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportFilePart(value) {
+  return String(value).replace(/[^A-Za-z0-9_-]+/g, "-");
+}
+
+function svgDownloadName() {
+  const parts = [
+    "resize-benchmark",
+    ui.methodFilter.value,
+    ui.backendFilter.value,
+    ui.channelFilter.value,
+    ui.sizeFilter.value,
+    state.view,
+    state.metric,
+  ];
+
+  return `${parts.map(exportFilePart).join("_")}.svg`;
+}
+
+function downloadSvgElement(svg, fileName, label) {
+  const source = svg.cloneNode(true);
+  const viewBox = source.getAttribute("viewBox") || "0 0 1100 620";
+  const viewBoxParts = viewBox.split(/\s+/);
+  const width = viewBoxParts.length >= 4 ? viewBoxParts[2] : "1100";
+  const height = viewBoxParts.length >= 4 ? viewBoxParts[3] : "620";
+  const serializer = new XMLSerializer();
+  const link = document.createElement("a");
+  let url;
+  let text;
+
+  source.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  source.setAttribute("width", width);
+  source.setAttribute("height", height);
+  source.setAttribute("role", "img");
+  source.setAttribute("aria-label", label);
+
+  text = `<?xml version="1.0" encoding="UTF-8"?>\n${serializer.serializeToString(source)}\n`;
+  url = URL.createObjectURL(new Blob([text], { type: "image/svg+xml" }));
+  link.href = url;
+  link.download = fileName;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function downloadCurrentSvg() {
+  downloadSvgElement(ui.chart, svgDownloadName(), ui.chartTitle.textContent);
+  setStatus("SVG chart downloaded.", false);
+}
+
+function externalSvgDownloadName() {
+  const size = preferredExternalSize() || "no-external-rows";
+
+  return `resize-benchmark_external_4ch_${exportFilePart(size)}_${state.metric}.svg`;
+}
+
+function downloadExternalSvg() {
+  downloadSvgElement(ui.externalChart, externalSvgDownloadName(), "external backend comparison chart");
+  setStatus("External SVG chart downloaded.", false);
+}
+
+function render() {
+  const rows = state.filtered;
+  const metricLabel = ui.metricSelect.options[ui.metricSelect.selectedIndex].text;
+
+  updateSummary(rows);
+  renderChart(rows);
+  renderExternalChart();
+  renderLegend(rows);
+  renderTable(rows);
+
+  ui.chartTitle.textContent = state.view === "speedup" ? "Thread Scaling" : `${metricLabel} Latency`;
+  ui.chartSubtitle.textContent = `${rows.length} rows`;
+  refreshReadmeExport();
+}
+
+function loadCsvText(text, sourceName) {
+  state.rows = parseCsv(text);
+  rebuildFilters();
+  applyFilters();
+  setStatus(`Loaded ${state.rows.length} rows from ${sourceName}`, false);
+  ui.fileButton.textContent = "Choose another CSV file";
+}
+
+async function loadDefaultCsv() {
+  try {
+    const response = await fetch(DEFAULT_CSV_PATH, { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error(response.statusText);
+    }
+    loadCsvText(await response.text(), DEFAULT_CSV_PATH);
+  } catch (error) {
+    setStatus("Select benchmark/resize-benchmark.csv to view results.", false);
+  }
+}
+
+ui.fileInput.addEventListener("change", event => {
+  const file = event.target.files[0];
+  const reader = new FileReader();
+
+  if (file !== undefined) {
+    reader.onload = () => loadCsvText(String(reader.result), file.name);
+    reader.onerror = () => setStatus("Failed to read CSV file.", true);
+    reader.readAsText(file);
+  }
+});
+
+[ui.methodFilter, ui.backendFilter, ui.channelFilter, ui.sizeFilter, ui.metricSelect, ui.viewSelect]
+  .forEach(control => control.addEventListener("change", applyFilters));
+
+[
+  ui.envCpu,
+  ui.envClock,
+  ui.envOs,
+  ui.envCompiler,
+  ui.envBuild,
+  ui.envInput,
+].forEach(control => control.addEventListener("input", refreshReadmeExport));
+
+ui.fileButton.addEventListener("click", () => {
+  ui.fileInput.value = "";
+  ui.fileInput.click();
+});
+ui.downloadSvgButton.addEventListener("click", downloadCurrentSvg);
+ui.downloadExternalSvgButton.addEventListener("click", downloadExternalSvg);
+ui.exportButton.addEventListener("click", () => {
+  ui.readmeExport.scrollIntoView({ behavior: "smooth", block: "center" });
+  refreshReadmeExport();
+});
+ui.refreshExportButton.addEventListener("click", refreshReadmeExport);
+ui.copyExportButton.addEventListener("click", copyReadmeExport);
+ui.downloadExportButton.addEventListener("click", downloadReadmeExport);
+
+detectEnvironmentDefaults();
+loadDefaultCsv();
+</script>
+</body>
+</html>

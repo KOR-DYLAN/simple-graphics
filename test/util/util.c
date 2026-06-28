@@ -70,17 +70,6 @@ sgl_test_png_t *sgl_test_load_png(const char *path)
                 png_set_tRNS_to_alpha(handle->png);
             }
 
-            if ((color_type == PNG_COLOR_TYPE_RGB)  ||
-                (color_type == PNG_COLOR_TYPE_GRAY) ||
-                (color_type == PNG_COLOR_TYPE_PALETTE)) {
-                png_set_filler(handle->png, 0xFF, PNG_FILLER_AFTER);
-            }
-
-            if ((color_type == PNG_COLOR_TYPE_GRAY) ||
-                (color_type == PNG_COLOR_TYPE_GRAY_ALPHA)) {
-                png_set_gray_to_rgb(handle->png);
-            }
-
             png_read_update_info(handle->png, handle->info);
 
             test_handle->width = (int32_t)png_get_image_width(handle->png, handle->info);
@@ -128,7 +117,7 @@ int32_t sgl_test_save_png(sgl_test_png_t *png, const char *path)
     if ((png == NULL) || (path == NULL)) {
         return -1;
     }
-    if (png->channels != 3 && png->channels != 4) {
+    if ((png->channels < 1) || (png->channels > 4)) {
         return -1;
     }
 
@@ -142,7 +131,18 @@ int32_t sgl_test_save_png(sgl_test_png_t *png, const char *path)
         return -1;
     }
 
-    color_type = (png->channels == 4) ? PNG_COLOR_TYPE_RGBA : PNG_COLOR_TYPE_RGB;
+    if (png->channels == 1) {
+        color_type = PNG_COLOR_TYPE_GRAY;
+    }
+    else if (png->channels == 2) {
+        color_type = PNG_COLOR_TYPE_GRAY_ALPHA;
+    }
+    else if (png->channels == 3) {
+        color_type = PNG_COLOR_TYPE_RGB;
+    }
+    else {
+        color_type = PNG_COLOR_TYPE_RGBA;
+    }
     png_set_IHDR(handle->png, handle->info,
                  (png_uint_32)png->width, (png_uint_32)png->height,
                  8, color_type, PNG_INTERLACE_NONE,
