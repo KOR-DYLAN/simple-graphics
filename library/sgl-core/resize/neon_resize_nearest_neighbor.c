@@ -312,7 +312,10 @@ sgl_result_t sgl_simd_resize_nearest(
 
     /* check error count */
     if (errcnt == 0) {
-         if (ext_lut != SGL_NULL) {
+        if ((d_width == s_width) && (d_height == s_height)) {
+            (void)sgl_memcpy(dst, src, (sgl_size_t)d_width * (sgl_size_t)d_height * (sgl_size_t)bpp);
+        }
+        else if (ext_lut != SGL_NULL) {
             if ((ext_lut->d_width == d_width) && (ext_lut->d_height == d_height) &&
                 (ext_lut->s_width == s_width) && (ext_lut->s_height == s_height))
             {
@@ -321,7 +324,7 @@ sgl_result_t sgl_simd_resize_nearest(
             }
         }
 
-        if (lut == SGL_NULL) {
+        if (((d_width != s_width) || (d_height != s_height)) && (lut == SGL_NULL)) {
             /* create temp look-up table */
             temp_lut = sgl_generic_create_nearest_neighbor_lut(d_width, d_height, s_width, s_height);
             lut = temp_lut;

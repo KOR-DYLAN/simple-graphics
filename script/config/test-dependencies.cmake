@@ -17,9 +17,6 @@ set(SGL_TEST_ZLIB_TAG
 set(SGL_TEST_LIBPNG_TAG
     "latest"
     CACHE STRING "libpng release tag used for test dependencies")
-set(SGL_TEST_SDL2_TAG
-    "release-2.32.10"
-    CACHE STRING "SDL2 release tag used for resize benchmark comparison")
 set(SGL_TEST_PIXMAN_TAG
     "pixman-0.46.4"
     CACHE STRING "pixman release tag used for resize benchmark comparison")
@@ -99,8 +96,6 @@ message(STATUS
 
 if(WITH_BENCHMARK_COMPARE)
     message(STATUS
-        "test dependency SDL2 tag: ${SGL_TEST_SDL2_TAG}")
-    message(STATUS
         "test dependency pixman tag: ${SGL_TEST_PIXMAN_TAG}")
     message(STATUS
         "test dependency cairo tag: ${SGL_TEST_CAIRO_TAG}")
@@ -114,9 +109,6 @@ set(SGL_TEST_ZLIB_URL
 set(SGL_TEST_LIBPNG_URL
     "https://github.com/pnggroup/libpng/archive/refs/tags/${SGL_TEST_LIBPNG_RESOLVED_TAG}.tar.gz"
     CACHE STRING "libpng source tarball URL used for test dependencies")
-set(SGL_TEST_SDL2_URL
-    "https://github.com/libsdl-org/SDL/archive/refs/tags/${SGL_TEST_SDL2_TAG}.tar.gz"
-    CACHE STRING "SDL2 source tarball URL used for benchmark comparison")
 set(SGL_TEST_PIXMAN_URL
     "https://gitlab.freedesktop.org/pixman/pixman/-/archive/${SGL_TEST_PIXMAN_TAG}/pixman-${SGL_TEST_PIXMAN_TAG}.tar.gz"
     CACHE STRING "pixman source tarball URL used for benchmark comparison")
@@ -127,8 +119,6 @@ set(SGL_TEST_NE10_URL
     "https://github.com/projectNe10/Ne10/archive/refs/tags/${SGL_TEST_NE10_TAG}.tar.gz"
     CACHE STRING "NE10 source tarball URL used for benchmark comparison")
 
-set(SGL_TEST_SDL2_ARCHIVE_NAME
-    "SDL2-${SGL_TEST_SDL2_TAG}.tar.gz")
 set(SGL_TEST_PIXMAN_ARCHIVE_NAME
     "${SGL_TEST_PIXMAN_TAG}.tar.gz")
 set(SGL_TEST_PIXMAN_SOURCE_DIRECTORY
@@ -158,7 +148,6 @@ file(MAKE_DIRECTORY
     "${SGL_TEST_DEPS_INSTALL_DIR}/include/cairo"
     "${SGL_TEST_DEPS_INSTALL_DIR}/include/libpng16"
     "${SGL_TEST_DEPS_INSTALL_DIR}/include/ne10"
-    "${SGL_TEST_DEPS_INSTALL_DIR}/include/SDL2"
     "${SGL_TEST_DEPS_INSTALL_DIR}/include/pixman-1"
     "${SGL_TEST_DEPS_INSTALL_DIR}/lib")
 
@@ -166,8 +155,6 @@ set(SGL_TEST_ZLIB_LIBRARY
     "${SGL_TEST_DEPS_INSTALL_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}z${CMAKE_STATIC_LIBRARY_SUFFIX}")
 set(SGL_TEST_LIBPNG_LIBRARY
     "${SGL_TEST_DEPS_INSTALL_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}png16${CMAKE_STATIC_LIBRARY_SUFFIX}")
-set(SGL_TEST_SDL2_LIBRARY
-    "${SGL_TEST_DEPS_INSTALL_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}SDL2${CMAKE_STATIC_LIBRARY_SUFFIX}")
 set(SGL_TEST_PIXMAN_LIBRARY
     "${SGL_TEST_DEPS_INSTALL_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}pixman-1${CMAKE_STATIC_LIBRARY_SUFFIX}")
 set(SGL_TEST_CAIRO_LIBRARY
@@ -204,38 +191,12 @@ ExternalProject_Add(sgl-test-libpng
 )
 
 set(SGL_TEST_OPTIONAL_DEPENDENCIES)
-set(SGL_TEST_HAS_SDL2_DEPENDENCY FALSE)
 set(SGL_TEST_HAS_CAIRO_DEPENDENCY FALSE)
 set(SGL_TEST_HAS_NE10_DEPENDENCY FALSE)
 
 if(WITH_BENCHMARK_COMPARE)
     find_program(SGL_TEST_MESON_EXECUTABLE meson)
     find_program(SGL_TEST_NINJA_EXECUTABLE ninja)
-
-    ExternalProject_Add(sgl-test-sdl2
-        URL ${SGL_TEST_SDL2_URL}
-        DOWNLOAD_DIR "${SGL_TEST_DEPS_DOWNLOAD_DIR}"
-        DOWNLOAD_NAME "${SGL_TEST_SDL2_ARCHIVE_NAME}"
-        PREFIX "${CMAKE_BINARY_DIR}/test-deps/sdl2"
-        CMAKE_ARGS
-            ${SGL_TEST_DEPS_CMAKE_ARGS}
-            -DSDL_SHARED=OFF
-            -DSDL_STATIC=ON
-            -DSDL_TEST=OFF
-            -DSDL_TEST_LIBRARY=OFF
-            -DSDL_INSTALL_TESTS=OFF
-            -DSDL_AUDIO=OFF
-            -DSDL_VIDEO=OFF
-            -DSDL_RENDER=OFF
-            -DSDL_EVENTS=OFF
-            -DSDL_HAPTIC=OFF
-            -DSDL_HIDAPI=OFF
-            -DSDL_JOYSTICK=OFF
-            -DSDL_POWER=OFF
-            -DSDL_SENSOR=OFF
-    )
-    list(APPEND SGL_TEST_OPTIONAL_DEPENDENCIES sgl-test-sdl2)
-    set(SGL_TEST_HAS_SDL2_DEPENDENCY TRUE)
 
     ExternalProject_Add(sgl-test-ne10
         URL ${SGL_TEST_NE10_URL}
@@ -370,15 +331,6 @@ set_target_properties(SGLTest::PNG PROPERTIES
     INTERFACE_INCLUDE_DIRECTORIES
         "${SGL_TEST_DEPS_INSTALL_DIR}/include;${SGL_TEST_DEPS_INSTALL_DIR}/include/libpng16"
     INTERFACE_LINK_LIBRARIES "SGLTest::ZLIB;m")
-
-if(SGL_TEST_HAS_SDL2_DEPENDENCY)
-    add_library(SGLTest::SDL2 STATIC IMPORTED GLOBAL)
-    set_target_properties(SGLTest::SDL2 PROPERTIES
-        IMPORTED_LOCATION "${SGL_TEST_SDL2_LIBRARY}"
-        INTERFACE_INCLUDE_DIRECTORIES
-            "${SGL_TEST_DEPS_INSTALL_DIR}/include/SDL2"
-        INTERFACE_LINK_LIBRARIES "m;dl;pthread")
-endif()
 
 if(SGL_TEST_HAS_CAIRO_DEPENDENCY)
     add_library(SGLTest::Pixman STATIC IMPORTED GLOBAL)

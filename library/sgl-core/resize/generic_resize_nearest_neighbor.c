@@ -49,11 +49,10 @@ static SGL_ALWAYS_INLINE void sgl_generic_resize_nearest_neighbor_line_stripe(sg
             dst[0] = src[0];
             break;
         default:
-            /* Not Supported */
+            for (ch = 0; ch < bpp; ++ch) {
+                dst[ch] = src[ch];
+            }
             break;
-        }
-        for (ch = 0; ch < bpp; ++ch) {
-            dst[ch] = src[ch];
         }
         dst = &dst[bpp];
     }
@@ -71,6 +70,7 @@ sgl_result_t sgl_generic_resize_nearest(
     sgl_nearest_neighbor_lookup_t *lut = SGL_NULL;
     sgl_nearest_neighbor_lookup_t *temp_lut = SGL_NULL;
     sgl_int32_t errcnt = 0;
+    sgl_size_t copy_size;
 
     /* check buffer address */
     if ((dst == SGL_NULL) || (src == SGL_NULL)) {
@@ -88,7 +88,13 @@ sgl_result_t sgl_generic_resize_nearest(
     }
 
     /* check error count */
-    if (errcnt == 0) {
+    if ((errcnt == 0) && (d_width == s_width) && (d_height == s_height)) {
+        copy_size = (sgl_size_t)d_width * (sgl_size_t)d_height * (sgl_size_t)bpp;
+        if (dst != src) {
+            (void)sgl_memcpy(dst, src, copy_size);
+        }
+    }
+    else if (errcnt == 0) {
          if (ext_lut != SGL_NULL) {
             if ((ext_lut->d_width == d_width) && (ext_lut->d_height == d_height) &&
                 (ext_lut->s_width == s_width) && (ext_lut->s_height == s_height))

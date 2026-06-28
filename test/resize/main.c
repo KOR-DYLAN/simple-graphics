@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <errno.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sgl-core.h>
@@ -9,10 +10,6 @@
 #if defined(SGL_TEST_HAS_CAIRO)
 #include <cairo.h>
 #endif  /* SGL_TEST_HAS_CAIRO */
-
-#if defined(SGL_TEST_HAS_SDL2)
-#include <SDL.h>
-#endif  /* SGL_TEST_HAS_SDL2 */
 
 #if defined(SGL_TEST_HAS_NE10)
 #include <NE10_imgproc.h>
@@ -26,6 +23,7 @@
 #define SGL_TEST_BENCHMARK_CSV      SGL_TEST_BENCHMARK_DIR "/resize-benchmark.csv"
 #define SGL_TEST_BUILD_DIR          "build"
 #define SGL_TEST_OUTPUT_DIR         SGL_TEST_BUILD_DIR "/output"
+#define SGL_TEST_SAMPLE_BASE_NAME   "sample.png"
 
 /*
  * Resize test design
@@ -34,22 +32,23 @@
  * driver.  Keep the benchmark matrix data-driven so a new case can be added
  * without copying a long block of control flow.
  *
- *      dimensions[]  x  methods[]  x  thread_counts[]
- *            |              |               |
- *            +--------------+---------------+
- *                           |
- *                     one benchmark case
- *                           |
+ *      channels[] x dimensions[] x methods[] x thread_counts[]
+ *           |            |             |              |
+ *           +------------+-------------+--------------+
+ *                              |
+ *                       one benchmark case
+ *                              |
  *          repeat N times, record min/avg/max latency and debug PNG
  *
  * Extension points:
+ * - Add a new source channel count to sgl_test_resize_channels.
  * - Add a new output size to sgl_test_resize_dimensions.
  * - Add a new backend or interpolation method to sgl_test_resize_methods.
  * - Add a new worker count to sgl_test_thread_counts.
  * - Optional comparison libraries are listed as ordinary methods.  CMake
- *   defines SGL_TEST_HAS_CAIRO or SGL_TEST_HAS_SDL2 only when benchmark
- *   comparison dependencies are explicitly enabled, so a normal test build
- *   does not download or build those extra backends.
+ *   defines their feature macros only when benchmark comparison dependencies
+ *   are explicitly enabled, so a normal test build does not download or build
+ *   those extra backends.
  *
  * The text table is optimized for reading in a terminal.  The CSV file is
  * stable and can be diffed or imported into a spreadsheet for benchmark
@@ -85,6 +84,11 @@ typedef struct {
 
 typedef struct {
     const char *name;
+    int32_t bpp;
+} sgl_test_resize_channel_t;
+
+typedef struct {
+    const char *name;
     int32_t width;
     int32_t height;
 } sgl_test_resize_dimension_t;
@@ -96,6 +100,7 @@ typedef struct {
     sgl_test_lut_creator_t create_lut;
     sgl_test_lut_destroyer_t destroy_lut;
     int32_t supports_threads;
+    int32_t required_bpp;
 } sgl_test_resize_method_t;
 
 typedef struct {
@@ -110,6 +115,7 @@ typedef struct {
 } sgl_test_benchmark_stats_t;
 
 typedef struct {
+    const sgl_test_resize_channel_t *channel;
     const sgl_test_resize_dimension_t *dimension;
     const sgl_test_resize_method_t *method;
     sgl_test_thread_context_t *thread;
@@ -169,28 +175,6 @@ static sgl_result_t sgl_test_resize_cairo_bilinear(
     int32_t s_height,
     int32_t bpp);
 #endif  /* SGL_TEST_HAS_CAIRO */
-#if defined(SGL_TEST_HAS_SDL2)
-static sgl_result_t sgl_test_resize_sdl2_nearest(
-    sgl_threadpool_t *pool,
-    void *lut,
-    uint8_t *dst,
-    int32_t d_width,
-    int32_t d_height,
-    uint8_t *src,
-    int32_t s_width,
-    int32_t s_height,
-    int32_t bpp);
-static sgl_result_t sgl_test_resize_sdl2_bilinear(
-    sgl_threadpool_t *pool,
-    void *lut,
-    uint8_t *dst,
-    int32_t d_width,
-    int32_t d_height,
-    uint8_t *src,
-    int32_t s_width,
-    int32_t s_height,
-    int32_t bpp);
-#endif  /* SGL_TEST_HAS_SDL2 */
 #if defined(SGL_TEST_HAS_NE10)
 static int sgl_test_ne10_init(void);
 static sgl_result_t sgl_test_resize_ne10_bilinear(
@@ -256,7 +240,22 @@ static int sgl_test_thread_contexts_init(sgl_test_thread_context_t *threads,
                                          size_t count);
 static void sgl_test_thread_contexts_deinit(sgl_test_thread_context_t *threads,
                                             size_t count);
-static int sgl_test_run_resize_matrix(sgl_test_resize_source_t *src);
+static int sgl_test_run_resize_matrix(const char *input_path);
+static int sgl_test_collect_input_paths(const char *input_path,
+                                        char paths[][FILENAME_MAX],
+                                        size_t *path_count);
+static int sgl_test_make_channel_input_path(
+    char *path,
+    size_t path_size,
+    const char *input_path,
+    const sgl_test_resize_channel_t *channel);
+static int sgl_test_copy_path(char *dst, size_t dst_size, const char *src);
+static int sgl_test_file_exists(const char *path);
+static const sgl_test_resize_channel_t *sgl_test_find_resize_channel(
+    int32_t bpp);
+static int sgl_test_run_resize_input(const char *input_path,
+                                     FILE *csv,
+                                     size_t *case_index);
 static int sgl_test_run_resize_case(const sgl_test_resize_case_t *test_case,
                                     sgl_test_resize_source_t *src,
                                     FILE *csv,
@@ -280,6 +279,13 @@ static int sgl_test_write_png_output(const sgl_test_resize_case_t *test_case,
                                      char *path,
                                      size_t path_size);
 
+static const sgl_test_resize_channel_t sgl_test_resize_channels[] = {
+    { .name = "1ch", .bpp = SGL_BPP8 },
+    { .name = "2ch", .bpp = SGL_BPP16 },
+    { .name = "3ch", .bpp = SGL_BPP24 },
+    { .name = "4ch", .bpp = SGL_BPP32 },
+};
+
 static const sgl_test_resize_dimension_t sgl_test_resize_dimensions[] = {
     { .name = "vga",  .width =  640, .height =  480 },
     { .name = "hd",   .width = 1280, .height =  720 },
@@ -291,84 +297,74 @@ static const sgl_test_resize_method_t sgl_test_resize_methods[] = {
     { .name = "nearest", .backend = "generic",
       .run = sgl_test_resize_nearest,
       .create_lut = NULL, .destroy_lut = NULL,
-      .supports_threads = 1 },
+      .supports_threads = 1, .required_bpp = 0 },
     { .name = "bilinear", .backend = "generic",
       .run = sgl_test_resize_bilinear,
       .create_lut = NULL, .destroy_lut = NULL,
-      .supports_threads = 1 },
+      .supports_threads = 1, .required_bpp = 0 },
     { .name = "bicubic", .backend = "generic",
       .run = sgl_test_resize_bicubic,
       .create_lut = NULL, .destroy_lut = NULL,
-      .supports_threads = 1 },
+      .supports_threads = 1, .required_bpp = 0 },
     { .name = "nearest", .backend = "generic-lut",
       .run = sgl_test_resize_nearest,
       .create_lut = sgl_test_create_nearest_lut,
       .destroy_lut = sgl_test_destroy_nearest_lut,
-      .supports_threads = 1 },
+      .supports_threads = 1, .required_bpp = 0 },
     { .name = "bilinear", .backend = "generic-lut",
       .run = sgl_test_resize_bilinear,
       .create_lut = sgl_test_create_bilinear_lut,
       .destroy_lut = sgl_test_destroy_bilinear_lut,
-      .supports_threads = 1 },
+      .supports_threads = 1, .required_bpp = 0 },
     { .name = "bicubic", .backend = "generic-lut",
       .run = sgl_test_resize_bicubic,
       .create_lut = sgl_test_create_bicubic_lut,
       .destroy_lut = sgl_test_destroy_bicubic_lut,
-      .supports_threads = 1 },
+      .supports_threads = 1, .required_bpp = 0 },
 #if defined(SGL_TEST_HAS_CAIRO)
     { .name = "nearest", .backend = "cairo",
       .run = sgl_test_resize_cairo_nearest,
       .create_lut = NULL, .destroy_lut = NULL,
-      .supports_threads = 0 },
+      .supports_threads = 0, .required_bpp = SGL_BPP32 },
     { .name = "bilinear", .backend = "cairo",
       .run = sgl_test_resize_cairo_bilinear,
       .create_lut = NULL, .destroy_lut = NULL,
-      .supports_threads = 0 },
+      .supports_threads = 0, .required_bpp = SGL_BPP32 },
 #endif  /* SGL_TEST_HAS_CAIRO */
-#if defined(SGL_TEST_HAS_SDL2)
-    { .name = "nearest", .backend = "sdl2",
-      .run = sgl_test_resize_sdl2_nearest,
-      .create_lut = NULL, .destroy_lut = NULL,
-      .supports_threads = 0 },
-    { .name = "bilinear", .backend = "sdl2",
-      .run = sgl_test_resize_sdl2_bilinear,
-      .create_lut = NULL, .destroy_lut = NULL,
-      .supports_threads = 0 },
-#endif  /* SGL_TEST_HAS_SDL2 */
 #if defined(SGL_TEST_HAS_NE10)
     { .name = "bilinear", .backend = "ne10",
       .run = sgl_test_resize_ne10_bilinear,
       .create_lut = NULL, .destroy_lut = NULL,
-      .supports_threads = 0 },
+      .supports_threads = 0, .required_bpp = SGL_BPP32 },
 #endif  /* SGL_TEST_HAS_NE10 */
 #if defined(SGL_CFG_HAS_SIMD)
     { .name = "nearest", .backend = "simd",
       .run = sgl_test_resize_nearest_simd,
       .create_lut = NULL, .destroy_lut = NULL,
-      .supports_threads = 1 },
+      .supports_threads = 1, .required_bpp = 0 },
     { .name = "bilinear", .backend = "simd",
       .run = sgl_test_resize_bilinear_simd,
       .create_lut = NULL, .destroy_lut = NULL,
-      .supports_threads = 1 },
+      .supports_threads = 1, .required_bpp = 0 },
     { .name = "bicubic", .backend = "simd",
       .run = sgl_test_resize_bicubic_simd,
       .create_lut = NULL, .destroy_lut = NULL,
-      .supports_threads = 1 },
+      .supports_threads = 1, .required_bpp = 0 },
     { .name = "nearest", .backend = "simd-lut",
       .run = sgl_test_resize_nearest_simd,
       .create_lut = sgl_test_create_nearest_lut,
       .destroy_lut = sgl_test_destroy_nearest_lut,
-      .supports_threads = 1 },
+      .supports_threads = 1, .required_bpp = 0 },
     { .name = "bilinear", .backend = "simd-lut",
       .run = sgl_test_resize_bilinear_simd,
       .create_lut = sgl_test_create_bilinear_lut,
       .destroy_lut = sgl_test_destroy_bilinear_lut,
-      .supports_threads = 1 },
+      .supports_threads = 1, .required_bpp = 0 },
     { .name = "bicubic", .backend = "simd-lut",
       .run = sgl_test_resize_bicubic_simd,
       .create_lut = sgl_test_create_bicubic_lut,
       .destroy_lut = sgl_test_destroy_bicubic_lut,
-      .supports_threads = 1 },
+      .supports_threads = 1, .required_bpp = 0 },
 #endif  /* SGL_CFG_HAS_SIMD */
 };
 
@@ -383,8 +379,6 @@ static sgl_test_thread_context_t sgl_test_thread_counts[] = {
 
 int main(int argc, char *argv[])
 {
-    sgl_test_png_t *png = NULL;
-    sgl_test_resize_source_t src;
     int result = 0;
 
     if (argc < 2) {
@@ -406,20 +400,7 @@ int main(int argc, char *argv[])
 #endif  /* SGL_TEST_HAS_NE10 */
 
     if (result == 0) {
-        png = sgl_test_load_png(argv[1]);
-        if (png != NULL) {
-            src.buf = png->data;
-            src.width = png->width;
-            src.height = png->height;
-            src.bpp = png->channels;
-
-            result = sgl_test_run_resize_matrix(&src);
-
-            sgl_test_release_png(png);
-        }
-        else {
-            result = 1;
-        }
+        result = sgl_test_run_resize_matrix(argv[1]);
     }
 
     if (sgl_memory_pool_deinitialize() != SGL_SUCCESS) {
@@ -621,116 +602,6 @@ static sgl_result_t sgl_test_resize_cairo_bilinear(
     return result;
 }
 #endif  /* SGL_TEST_HAS_CAIRO */
-
-#if defined(SGL_TEST_HAS_SDL2)
-static sgl_result_t sgl_test_resize_sdl2(
-    int scale_mode,
-    uint8_t *dst,
-    int32_t d_width,
-    int32_t d_height,
-    uint8_t *src,
-    int32_t s_width,
-    int32_t s_height,
-    int32_t bpp)
-{
-    SDL_Surface *src_surface = NULL;
-    SDL_Surface *dst_surface = NULL;
-    sgl_result_t result = SGL_SUCCESS;
-
-    /*
-     * SDL_BlitScaled is benchmarked through software surfaces backed directly
-     * by the same source/destination buffers used by SGL.  Setting the hint per
-     * call keeps nearest and bilinear rows explicit in the CSV.
-     */
-    if (bpp != SGL_BPP32) {
-        result = SGL_ERROR_NOT_SUPPORTED;
-    }
-
-    if (result == SGL_SUCCESS) {
-        if (SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY,
-                        (scale_mode == 0) ? "0" : "1") != SDL_TRUE) {
-            result = SGL_FAILURE;
-        }
-    }
-
-    if (result == SGL_SUCCESS) {
-        src_surface = SDL_CreateRGBSurfaceWithFormatFrom(
-            src,
-            s_width,
-            s_height,
-            bpp * 8,
-            s_width * bpp,
-            SDL_PIXELFORMAT_RGBA32);
-        dst_surface = SDL_CreateRGBSurfaceWithFormatFrom(
-            dst,
-            d_width,
-            d_height,
-            bpp * 8,
-            d_width * bpp,
-            SDL_PIXELFORMAT_RGBA32);
-        if ((src_surface == NULL) || (dst_surface == NULL)) {
-            result = SGL_FAILURE;
-        }
-    }
-
-    if (result == SGL_SUCCESS) {
-        if (SDL_BlitScaled(src_surface, NULL, dst_surface, NULL) != 0) {
-            result = SGL_FAILURE;
-        }
-    }
-
-    if (src_surface != NULL) {
-        SDL_FreeSurface(src_surface);
-    }
-    if (dst_surface != NULL) {
-        SDL_FreeSurface(dst_surface);
-    }
-
-    return result;
-}
-
-static sgl_result_t sgl_test_resize_sdl2_nearest(
-    sgl_threadpool_t *pool,
-    void *lut,
-    uint8_t *dst,
-    int32_t d_width,
-    int32_t d_height,
-    uint8_t *src,
-    int32_t s_width,
-    int32_t s_height,
-    int32_t bpp)
-{
-    sgl_result_t result;
-
-    SGL_UNUSED_PARAM(pool);
-    SGL_UNUSED_PARAM(lut);
-    result = sgl_test_resize_sdl2(0, dst, d_width, d_height, src, s_width,
-                                  s_height, bpp);
-
-    return result;
-}
-
-static sgl_result_t sgl_test_resize_sdl2_bilinear(
-    sgl_threadpool_t *pool,
-    void *lut,
-    uint8_t *dst,
-    int32_t d_width,
-    int32_t d_height,
-    uint8_t *src,
-    int32_t s_width,
-    int32_t s_height,
-    int32_t bpp)
-{
-    sgl_result_t result;
-
-    SGL_UNUSED_PARAM(pool);
-    SGL_UNUSED_PARAM(lut);
-    result = sgl_test_resize_sdl2(1, dst, d_width, d_height, src, s_width,
-                                  s_height, bpp);
-
-    return result;
-}
-#endif  /* SGL_TEST_HAS_SDL2 */
 
 #if defined(SGL_TEST_HAS_NE10)
 static int sgl_test_ne10_init(void)
@@ -950,15 +821,17 @@ static void sgl_test_thread_contexts_deinit(sgl_test_thread_context_t *threads,
     }
 }
 
-static int sgl_test_run_resize_matrix(sgl_test_resize_source_t *src)
+static int sgl_test_run_resize_matrix(const char *input_path)
 {
     FILE *csv = NULL;
-    sgl_test_resize_case_t test_case;
-    size_t dimension_index;
-    size_t method_index;
-    size_t thread_index;
+    char input_paths[SGL_TEST_ARRAY_SIZE(sgl_test_resize_channels)][FILENAME_MAX];
+    size_t input_count;
+    size_t input_index;
     size_t case_index = 0U;
     int result = 0;
+
+    input_count = 0U;
+    result = sgl_test_collect_input_paths(input_path, input_paths, &input_count);
 
     if (sgl_test_thread_contexts_init(
             sgl_test_thread_counts,
@@ -985,29 +858,10 @@ static int sgl_test_run_resize_matrix(sgl_test_resize_source_t *src)
         sgl_test_write_csv_header(csv);
         sgl_test_print_table_header();
 
-        for (dimension_index = 0U;
-             dimension_index < SGL_TEST_ARRAY_SIZE(sgl_test_resize_dimensions);
-             ++dimension_index) {
-            for (method_index = 0U;
-                 method_index < SGL_TEST_ARRAY_SIZE(sgl_test_resize_methods);
-                 ++method_index) {
-                for (thread_index = 0U;
-                     thread_index < SGL_TEST_ARRAY_SIZE(sgl_test_thread_counts);
-                     ++thread_index) {
-                    test_case.dimension =
-                        &sgl_test_resize_dimensions[dimension_index];
-                    test_case.method = &sgl_test_resize_methods[method_index];
-                    test_case.thread = &sgl_test_thread_counts[thread_index];
-
-                    if (sgl_test_should_run_resize_case(&test_case) != 0) {
-                        if (sgl_test_run_resize_case(
-                                &test_case, src, csv, case_index) != 0) {
-                            result = 1;
-                        }
-                        case_index++;
-                    }
-                }
-            }
+        for (input_index = 0U; (result == 0) && (input_index < input_count);
+             ++input_index) {
+            result = sgl_test_run_resize_input(
+                input_paths[input_index], csv, &case_index);
         }
     }
 
@@ -1020,6 +874,211 @@ static int sgl_test_run_resize_matrix(sgl_test_resize_source_t *src)
 
     if (result == 0) {
         (void)printf("\nbenchmark csv: %s\n", SGL_TEST_BENCHMARK_CSV);
+    }
+
+    return result;
+}
+
+static int sgl_test_collect_input_paths(const char *input_path,
+                                        char paths[][FILENAME_MAX],
+                                        size_t *path_count)
+{
+    char channel_path[FILENAME_MAX];
+    size_t channel_index;
+    size_t input_len;
+    size_t base_len;
+    int use_channel_inputs;
+    int result;
+
+    result = 0;
+    use_channel_inputs = 0;
+    *path_count = 0U;
+    input_len = strlen(input_path);
+    base_len = strlen(SGL_TEST_SAMPLE_BASE_NAME);
+
+    if ((input_len >= base_len) &&
+        (strcmp(&input_path[input_len - base_len],
+                SGL_TEST_SAMPLE_BASE_NAME) == 0)) {
+        use_channel_inputs = 1;
+        for (channel_index = 0U;
+             (result == 0) &&
+             (channel_index < SGL_TEST_ARRAY_SIZE(sgl_test_resize_channels));
+             ++channel_index) {
+            result = sgl_test_make_channel_input_path(
+                channel_path,
+                sizeof(channel_path),
+                input_path,
+                &sgl_test_resize_channels[channel_index]);
+            if ((result != 0) || (sgl_test_file_exists(channel_path) == 0)) {
+                use_channel_inputs = 0;
+                result = 0;
+            }
+        }
+    }
+
+    if ((result == 0) && (use_channel_inputs != 0)) {
+        for (channel_index = 0U;
+             (result == 0) &&
+             (channel_index < SGL_TEST_ARRAY_SIZE(sgl_test_resize_channels));
+             ++channel_index) {
+            result = sgl_test_make_channel_input_path(
+                paths[channel_index],
+                FILENAME_MAX,
+                input_path,
+                &sgl_test_resize_channels[channel_index]);
+        }
+        *path_count = SGL_TEST_ARRAY_SIZE(sgl_test_resize_channels);
+    }
+    else if (result == 0) {
+        result = sgl_test_copy_path(paths[0], FILENAME_MAX, input_path);
+        *path_count = 1U;
+    }
+
+    return result;
+}
+
+static int sgl_test_make_channel_input_path(
+    char *path,
+    size_t path_size,
+    const char *input_path,
+    const sgl_test_resize_channel_t *channel)
+{
+    size_t input_len;
+    size_t base_len;
+    size_t prefix_len;
+    int written;
+    int result;
+
+    result = 0;
+    input_len = strlen(input_path);
+    base_len = strlen(SGL_TEST_SAMPLE_BASE_NAME);
+    if (input_len < base_len) {
+        result = 1;
+    }
+
+    if (result == 0) {
+        prefix_len = input_len - base_len;
+        written = snprintf(path,
+                           path_size,
+                           "%.*ssample-%s.png",
+                           (int)prefix_len,
+                           input_path,
+                           channel->name);
+        if ((written < 0) || ((size_t)written >= path_size)) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+static int sgl_test_copy_path(char *dst, size_t dst_size, const char *src)
+{
+    int written;
+    int result;
+
+    result = 0;
+    written = snprintf(dst, dst_size, "%s", src);
+    if ((written < 0) || ((size_t)written >= dst_size)) {
+        result = 1;
+    }
+
+    return result;
+}
+
+static int sgl_test_file_exists(const char *path)
+{
+    struct stat st;
+    int result;
+
+    result = 0;
+    if ((stat(path, &st) == 0) && (S_ISREG(st.st_mode))) {
+        result = 1;
+    }
+
+    return result;
+}
+
+static const sgl_test_resize_channel_t *sgl_test_find_resize_channel(
+    int32_t bpp)
+{
+    const sgl_test_resize_channel_t *channel;
+    size_t index;
+
+    channel = NULL;
+    for (index = 0U;
+         (channel == NULL) &&
+         (index < SGL_TEST_ARRAY_SIZE(sgl_test_resize_channels));
+         ++index) {
+        if (sgl_test_resize_channels[index].bpp == bpp) {
+            channel = &sgl_test_resize_channels[index];
+        }
+    }
+
+    return channel;
+}
+
+static int sgl_test_run_resize_input(const char *input_path,
+                                     FILE *csv,
+                                     size_t *case_index)
+{
+    sgl_test_png_t *png;
+    sgl_test_resize_source_t src;
+    sgl_test_resize_case_t test_case;
+    const sgl_test_resize_channel_t *channel;
+    size_t dimension_index;
+    size_t method_index;
+    size_t thread_index;
+    int result;
+
+    result = 0;
+    png = sgl_test_load_png(input_path);
+    if (png == NULL) {
+        result = 1;
+    }
+
+    if (result == 0) {
+        src.buf = png->data;
+        src.width = png->width;
+        src.height = png->height;
+        src.bpp = png->channels;
+        channel = sgl_test_find_resize_channel(src.bpp);
+        if (channel == NULL) {
+            result = 1;
+        }
+    }
+
+    if (result == 0) {
+        (void)printf("\ninput: %s (%d channel)\n", input_path, src.bpp);
+        for (dimension_index = 0U;
+             dimension_index < SGL_TEST_ARRAY_SIZE(sgl_test_resize_dimensions);
+             ++dimension_index) {
+            for (method_index = 0U;
+                 method_index < SGL_TEST_ARRAY_SIZE(sgl_test_resize_methods);
+                 ++method_index) {
+                for (thread_index = 0U;
+                     thread_index < SGL_TEST_ARRAY_SIZE(sgl_test_thread_counts);
+                     ++thread_index) {
+                    test_case.channel = channel;
+                    test_case.dimension =
+                        &sgl_test_resize_dimensions[dimension_index];
+                    test_case.method = &sgl_test_resize_methods[method_index];
+                    test_case.thread = &sgl_test_thread_counts[thread_index];
+
+                    if (sgl_test_should_run_resize_case(&test_case) != 0) {
+                        if (sgl_test_run_resize_case(
+                                &test_case, &src, csv, *case_index) != 0) {
+                            result = 1;
+                        }
+                        *case_index += 1U;
+                    }
+                }
+            }
+        }
+    }
+
+    if (png != NULL) {
+        sgl_test_release_png(png);
     }
 
     return result;
@@ -1097,10 +1156,11 @@ static int sgl_test_run_resize_case(const sgl_test_resize_case_t *test_case,
     }
 
     if (result == 0) {
-        (void)printf("%4zu  %-8s  %-11s  %2zu  %5dx%-5d  "
+        (void)printf("%4zu  %3d  %-8s  %-11s  %2zu  %5dx%-5d  "
                      "%8llu.%03llums  %8llu.%03llums  "
                      "%8llu.%03llums  %s\n",
                      case_index,
+                     test_case->channel->bpp,
                      test_case->method->name,
                      test_case->method->backend,
                      test_case->thread->workers,
@@ -1115,8 +1175,9 @@ static int sgl_test_run_resize_case(const sgl_test_resize_case_t *test_case,
                      output_path);
 
         (void)fprintf(csv,
-                      "%zu,%s,%s,%zu,%d,%d,%llu,%llu,%llu\n",
+                      "%zu,%d,%s,%s,%zu,%d,%d,%llu,%llu,%llu\n",
                       case_index,
+                      test_case->channel->bpp,
                       test_case->method->name,
                       test_case->method->backend,
                       test_case->thread->workers,
@@ -1145,11 +1206,15 @@ static int sgl_test_should_run_resize_case(
     /*
      * SGL generic/SIMD resize accepts an SGL threadpool and can expose
      * meaningful thread scaling.  External comparison backends such as Cairo
-     * and SDL2 are called once per benchmark sample and do not consume the SGL
+     * are called once per benchmark sample and do not consume the SGL
      * threadpool, so only keep their single-thread baseline rows.
      */
     if ((test_case->method->supports_threads == 0) &&
         (test_case->thread->workers > 1U)) {
+        result = 0;
+    }
+    if ((test_case->method->required_bpp != 0) &&
+        (test_case->method->required_bpp != test_case->channel->bpp)) {
         result = 0;
     }
 
@@ -1224,16 +1289,16 @@ static void sgl_test_print_table_header(void)
 {
     (void)printf("\nResize benchmark\n");
     (void)printf("repeat count: %u\n", SGL_TEST_REPEAT_COUNT);
-    (void)printf("case  method    backend      th  size         "
+    (void)printf("case  ch   method    backend      th  size         "
                  "avg           min           max           output\n");
-    (void)printf("----  --------  -----------  --  -----------  "
+    (void)printf("----  ---  --------  -----------  --  -----------  "
                  "------------  ------------  ------------  ------\n");
 }
 
 static void sgl_test_write_csv_header(FILE *csv)
 {
     (void)fprintf(csv,
-                  "case,method,backend,threads,width,height,"
+                  "case,channels,method,backend,threads,width,height,"
                   "avg_us,min_us,max_us\n");
 }
 
@@ -1251,10 +1316,11 @@ static int sgl_test_write_png_output(const sgl_test_resize_case_t *test_case,
     written = snprintf(path,
                        path_size,
                        SGL_TEST_OUTPUT_DIR
-                       "/%03zu_resize_%s_%s_%zuthread_%dx%d.png",
+                       "/%03zu_resize_%s_%s_%dch_%zuthread_%dx%d.png",
                        case_index,
                        test_case->method->backend,
                        test_case->method->name,
+                       test_case->channel->bpp,
                        test_case->thread->workers,
                        test_case->dimension->width,
                        test_case->dimension->height);
