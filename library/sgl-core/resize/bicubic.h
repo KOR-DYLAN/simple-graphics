@@ -1,13 +1,8 @@
-/*
- * SGL-HDR-DEV-002: resize data types are shared by generic, SIMD, and threaded
- * implementations that intentionally use different subsets.
- */
-/* cppcheck-suppress-file misra-c2012-2.3 */
-/* cppcheck-suppress-file misra-c2012-2.4 */
 #ifndef BICUBIC_H_
 #define BICUBIC_H_
 
 #include "sgl-fixed_point.h"
+#include <sgl_memory_cast.h>
 
 typedef struct {
     sgl_int32_t *SGL_RESTRICT x1;
@@ -47,5 +42,38 @@ struct sgl_bicubic_lookup_table {
     bicubic_column_lookup_t col_lookup;
     bicubic_row_lookup_t row_lookup;
 };
+
+static SGL_ALWAYS_INLINE sgl_bicubic_current_t *sgl_memory_as_bicubic_current(void *memory)
+{
+    sgl_bicubic_current_t *result;
+
+    /* SGL-MEM-DEV-001: typed conversion from generic storage. */
+    /* cppcheck-suppress misra-c2012-11.5 */
+    result = (sgl_bicubic_current_t *)memory;
+
+    return result;
+}
+
+static SGL_ALWAYS_INLINE const sgl_bicubic_current_t *sgl_memory_as_const_bicubic_current(const void *memory)
+{
+    const sgl_bicubic_current_t *result;
+
+    /* SGL-MEM-DEV-001: typed conversion from generic storage. */
+    /* cppcheck-suppress misra-c2012-11.5 */
+    result = (const sgl_bicubic_current_t *)memory;
+
+    return result;
+}
+
+static SGL_ALWAYS_INLINE sgl_bicubic_data_t *sgl_memory_as_bicubic_data(void *memory)
+{
+    sgl_bicubic_data_t *result;
+
+    /* SGL-MEM-DEV-001: typed conversion from generic storage. */
+    /* cppcheck-suppress misra-c2012-11.5 */
+    result = (sgl_bicubic_data_t *)memory;
+
+    return result;
+}
 
 #endif  /* !BICUBIC_H_ */

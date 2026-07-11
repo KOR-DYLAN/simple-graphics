@@ -1,10 +1,3 @@
-/*
- * SGL-HDR-DEV-002: public type aliases are intentionally shared by translation
- * units that use different subsets of the interface.
- */
-/* cppcheck-suppress-file misra-c2012-2.3 */
-/* cppcheck-suppress-file misra-c2012-2.4 */
-/* cppcheck-suppress-file preprocessorErrorDirective */
 #ifndef SGL_TYPE_H_
 #define SGL_TYPE_H_
 
@@ -67,6 +60,7 @@ typedef unsigned long       sgl_size_t;
 typedef signed long         sgl_ptrdiff_t;
 
 #else
+/* cppcheck-suppress preprocessorErrorDirective */
 #error "Unsupported compiler: fixed-width predefined types are unavailable"
 #endif
 

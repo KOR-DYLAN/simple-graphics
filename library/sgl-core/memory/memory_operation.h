@@ -2,6 +2,7 @@
 #define SGL_MEMORY_OPERATION_H_
 
 #include <sgl-core.h>
+#include <sgl_memory_cast.h>
 
 void *sgl_generic_memcpy(void *SGL_RESTRICT destination,
                          const void *SGL_RESTRICT source,

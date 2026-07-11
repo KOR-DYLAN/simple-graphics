@@ -1,8 +1,3 @@
-/* SGL-C89-DEV-001: declarations remain at block start for C89 compatibility. */
-/* cppcheck-suppress-file variableScope */
-/* SGL-CALLBACK-DEV-001: thread callbacks recover typed context from void *. */
-/* cppcheck-suppress-file misra-c2012-11.5 */
-/* cppcheck-suppress-file constParameterCallback */
 #include <sgl-core.h>
 #include "bicubic.h"
 
@@ -911,9 +906,8 @@ static sgl_result_t sgl_simd_resize_bicubic_threaded(
     }
 
     operations = sgl_queue_create((sgl_size_t)num_operations);
-    /* SGL-MEM-DEV-001: typed conversion from the generic allocator. */
-    /* cppcheck-suppress misra-c2012-11.5 */
-    currents = (sgl_bicubic_current_t *)sgl_malloc(sizeof(sgl_bicubic_current_t) * (sgl_size_t)num_operations);
+    currents = sgl_memory_as_bicubic_current(
+        sgl_malloc(sizeof(sgl_bicubic_current_t) * (sgl_size_t)num_operations));
     if ((operations != SGL_NULL) && (currents != SGL_NULL)) {
         for (i = 0; i < num_operations; ++i) {
             currents[i].row = i * SGL_GENERIC_BULK_SIZE;
@@ -1006,8 +1000,8 @@ sgl_result_t sgl_simd_resize_bicubic(
 #if defined(SGL_CFG_HAS_THREAD)
 static void sgl_simd_resize_bicubic_routine(void *SGL_RESTRICT current, void *SGL_RESTRICT cookie)
 {
-    const sgl_bicubic_current_t *cur = (const sgl_bicubic_current_t *)current;
-    sgl_bicubic_data_t *data = (sgl_bicubic_data_t *)cookie;
+    const sgl_bicubic_current_t *cur = sgl_memory_as_const_bicubic_current(current);
+    sgl_bicubic_data_t *data = sgl_memory_as_bicubic_data(cookie);
     sgl_int32_t row;
 
     for (row = cur->row; row < (cur->row + cur->count); ++row) {

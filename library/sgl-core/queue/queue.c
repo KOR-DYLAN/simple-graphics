@@ -1,9 +1,6 @@
-/* SGL-C89-DEV-001: declarations remain at block start for C89 compatibility. */
-/* cppcheck-suppress-file variableScope */
-/* SGL-QUEUE-DEV-001: the generic queue transports opaque object pointers. */
-/* cppcheck-suppress-file misra-c2012-11.6 */
 #include <sgl-core.h>
 #include "sgl-osal.h"
+#include <sgl_memory_cast.h>
 
 struct sgl_queue {
     void **data;
@@ -14,18 +11,35 @@ struct sgl_queue {
     sgl_osal_spinlock_t lock;
 };
 
+static SGL_ALWAYS_INLINE void *sgl_queue_as_void_ptr(const void *data)
+{
+    sgl_uintptr_t data_addr;
+    void *result;
+
+    /*
+     * SGL-QUEUE-DEV-001:
+     * The queue transports opaque object pointers without dereferencing or
+     * taking ownership.  The public enqueue API accepts const void * so callers
+     * can pass immutable objects, while the existing dequeue API returns void *.
+     * Keep that legacy API shape and isolate the pointer/integer/pointer bridge
+     * here instead of suppressing Rule 11.6 for the whole translation unit.
+     */
+    /* cppcheck-suppress misra-c2012-11.6 */
+    data_addr = (sgl_uintptr_t)data;
+    /* cppcheck-suppress misra-c2012-11.6 */
+    result = (void *)data_addr;
+
+    return result;
+}
+
 sgl_queue_t *sgl_queue_create(sgl_size_t capacity)
 {
     sgl_queue_t *queue = SGL_NULL;
 
     if (0U < capacity) {
-        /* SGL-MEM-DEV-001: typed conversion from the generic allocator. */
-        /* cppcheck-suppress misra-c2012-11.5 */
-        queue = (sgl_queue_t *)sgl_malloc(sizeof(sgl_queue_t));
+        queue = sgl_memory_as_queue(sgl_malloc(sizeof(sgl_queue_t)));
         if (queue != SGL_NULL) {
-            /* SGL-MEM-DEV-001: typed conversion from the generic allocator. */
-            /* cppcheck-suppress misra-c2012-11.5 */
-            queue->data = (void **)sgl_malloc(sizeof(void *) * capacity);
+            queue->data = sgl_memory_as_void_ptr_array(sgl_malloc(sizeof(void *) * capacity));
             if (queue->data != SGL_NULL) {
                 queue->head = 0;
                 queue->tail = 0;
@@ -81,13 +95,12 @@ sgl_result_t sgl_queue_unsafe_enqueue(sgl_queue_t *SGL_RESTRICT queue, const voi
 {
     sgl_result_t result = SGL_SUCCESS;
     sgl_size_t head;
-    const sgl_uintptr_t data_addr = (const sgl_uintptr_t)data;
 
     if ((queue != SGL_NULL) && (data != SGL_NULL)) {
         result = sgl_queue_is_full(queue);
         if (result == SGL_QUEUE_IS_NOT_FULL) {
             head = queue->head;
-            queue->data[head] = (void *)data_addr;
+            queue->data[head] = sgl_queue_as_void_ptr(data);
             if (queue->capacity <= ++head) {
                 head = 0;
             }
@@ -106,14 +119,13 @@ sgl_result_t sgl_queue_enqueue(sgl_queue_t *SGL_RESTRICT queue, const void *SGL_
 {
     sgl_result_t result = SGL_SUCCESS;
     sgl_size_t head;
-    const sgl_uintptr_t data_addr = (const sgl_uintptr_t)data;
 
     if ((queue != SGL_NULL) && (data != SGL_NULL)) {
         sgl_osal_spinlock_lock(&queue->lock);
         result = sgl_queue_is_full(queue);
         if (result == SGL_QUEUE_IS_NOT_FULL) {
             head = queue->head;
-            queue->data[head] = (void *)data_addr;
+            queue->data[head] = sgl_queue_as_void_ptr(data);
             if (queue->capacity <= ++head) {
                 head = 0;
             }

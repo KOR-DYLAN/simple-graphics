@@ -8,6 +8,17 @@
 
 static unsigned char sgl_test_memory_pool[SGL_TEST_MEMORY_POOL_SIZE];
 
+static SGL_ALWAYS_INLINE const char *test_memory_as_const_char(void *memory)
+{
+    const char *result;
+
+    /* SGL-MEM-DEV-001: typed conversion from generic queue storage. */
+    /* cppcheck-suppress misra-c2012-11.5 */
+    result = (const char *)memory;
+
+    return result;
+}
+
 const char *cheat_string[] = {
     "show me the money",
     "black sheep wall",
@@ -39,7 +50,7 @@ int main(int argc, char *argv[]) {
             }
 
             while (SGL_TRUE) {
-                data = (const char *)sgl_queue_dequeue(queue);
+                data = test_memory_as_const_char(sgl_queue_dequeue(queue));
                 if (data == NULL) {
                     break;
                 }

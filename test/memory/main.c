@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <sgl-core.h>
+#include <sgl_memory_cast.h>
 
 #if defined(SGL_CFG_HAS_PTHREAD)
 #include <pthread.h>
@@ -227,7 +228,7 @@ static int test_uninitialized_pool_contract(void)
     unsigned char *memory = NULL;
     int result = 0;
 
-    memory = (unsigned char *)sgl_calloc(257U, sizeof(unsigned char));
+    memory = sgl_memory_as_uchar(sgl_calloc(257U, sizeof(unsigned char)));
     if (memory != NULL) {
         result = 1;
     }
@@ -250,8 +251,8 @@ static int test_basic_contract(void)
 
     allocation.size = 37U;
     allocation.signature = 0xA51C93E7U;
-    allocation.memory = (unsigned char *)sgl_malloc(allocation.size);
-    zeroed = (unsigned char *)sgl_calloc(127U, 3U);
+    allocation.memory = sgl_memory_as_uchar(sgl_malloc(allocation.size));
+    zeroed = sgl_memory_as_uchar(sgl_calloc(127U, 3U));
     if ((allocation.memory == NULL) || (zeroed == NULL)) {
         result = 1;
     }
@@ -300,7 +301,7 @@ static int test_fragmentation_and_coalescing(void)
     for (i = 0U; (i < TEST_FRAGMENT_BLOCK_COUNT) && (result == 0); ++i) {
         blocks[i].size = 31U + ((i * 97U) % 701U);
         blocks[i].signature = 0x20000000U + (uint32_t)i;
-        blocks[i].memory = (unsigned char *)sgl_malloc(blocks[i].size);
+        blocks[i].memory = sgl_memory_as_uchar(sgl_malloc(blocks[i].size));
         if (blocks[i].memory == NULL) {
             result = 1;
         }
@@ -325,7 +326,7 @@ static int test_fragmentation_and_coalescing(void)
     for (i = 1U; (i < TEST_FRAGMENT_BLOCK_COUNT) && (result == 0); i += 2U) {
         blocks[i].size = 17U + ((i * 53U) % 389U);
         blocks[i].signature = 0x30000000U + (uint32_t)i;
-        blocks[i].memory = (unsigned char *)sgl_malloc(blocks[i].size);
+        blocks[i].memory = sgl_memory_as_uchar(sgl_malloc(blocks[i].size));
         if (blocks[i].memory == NULL) {
             result = 1;
         }
@@ -352,7 +353,7 @@ static int test_fragmentation_and_coalescing(void)
     if (result == 0) {
         large.size = TEST_POOL_SIZE / 2U;
         large.signature = 0x4C415247U;
-        large.memory = (unsigned char *)sgl_malloc(large.size);
+        large.memory = sgl_memory_as_uchar(sgl_malloc(large.size));
         if (large.memory == NULL) {
             result = 1;
         }
@@ -397,7 +398,7 @@ static int test_randomized_sequential_stress(void)
             slots[slot].signature = random_value ^ (uint32_t)iteration;
             if ((iteration % 11U) == 0U) {
                 slots[slot].memory =
-                    (unsigned char *)sgl_calloc(slots[slot].size, 1U);
+                    sgl_memory_as_uchar(sgl_calloc(slots[slot].size, 1U));
                 if ((slots[slot].memory != NULL) &&
                     (test_verify_zero(slots[slot].memory, slots[slot].size) != 0)) {
                     result = 1;
@@ -405,7 +406,7 @@ static int test_randomized_sequential_stress(void)
             }
             else {
                 slots[slot].memory =
-                    (unsigned char *)sgl_malloc(slots[slot].size);
+                    sgl_memory_as_uchar(sgl_malloc(slots[slot].size));
             }
 
             /*
@@ -451,7 +452,7 @@ static int test_pool_exhaustion_and_recovery(void)
         blocks[allocation_count].signature =
             0x50000000U + (uint32_t)allocation_count;
         blocks[allocation_count].memory =
-            (unsigned char *)sgl_malloc(blocks[allocation_count].size);
+            sgl_memory_as_uchar(sgl_malloc(blocks[allocation_count].size));
         if (blocks[allocation_count].memory == NULL) {
             break;
         }
@@ -481,7 +482,7 @@ static int test_pool_exhaustion_and_recovery(void)
 
     recovered.size = (TEST_POOL_SIZE * 3U) / 4U;
     recovered.signature = 0x5245434FU;
-    recovered.memory = (unsigned char *)sgl_malloc(recovered.size);
+    recovered.memory = sgl_memory_as_uchar(sgl_malloc(recovered.size));
     if (recovered.memory == NULL) {
         result = 1;
     }
@@ -513,6 +514,28 @@ typedef struct {
     int result;
 } test_handoff_argument_t;
 
+static SGL_ALWAYS_INLINE test_thread_argument_t *test_memory_as_thread_argument(void *memory)
+{
+    test_thread_argument_t *result;
+
+    /* SGL-MEM-DEV-001: typed conversion from generic callback storage. */
+    /* cppcheck-suppress misra-c2012-11.5 */
+    result = (test_thread_argument_t *)memory;
+
+    return result;
+}
+
+static SGL_ALWAYS_INLINE test_handoff_argument_t *test_memory_as_handoff_argument(void *memory)
+{
+    test_handoff_argument_t *result;
+
+    /* SGL-MEM-DEV-001: typed conversion from generic callback storage. */
+    /* cppcheck-suppress misra-c2012-11.5 */
+    result = (test_handoff_argument_t *)memory;
+
+    return result;
+}
+
 static void *test_thread_stress_routine(void *argument)
 {
     test_thread_argument_t *thread_argument;
@@ -522,7 +545,7 @@ static void *test_thread_stress_routine(void *argument)
     size_t i;
     int result = 0;
 
-    thread_argument = (test_thread_argument_t *)argument;
+    thread_argument = test_memory_as_thread_argument(argument);
     random_state = 0x9E3779B9U ^ (uint32_t)(thread_argument->thread_index + 1U);
 
     for (iteration = 0U;
@@ -543,7 +566,7 @@ static void *test_thread_stress_routine(void *argument)
             slots[slot].size = 1U + (size_t)((random_value >> 7U) % 768U);
             slots[slot].signature =
                 random_value ^ (uint32_t)thread_argument->thread_index;
-            slots[slot].memory = (unsigned char *)sgl_malloc(slots[slot].size);
+            slots[slot].memory = sgl_memory_as_uchar(sgl_malloc(slots[slot].size));
             if (slots[slot].memory != NULL) {
                 test_fill_allocation(&slots[slot]);
             }
@@ -613,7 +636,7 @@ static void *test_handoff_free_routine(void *argument)
     size_t i;
     int result = 0;
 
-    handoff_argument = (test_handoff_argument_t *)argument;
+    handoff_argument = test_memory_as_handoff_argument(argument);
     for (i = handoff_argument->thread_index;
          i < handoff_argument->allocation_count;
          i += TEST_THREAD_COUNT) {
@@ -639,7 +662,7 @@ static int test_cross_thread_handoff(void)
     for (i = 0U; (i < TEST_HANDOFF_BLOCK_COUNT) && (result == 0); ++i) {
         blocks[i].size = 8U + ((i * 61U) % 521U);
         blocks[i].signature = 0x70000000U + (uint32_t)i;
-        blocks[i].memory = (unsigned char *)sgl_malloc(blocks[i].size);
+        blocks[i].memory = sgl_memory_as_uchar(sgl_malloc(blocks[i].size));
         if (blocks[i].memory == NULL) {
             result = 1;
         }

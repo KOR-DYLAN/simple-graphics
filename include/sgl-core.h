@@ -1,8 +1,3 @@
-/*
- * SGL-HDR-DEV-001: public macros are intentionally shared by translation
- * units that use different subsets of the interface.
- */
-/* cppcheck-suppress-file misra-c2012-2.5 */
 #ifndef SGL_CORE_H_
 #define SGL_CORE_H_
 
@@ -96,11 +91,11 @@ void *sgl_memset(void *destination, sgl_int32_t value, sgl_size_t size);
  * pointer must be released exactly once before successful deinitialization.
  *
  * MISRA deviation SGL-MEM-DEV-001:
- * MISRA C:2012 Rule 11.5 is deviated at typed allocation sites. The allocator
- * intentionally follows the standard malloc interface and therefore returns
- * void *. Each allocation site explicitly converts that result to the pointer
- * type of the object whose size was requested. The pool guarantees alignment
- * suitable for every supported object type.
+ * MISRA C:2012 Rule 11.5 is deviated only in the public inline conversion
+ * helpers declared by <sgl_memory_cast.h>. The allocator intentionally follows
+ * the standard malloc interface and therefore returns void *. Allocation sites
+ * restore the pointer type through those helpers, and the pool guarantees
+ * alignment suitable for every supported object type.
  */
 sgl_result_t sgl_memory_pool_initialize(void *memory, sgl_size_t size);
 sgl_result_t sgl_memory_pool_deinitialize(void);

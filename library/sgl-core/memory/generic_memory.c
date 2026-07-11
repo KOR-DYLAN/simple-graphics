@@ -1,7 +1,3 @@
-/* SGL-C89-DEV-001: declarations remain at block start for C89 compatibility. */
-/* cppcheck-suppress-file variableScope */
-/* SGL-MEM-DEV-001: generic byte storage is accessed through character types. */
-/* cppcheck-suppress-file misra-c2012-11.5 */
 #include "memory_operation.h"
 
 #if defined(_WIN64)
@@ -22,13 +18,9 @@ void *sgl_generic_memcpy(void *SGL_RESTRICT destination,
                          const void *SGL_RESTRICT source,
                          sgl_size_t size)
 {
-    sgl_uint8_t *destination_bytes;
-    const sgl_uint8_t *source_bytes;
-    sgl_size_t offset;
-
-    destination_bytes = (sgl_uint8_t *)destination;
-    source_bytes = (const sgl_uint8_t *)source;
-    offset = 0U;
+    sgl_uint8_t *destination_bytes = sgl_memory_as_uint8(destination);
+    const sgl_uint8_t *source_bytes = sgl_memory_as_const_uint8(source);
+    sgl_size_t offset = 0U;
 
     /*
      * Bulk copies are deliberately expressed as byte accesses. This keeps
@@ -78,13 +70,9 @@ void *sgl_generic_memcpy(void *SGL_RESTRICT destination,
 
 void *sgl_generic_memset(void *destination, sgl_int32_t value, sgl_size_t size)
 {
-    sgl_uint8_t *destination_bytes;
-    sgl_uint8_t byte_value;
-    sgl_size_t offset;
-
-    destination_bytes = (sgl_uint8_t *)destination;
-    byte_value = (sgl_uint8_t)value;
-    offset = 0U;
+    sgl_uint8_t *destination_bytes = sgl_memory_as_uint8(destination);
+    sgl_uint8_t byte_value = (sgl_uint8_t)value;
+    sgl_size_t offset = 0U;
 
 #if (SGL_GENERIC_MEMORY_HAS_64BIT_BULK == 1)
     if (size >= SGL_GENERIC_MEMORY_BULK_64_SIZE) {

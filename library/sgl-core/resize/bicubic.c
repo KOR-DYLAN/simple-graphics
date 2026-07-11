@@ -1,5 +1,3 @@
-/* SGL-C89-DEV-001: declarations remain at block start for C89 compatibility. */
-/* cppcheck-suppress-file variableScope */
 #include <sgl-core.h>
 #include "bicubic.h"
 
@@ -36,9 +34,7 @@ static sgl_bicubic_lookup_t *sgl_generic_bicubic_lut_allocate(void)
 {
     sgl_bicubic_lookup_t *lut;
 
-    /* SGL-MEM-DEV-001: typed conversion from the generic allocator. */
-    /* cppcheck-suppress misra-c2012-11.5 */
-    lut = (sgl_bicubic_lookup_t *)sgl_malloc(sizeof(sgl_bicubic_lookup_t));
+    lut = sgl_memory_as_bicubic_lookup(sgl_malloc(sizeof(sgl_bicubic_lookup_t)));
     if (lut != SGL_NULL) {
         sgl_generic_bicubic_lut_clear(lut);
     }
@@ -52,21 +48,11 @@ static sgl_bool_t sgl_generic_bicubic_col_lookup_allocate(
 {
     sgl_bool_t result = SGL_FALSE;
 
-    /* SGL-MEM-DEV-001: typed conversion from the generic allocator. */
-    /* cppcheck-suppress misra-c2012-11.5 */
-    lut->col_lookup.x1 = (sgl_int32_t *)sgl_malloc(sizeof(sgl_int32_t) * (sgl_size_t)d_width);
-    /* SGL-MEM-DEV-001: typed conversion from the generic allocator. */
-    /* cppcheck-suppress misra-c2012-11.5 */
-    lut->col_lookup.x2 = (sgl_int32_t *)sgl_malloc(sizeof(sgl_int32_t) * (sgl_size_t)d_width);
-    /* SGL-MEM-DEV-001: typed conversion from the generic allocator. */
-    /* cppcheck-suppress misra-c2012-11.5 */
-    lut->col_lookup.x3 = (sgl_int32_t *)sgl_malloc(sizeof(sgl_int32_t) * (sgl_size_t)d_width);
-    /* SGL-MEM-DEV-001: typed conversion from the generic allocator. */
-    /* cppcheck-suppress misra-c2012-11.5 */
-    lut->col_lookup.x4 = (sgl_int32_t *)sgl_malloc(sizeof(sgl_int32_t) * (sgl_size_t)d_width);
-    /* SGL-MEM-DEV-001: typed conversion from the generic allocator. */
-    /* cppcheck-suppress misra-c2012-11.5 */
-    lut->col_lookup.p = (sgl_q11_t *)sgl_malloc(sizeof(sgl_q11_t) * (sgl_size_t)d_width);
+    lut->col_lookup.x1 = sgl_memory_as_int32(sgl_malloc(sizeof(sgl_int32_t) * (sgl_size_t)d_width));
+    lut->col_lookup.x2 = sgl_memory_as_int32(sgl_malloc(sizeof(sgl_int32_t) * (sgl_size_t)d_width));
+    lut->col_lookup.x3 = sgl_memory_as_int32(sgl_malloc(sizeof(sgl_int32_t) * (sgl_size_t)d_width));
+    lut->col_lookup.x4 = sgl_memory_as_int32(sgl_malloc(sizeof(sgl_int32_t) * (sgl_size_t)d_width));
+    lut->col_lookup.p = sgl_memory_as_q11(sgl_malloc(sizeof(sgl_q11_t) * (sgl_size_t)d_width));
 
     if ((lut->col_lookup.x1 != SGL_NULL) && (lut->col_lookup.x2 != SGL_NULL) &&
         (lut->col_lookup.x3 != SGL_NULL) && (lut->col_lookup.x4 != SGL_NULL) &&
@@ -84,21 +70,11 @@ static sgl_bool_t sgl_generic_bicubic_row_lookup_allocate(
 {
     sgl_bool_t result = SGL_FALSE;
 
-    /* SGL-MEM-DEV-001: typed conversion from the generic allocator. */
-    /* cppcheck-suppress misra-c2012-11.5 */
-    lut->row_lookup.y1 = (sgl_int32_t *)sgl_malloc(sizeof(sgl_int32_t) * (sgl_size_t)d_height);
-    /* SGL-MEM-DEV-001: typed conversion from the generic allocator. */
-    /* cppcheck-suppress misra-c2012-11.5 */
-    lut->row_lookup.y2 = (sgl_int32_t *)sgl_malloc(sizeof(sgl_int32_t) * (sgl_size_t)d_height);
-    /* SGL-MEM-DEV-001: typed conversion from the generic allocator. */
-    /* cppcheck-suppress misra-c2012-11.5 */
-    lut->row_lookup.y3 = (sgl_int32_t *)sgl_malloc(sizeof(sgl_int32_t) * (sgl_size_t)d_height);
-    /* SGL-MEM-DEV-001: typed conversion from the generic allocator. */
-    /* cppcheck-suppress misra-c2012-11.5 */
-    lut->row_lookup.y4 = (sgl_int32_t *)sgl_malloc(sizeof(sgl_int32_t) * (sgl_size_t)d_height);
-    /* SGL-MEM-DEV-001: typed conversion from the generic allocator. */
-    /* cppcheck-suppress misra-c2012-11.5 */
-    lut->row_lookup.q = (sgl_q11_t *)sgl_malloc(sizeof(sgl_q11_t) * (sgl_size_t)d_height);
+    lut->row_lookup.y1 = sgl_memory_as_int32(sgl_malloc(sizeof(sgl_int32_t) * (sgl_size_t)d_height));
+    lut->row_lookup.y2 = sgl_memory_as_int32(sgl_malloc(sizeof(sgl_int32_t) * (sgl_size_t)d_height));
+    lut->row_lookup.y3 = sgl_memory_as_int32(sgl_malloc(sizeof(sgl_int32_t) * (sgl_size_t)d_height));
+    lut->row_lookup.y4 = sgl_memory_as_int32(sgl_malloc(sizeof(sgl_int32_t) * (sgl_size_t)d_height));
+    lut->row_lookup.q = sgl_memory_as_q11(sgl_malloc(sizeof(sgl_q11_t) * (sgl_size_t)d_height));
 
     if ((lut->row_lookup.y1 != SGL_NULL) && (lut->row_lookup.y2 != SGL_NULL) &&
         (lut->row_lookup.y3 != SGL_NULL) && (lut->row_lookup.y4 != SGL_NULL) &&

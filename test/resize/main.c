@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <sgl-core.h>
 #include "util.h"
+#include <sgl_memory_cast.h>
 
 #if defined(SGL_TEST_HAS_CAIRO)
 #include <cairo.h>
@@ -1103,7 +1104,7 @@ static int sgl_test_run_resize_case(const sgl_test_resize_case_t *test_case,
     image_size = (size_t)test_case->dimension->width *
                  (size_t)test_case->dimension->height *
                  (size_t)src->bpp;
-    dst = (uint8_t *)sgl_calloc(1U, image_size);
+    dst = sgl_memory_as_uint8(sgl_calloc(1U, image_size));
     if (dst == NULL) {
         result = 1;
     }

@@ -1,8 +1,3 @@
-/*
- * SGL-HDR-DEV-001: compiler abstraction macros are intentionally shared by
- * translation units that use different subsets of the interface.
- */
-/* cppcheck-suppress-file misra-c2012-2.5 */
 #ifndef SGL_COMPILER_H_
 #define SGL_COMPILER_H_
 

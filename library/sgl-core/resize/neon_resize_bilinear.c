@@ -1,8 +1,3 @@
-/* SGL-C89-DEV-001: declarations remain at block start for C89 compatibility. */
-/* cppcheck-suppress-file variableScope */
-/* SGL-CALLBACK-DEV-001: thread callbacks recover typed context from void *. */
-/* cppcheck-suppress-file misra-c2012-11.5 */
-/* cppcheck-suppress-file constParameterCallback */
 #include <arm_neon.h>
 #include <sgl-core.h>
 #include "bilinear.h"
@@ -297,10 +292,8 @@ static sgl_result_t sgl_simd_resize_bilinear_range_separable_bpp32(
         end_row = d_height;
     }
 
-    /* SGL-MEM-DEV-001: typed conversion from the generic allocator. */
-    /* cppcheck-suppress misra-c2012-11.5 */
-    row_storage = (sgl_q11_ext_t *)sgl_malloc(
-        sizeof(sgl_q11_ext_t) * (sgl_size_t)row_width * 2U);
+    row_storage = sgl_memory_as_q11_ext(sgl_malloc(
+        sizeof(sgl_q11_ext_t) * (sgl_size_t)row_width * 2U));
 
     if (row_storage != SGL_NULL) {
         cache[0].y = -1;
@@ -1243,9 +1236,8 @@ static sgl_result_t sgl_simd_resize_bilinear_threaded(
     }
 
     operations = sgl_queue_create((sgl_size_t)num_operations);
-    /* SGL-MEM-DEV-001: typed conversion from the generic allocator. */
-    /* cppcheck-suppress misra-c2012-11.5 */
-    currents = (sgl_bilinear_current_t *)sgl_malloc(sizeof(sgl_bilinear_current_t) * (sgl_size_t)num_operations);
+    currents = sgl_memory_as_bilinear_current(
+        sgl_malloc(sizeof(sgl_bilinear_current_t) * (sgl_size_t)num_operations));
     if ((operations != SGL_NULL) && (currents != SGL_NULL)) {
         for (i = 0; i < num_operations; ++i) {
             currents[i].row = i * bulk_size;
@@ -1339,8 +1331,8 @@ sgl_result_t sgl_simd_resize_bilinear(
 #if defined(SGL_CFG_HAS_THREAD)
 static void sgl_simd_resize_bilinear_routine(void *SGL_RESTRICT current, void *SGL_RESTRICT cookie)
 {
-    const sgl_bilinear_current_t *cur = (const sgl_bilinear_current_t *)current;
-    sgl_bilinear_data_t *data = (sgl_bilinear_data_t *)cookie;
+    const sgl_bilinear_current_t *cur = sgl_memory_as_const_bilinear_current(current);
+    sgl_bilinear_data_t *data = sgl_memory_as_bilinear_data(cookie);
     sgl_result_t result;
     sgl_int32_t row;
 

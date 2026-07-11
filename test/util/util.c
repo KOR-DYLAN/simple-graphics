@@ -4,12 +4,46 @@
 #include <time.h>
 #include <sgl-core.h>
 #include "util.h"
+#include <sgl_memory_cast.h>
 
 typedef struct {
     png_structp png;
     png_infop info;
     FILE *fp;
 } png_t;
+
+static SGL_ALWAYS_INLINE sgl_test_png_t *sgl_test_memory_as_png(void *memory)
+{
+    sgl_test_png_t *result;
+
+    /* SGL-MEM-DEV-001: typed conversion from generic storage. */
+    /* cppcheck-suppress misra-c2012-11.5 */
+    result = (sgl_test_png_t *)memory;
+
+    return result;
+}
+
+static SGL_ALWAYS_INLINE png_t *sgl_test_memory_as_png_handle(void *memory)
+{
+    png_t *result;
+
+    /* SGL-MEM-DEV-001: typed conversion from generic storage. */
+    /* cppcheck-suppress misra-c2012-11.5 */
+    result = (png_t *)memory;
+
+    return result;
+}
+
+static SGL_ALWAYS_INLINE png_bytep *sgl_test_memory_as_png_rows(void *memory)
+{
+    png_bytep *result;
+
+    /* SGL-MEM-DEV-001: typed conversion from generic storage. */
+    /* cppcheck-suppress misra-c2012-11.5 */
+    result = (png_bytep *)memory;
+
+    return result;
+}
 
 static png_t *sgl_test_png_read_init(const char *path);
 static png_t *sgl_test_png_write_init(const char *path);
@@ -49,7 +83,7 @@ sgl_test_png_t *sgl_test_load_png(const char *path)
     if (handle != NULL) {
         png_read_info(handle->png, handle->info);
 
-        test_handle = (sgl_test_png_t *)sgl_malloc(sizeof(sgl_test_png_t));
+        test_handle = sgl_test_memory_as_png(sgl_malloc(sizeof(sgl_test_png_t)));
         if (test_handle != NULL) {
             color_type = png_get_color_type(handle->png, handle->info);
             bit_depth  = png_get_bit_depth(handle->png, handle->info);
@@ -77,9 +111,11 @@ sgl_test_png_t *sgl_test_load_png(const char *path)
             test_handle->channels = (int32_t)png_get_channels(handle->png, handle->info);
 
             rowbytes = (int32_t)png_get_rowbytes(handle->png, handle->info);
-            test_handle->data = (unsigned char*)sgl_malloc((size_t)rowbytes * (size_t)test_handle->height);
+            test_handle->data = sgl_memory_as_uint8(
+                sgl_malloc((size_t)rowbytes * (size_t)test_handle->height));
             if (test_handle->data != NULL) {
-                row_pointers = (png_bytep*)sgl_malloc(sizeof(png_bytep) * (size_t)test_handle->height);
+                row_pointers = sgl_test_memory_as_png_rows(
+                    sgl_malloc(sizeof(png_bytep) * (size_t)test_handle->height));
                 if (row_pointers != NULL) {
                     for (row = 0; row < test_handle->height; row++) {
                         row_pointers[row] = test_handle->data + (row * rowbytes);
@@ -151,7 +187,8 @@ int32_t sgl_test_save_png(sgl_test_png_t *png, const char *path)
 
     /* rowbytes in bytes per row, check overflow */
     rowbytes = (size_t)png->width * (size_t)png->channels;
-    row_pointers = (png_bytep*)sgl_malloc(sizeof(png_bytep) * (size_t)png->height);
+    row_pointers = sgl_test_memory_as_png_rows(
+        sgl_malloc(sizeof(png_bytep) * (size_t)png->height));
     if (row_pointers == NULL) {
         sgl_test_png_write_deinit(handle);
         return -1;
@@ -203,7 +240,7 @@ static png_t *sgl_test_png_read_init(const char *path)
     png_t *handle = NULL;
     int32_t result;
 
-    handle = (png_t *)sgl_malloc(sizeof(png_t));
+    handle = sgl_test_memory_as_png_handle(sgl_malloc(sizeof(png_t)));
     if (handle != NULL) {
         handle->png = png_create_read_struct_2(
             PNG_LIBPNG_VER_STRING,
@@ -244,7 +281,7 @@ static png_t *sgl_test_png_read_init(const char *path)
 
 static png_t *sgl_test_png_write_init(const char *path)
 {
-    png_t *handle = (png_t *)sgl_malloc(sizeof(png_t));
+    png_t *handle = sgl_test_memory_as_png_handle(sgl_malloc(sizeof(png_t)));
     if (!handle) {
         return NULL;
     }

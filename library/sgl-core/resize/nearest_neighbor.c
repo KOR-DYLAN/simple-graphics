@@ -1,5 +1,3 @@
-/* SGL-C89-DEV-001: declarations remain at block start for C89 compatibility. */
-/* cppcheck-suppress-file variableScope */
 #include <sgl-core.h>
 #include "nearest_neighbor.h"
 
@@ -11,20 +9,15 @@ sgl_nearest_neighbor_lookup_t *sgl_generic_create_nearest_neighbor_lut(sgl_int32
     sgl_int32_t rx;
     sgl_int32_t ry;
 
-    /* SGL-MEM-DEV-001: typed conversion from the generic allocator. */
-    /* cppcheck-suppress misra-c2012-11.5 */
-    lut = (sgl_nearest_neighbor_lookup_t *)sgl_malloc(sizeof(sgl_nearest_neighbor_lookup_t));
+    lut = sgl_memory_as_nearest_neighbor_lookup(
+        sgl_malloc(sizeof(sgl_nearest_neighbor_lookup_t)));
     if (lut != SGL_NULL) {
         lut->d_width = d_width;
         lut->d_height = d_height;
         lut->s_width = s_width;
         lut->s_height = s_height;
-        /* SGL-MEM-DEV-001: typed conversion from the generic allocator. */
-        /* cppcheck-suppress misra-c2012-11.5 */
-        lut->x = (sgl_int32_t *)sgl_malloc(sizeof(sgl_int32_t) * (sgl_size_t)d_width);
-        /* SGL-MEM-DEV-001: typed conversion from the generic allocator. */
-        /* cppcheck-suppress misra-c2012-11.5 */
-        lut->y = (sgl_int32_t *)sgl_malloc(sizeof(sgl_int32_t) * (sgl_size_t)d_height);
+        lut->x = sgl_memory_as_int32(sgl_malloc(sizeof(sgl_int32_t) * (sgl_size_t)d_width));
+        lut->y = sgl_memory_as_int32(sgl_malloc(sizeof(sgl_int32_t) * (sgl_size_t)d_height));
 
         if ((lut->x != SGL_NULL) && (lut->y != SGL_NULL)) {
             /* create 'column' lookup table */

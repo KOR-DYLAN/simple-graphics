@@ -1,8 +1,3 @@
-/*
- * SGL-HDR-DEV-002: SIMD typedefs form a shared interface; individual
- * translation units intentionally use different vector widths.
- */
-/* cppcheck-suppress-file misra-c2012-2.3 */
 #ifndef SGL_FIXED_POINT_NEON_H_
 #define SGL_FIXED_POINT_NEON_H_
 

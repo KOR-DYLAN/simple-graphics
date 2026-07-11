@@ -1,19 +1,12 @@
-/* SGL-C89-DEV-001: declarations remain at block start for C89 compatibility. */
-/* cppcheck-suppress-file variableScope */
 /*
  * SGL-MEM-DEV-002: allocator metadata uses unions to guarantee alignment and
  * integer address conversion to validate and navigate its caller-owned byte
- * pool. These operations are confined to this implementation.
+ * pool. These operations are confined to the address conversion helpers in
+ * this implementation.
  */
-/* cppcheck-suppress-file misra-c2012-11.4 */
-/* cppcheck-suppress-file misra-c2012-11.6 */
-/* cppcheck-suppress-file misra-c2012-19.2 */
-/* cppcheck-suppress-file unusedStructMember */
-/* cppcheck-suppress-file unreadVariable */
-/* cppcheck-suppress-file misra-c2012-8.7 */
-/* cppcheck-suppress-file misra-config */
 #include <sgl-core.h>
 #include "sgl-osal.h"
+#include <sgl_memory_cast.h>
 
 #define SGL_MEMORY_BLOCK_MAGIC          (0x53474C4DU)
 #define SGL_MEMORY_MIN_PAYLOAD_SIZE     (sizeof(sgl_memory_alignment_t))
@@ -87,6 +80,50 @@ typedef struct {
 
 static sgl_memory_pool_t sgl_memory_pool;
 
+static SGL_ALWAYS_INLINE sgl_uintptr_t sgl_memory_address_from_void(const void *memory)
+{
+    sgl_uintptr_t result;
+
+    /*
+     * SGL-MEM-DEV-002:
+     * Pool validation compares addresses numerically before the allocator
+     * recovers any block metadata from the caller-provided storage.
+     */
+    /* cppcheck-suppress misra-c2012-11.6 */
+    result = (sgl_uintptr_t)memory;
+
+    return result;
+}
+
+static SGL_ALWAYS_INLINE sgl_uintptr_t sgl_memory_address_from_block(const sgl_memory_block_t *block)
+{
+    sgl_uintptr_t result;
+
+    /*
+     * SGL-MEM-DEV-002:
+     * Physical block navigation is address arithmetic inside the active pool.
+     */
+    /* cppcheck-suppress misra-c2012-11.4 */
+    result = (sgl_uintptr_t)block;
+
+    return result;
+}
+
+static SGL_ALWAYS_INLINE sgl_memory_block_t *sgl_memory_block_from_address(sgl_uintptr_t address)
+{
+    sgl_memory_block_t *result;
+
+    /*
+     * SGL-MEM-DEV-002:
+     * The allocator only rebuilds block pointers from addresses that were
+     * derived from the initialized pool range.
+     */
+    /* cppcheck-suppress misra-c2012-11.4 */
+    result = (sgl_memory_block_t *)address;
+
+    return result;
+}
+
 static sgl_size_t sgl_memory_align_size(sgl_size_t size)
 {
     const sgl_size_t alignment = sizeof(sgl_memory_alignment_t);
@@ -109,9 +146,9 @@ static sgl_memory_block_t *sgl_memory_next_physical(sgl_memory_block_t *block)
      * Physical blocks do not need a next pointer because the next header begins
      * exactly after this header and payload.
      */
-    next = (sgl_uintptr_t)block + sizeof(sgl_memory_block_t) + block->fields.size;
+    next = sgl_memory_address_from_block(block) + sizeof(sgl_memory_block_t) + block->fields.size;
     if (next < sgl_memory_pool.end) {
-        next_block = (sgl_memory_block_t *)next;
+        next_block = sgl_memory_block_from_address(next);
     }
 
     return next_block;
@@ -169,7 +206,8 @@ static void sgl_memory_split_block(sgl_memory_block_t *block, sgl_size_t size)
      */
     if (block->fields.size >= (size + sizeof(sgl_memory_block_t) + SGL_MEMORY_MIN_PAYLOAD_SIZE)) {
         remainder_size = block->fields.size - size - sizeof(sgl_memory_block_t);
-        remainder = (sgl_memory_block_t *)((sgl_uintptr_t)block + sizeof(sgl_memory_block_t) + size);
+        remainder = sgl_memory_block_from_address(
+            sgl_memory_address_from_block(block) + sizeof(sgl_memory_block_t) + size);
         remainder->fields.size = remainder_size;
         remainder->fields.previous_physical = block;
         remainder->fields.previous_free = SGL_NULL;
@@ -233,7 +271,7 @@ sgl_result_t sgl_memory_pool_initialize(void *memory, sgl_size_t size)
      */
     if ((memory != SGL_NULL) && (sgl_memory_pool.is_initialized == SGL_FALSE)) {
         alignment = sizeof(sgl_memory_alignment_t);
-        raw_address = (sgl_uintptr_t)memory;
+        raw_address = sgl_memory_address_from_void(memory);
         aligned_address = (raw_address + alignment - 1U) & ~(sgl_uintptr_t)(alignment - 1U);
         offset = (sgl_size_t)(aligned_address - raw_address);
         if ((size > offset) &&
@@ -248,7 +286,7 @@ sgl_result_t sgl_memory_pool_initialize(void *memory, sgl_size_t size)
              * Initialization creates one free block spanning the entire usable
              * region. Later allocations progressively split this block.
              */
-            first = (sgl_memory_block_t *)aligned_address;
+            first = sgl_memory_block_from_address(aligned_address);
             first->fields.size = usable_size - sizeof(sgl_memory_block_t);
             first->fields.previous_physical = SGL_NULL;
             first->fields.previous_free = SGL_NULL;
@@ -323,7 +361,7 @@ void *sgl_malloc(sgl_size_t size)
                     sgl_memory_split_block(block, aligned_size);
                     block->fields.is_free = SGL_FALSE;
                     sgl_memory_pool.allocation_count++;
-                    memory = &((sgl_uint8_t *)block)[sizeof(sgl_memory_block_t)];
+                    memory = &sgl_memory_as_uint8(block)[sizeof(sgl_memory_block_t)];
                 }
                 sgl_osal_mutex_unlock(&sgl_memory_pool.lock);
             }
@@ -357,11 +395,11 @@ void sgl_free(void *memory)
     sgl_uintptr_t address;
 
     if (memory != SGL_NULL) {
-        address = (sgl_uintptr_t)memory;
+        address = sgl_memory_address_from_void(memory);
         if ((sgl_memory_pool.is_initialized == SGL_TRUE) &&
             (address >= sgl_memory_pool.begin) && (address < sgl_memory_pool.end)) {
             sgl_osal_mutex_lock(&sgl_memory_pool.lock);
-            block = (sgl_memory_block_t *)(address - (sgl_uintptr_t)sizeof(sgl_memory_block_t));
+            block = sgl_memory_block_from_address(address - (sgl_uintptr_t)sizeof(sgl_memory_block_t));
             if ((block->fields.magic == SGL_MEMORY_BLOCK_MAGIC) && (block->fields.is_free == SGL_FALSE)) {
                 /*
                  * Merge right first, then left. If the left block is free it is
