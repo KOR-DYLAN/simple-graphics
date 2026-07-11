@@ -1,3 +1,10 @@
+# SPDX-License-Identifier: MIT
+#
+# Copyright (c) 2025 Dylan Hong
+#
+# This file is released under the MIT License.
+# For conditions of distribution and use, see the LICENSE file.
+
 function(sgl_set_enabled_status OUTPUT_VAR ENABLED_TEXT DISABLED_TEXT ENABLED)
     if(${ENABLED})
         set(${OUTPUT_VAR} "${ENABLED_TEXT}" PARENT_SCOPE)

@@ -1,4 +1,12 @@
 /*
+ * SPDX-License-Identifier: MIT
+ *
+ * Copyright (c) 2025 Dylan Hong
+ *
+ * This code is released under the MIT License.
+ * For conditions of distribution and use, see the LICENSE file.
+ */
+/*
  * SGL-MEM-DEV-001:
  * SGL keeps the allocator interface compatible with malloc/calloc by returning
  * void *.  These inline conversion helpers isolate the MISRA C:2012 Rule 11.5

@@ -1,3 +1,10 @@
+# SPDX-License-Identifier: MIT
+#
+# Copyright (c) 2025 Dylan Hong
+#
+# This file is released under the MIT License.
+# For conditions of distribution and use, see the LICENSE file.
+
 file(READ "${CMAKE_SOURCE_DIR}/SGL_VERSION" _version_file)
 
 function(sgl_read_version_component OUTPUT_VAR PATTERN)

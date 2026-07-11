@@ -1,3 +1,10 @@
+# SPDX-License-Identifier: MIT
+#
+# Copyright (c) 2025 Dylan Hong
+#
+# This file is released under the MIT License.
+# For conditions of distribution and use, see the LICENSE file.
+
 set(SGL_CORE_EXPORT_NAME sgl-core)
 set(SGL_CORE_PC sgl-core.pc)
 set(SGL_CORE_PACKAGE_CONFIGNAME sgl-core-package)

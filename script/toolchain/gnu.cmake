@@ -1,3 +1,10 @@
+# SPDX-License-Identifier: MIT
+#
+# Copyright (c) 2025 Dylan Hong
+#
+# This file is released under the MIT License.
+# For conditions of distribution and use, see the LICENSE file.
+
 include(${CMAKE_CURRENT_LIST_DIR}/common.cmake)
 
 # GCC toolchains are selected by prefixing the GNU binary names.  Native builds

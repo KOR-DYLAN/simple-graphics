@@ -1,3 +1,10 @@
+# SPDX-License-Identifier: MIT
+#
+# Copyright (c) 2025 Dylan Hong
+#
+# This file is released under the MIT License.
+# For conditions of distribution and use, see the LICENSE file.
+
 ifneq ($(TOOLCHAIN),)
     CMAKE_FLAGS	+=-DCMAKE_TOOLCHAIN_FILE=$(TOPDIR)/script/toolchain/$(TOOLCHAIN).cmake
 endif

@@ -1,3 +1,11 @@
+/*
+ * SPDX-License-Identifier: MIT
+ *
+ * Copyright (c) 2025 Dylan Hong
+ *
+ * This code is released under the MIT License.
+ * For conditions of distribution and use, see the LICENSE file.
+ */
 #ifndef SGL_TYPE_H_
 #define SGL_TYPE_H_
 
@@ -60,7 +68,6 @@ typedef unsigned long       sgl_size_t;
 typedef signed long         sgl_ptrdiff_t;
 
 #else
-/* cppcheck-suppress preprocessorErrorDirective */
 #error "Unsupported compiler: fixed-width predefined types are unavailable"
 #endif
 

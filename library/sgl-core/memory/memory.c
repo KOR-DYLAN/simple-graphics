@@ -1,4 +1,12 @@
 /*
+ * SPDX-License-Identifier: MIT
+ *
+ * Copyright (c) 2025 Dylan Hong
+ *
+ * This code is released under the MIT License.
+ * For conditions of distribution and use, see the LICENSE file.
+ */
+/*
  * SGL-MEM-DEV-002: allocator metadata uses unions to guarantee alignment and
  * integer address conversion to validate and navigate its caller-owned byte
  * pool. These operations are confined to the address conversion helpers in

@@ -1,3 +1,10 @@
+# SPDX-License-Identifier: MIT
+#
+# Copyright (c) 2025 Dylan Hong
+#
+# This file is released under the MIT License.
+# For conditions of distribution and use, see the LICENSE file.
+
 # Cross-compile for Linux/aarch64 with the GNU cross compiler suite.
 #
 # TRIPLE intentionally keeps the trailing dash because every GNU tool is named

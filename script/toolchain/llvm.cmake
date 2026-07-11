@@ -1,3 +1,10 @@
+# SPDX-License-Identifier: MIT
+#
+# Copyright (c) 2025 Dylan Hong
+#
+# This file is released under the MIT License.
+# For conditions of distribution and use, see the LICENSE file.
+
 include(${CMAKE_CURRENT_LIST_DIR}/common.cmake)
 
 # Native LLVM builds use the host Clang driver.  Cross LLVM builds keep the same

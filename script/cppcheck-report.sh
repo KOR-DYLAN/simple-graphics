@@ -1,4 +1,11 @@
 #!/usr/bin/env sh
+# SPDX-License-Identifier: MIT
+#
+# Copyright (c) 2025 Dylan Hong
+#
+# This file is released under the MIT License.
+# For conditions of distribution and use, see the LICENSE file.
+
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
@@ -29,6 +36,7 @@ COMMIT_ID=${REPORT_COMMIT:-$(git -C "${TOPDIR}" rev-parse --short=12 HEAD 2>/dev
 REPORT_DIR=${REPORT_DIR:-"${REPORT_ROOT}/${REPORT_DATE}-${COMMIT_ID}"}
 CPPCHECK_BUILD_DIR="${REPORT_DIR}/cppcheck-build"
 MISRA_CONFIG="${REPORT_DIR}/cppcheck-misra.json"
+CPPCHECK_SUPPRESSIONS_LIST="${TOPDIR}/script/config/cppcheck/suppressions.txt"
 XML_REPORT="${REPORT_DIR}/cppcheck.xml"
 TEXT_REPORT="${REPORT_DIR}/cppcheck.txt"
 HTML_REPORT_DIR="${REPORT_DIR}/html"
@@ -81,6 +89,7 @@ run_cppcheck()
         --quiet \
         --inline-suppr \
         --suppress=missingIncludeSystem \
+        --suppressions-list="${CPPCHECK_SUPPRESSIONS_LIST}" \
         --relative-paths="${TOPDIR}" \
         --std=c99 \
         --max-ctu-depth="${CPPCHECK_MAX_CTU_DEPTH}" \
