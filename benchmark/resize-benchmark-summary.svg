@@ -1,3 +1,12 @@
+<!--
+SPDX-License-Identifier: MIT
+
+Copyright (c) 2025 Dylan Hong
+
+This file is released under the MIT License.
+For conditions of distribution and use, see the LICENSE file.
+-->
+
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="1430" viewBox="0 0 1280 1430" role="img" aria-labelledby="title desc">
   <title id="title">SGL resize benchmark path comparison</title>
   <desc id="desc">Resize benchmark snapshot measured from benchmark/resize-benchmark.csv. The chart compares generic, SIMD without external LUT, SIMD with prebuilt LUT, SIMD LUT with eight threads, Cairo, and NE10.</desc>

@@ -216,8 +216,9 @@ experimental until pixel-accuracy validation is added. Cairo and NE10 are
 recorded only for 4 channel rows; NE10 provides a bilinear RGBA resize API, so
 it is recorded only for bilinear rows.
 
-The default sample image is 1920x1080, so 1920x1080 rows are identity-size
-cases and are not used as representative backend comparisons below.
+The default sample image is 1920x1080. The benchmark matrix keeps one
+downscale output, 640x480, and one upscale output, 2560x1440, to cover both
+resize directions without making the default run too large.
 
 The following SVG is a sample run from `resource/sample.png`. It highlights
 SGL path comparisons, including SIMD single-thread rows and the no-external-LUT

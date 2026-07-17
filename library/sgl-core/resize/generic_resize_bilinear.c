@@ -15,12 +15,22 @@ static void sgl_generic_resize_bilinear_routine(void *SGL_RESTRICT current, void
 
 #define SGL_BILINEAR_PAIR_SHIFT (32U)
 
+enum {
+    SGL_GENERIC_BILINEAR_CACHE_BULK_SIZE = 32,
+    SGL_GENERIC_BILINEAR_SEPARABLE_SCALE = SGL_Q11_ONE * SGL_Q11_ONE,
+    SGL_GENERIC_BILINEAR_SEPARABLE_HALF = SGL_Q11_ONE * SGL_Q11_HALF
+};
+
+typedef struct {
+    sgl_int32_t y;
+    sgl_q11_ext_t *SGL_RESTRICT row;
+} sgl_generic_bilinear_row_cache_t;
+
 /*
  * Design and Operation
  * --------------------
- * The generic bilinear algorithm remains the original per-row interpolation.
- * Only the bpp=4 load/store path is narrowed: two byte channels are packed
- * into independent 32-bit lanes of one 64-bit accumulator.
+ * The direct bpp32 fallback keeps two byte channels packed into independent
+ * 32-bit lanes of one 64-bit accumulator.
  *
  *   bit 63                    32 31                     0
  *      +-----------------------+-----------------------+
@@ -161,6 +171,176 @@ static SGL_ALWAYS_INLINE void sgl_generic_resize_bilinear_line_stripe_bpp32(
 
         dst = &dst[SGL_BPP32];
     }
+}
+
+/*
+ * Design and Operation
+ * --------------------
+ * Match the NEON bpp32 fast path structure in generic C:
+ *
+ *   source row y ---- horizontal Q11 row cache ----+
+ *                                                   +-- vertical mix
+ *   source row y+1 -- horizontal Q11 row cache ----+
+ *
+ * A two-row scratch cache avoids rebuilding the same horizontally filtered
+ * source row for adjacent destination rows.  The cache is owned by one row
+ * range, so threaded workers reuse local rows without sharing state.
+ */
+static SGL_ALWAYS_INLINE sgl_uint8_t sgl_generic_bilinear_separable_acc_to_u8(
+    sgl_q11_ext_t acc)
+{
+    sgl_q11_ext_t value;
+
+    value = (acc + SGL_GENERIC_BILINEAR_SEPARABLE_HALF) /
+            SGL_GENERIC_BILINEAR_SEPARABLE_SCALE;
+
+    return (sgl_uint8_t)value;
+}
+
+static SGL_ALWAYS_INLINE void sgl_generic_bilinear_horizontal_bpp32(
+    const sgl_uint8_t *SGL_RESTRICT src_row,
+    sgl_q11_ext_t *SGL_RESTRICT dst_row,
+    const bilinear_column_lookup_t *SGL_RESTRICT col_lookup,
+    sgl_int32_t d_width)
+{
+    sgl_int32_t col;
+    sgl_int32_t dst_off;
+    sgl_int32_t x1_off;
+    sgl_int32_t x2_off;
+    sgl_q11_ext_t p;
+    sgl_q11_ext_t src0;
+    sgl_q11_ext_t src1;
+
+    for (col = 0; col < d_width; ++col) {
+        dst_off = col * SGL_BPP32;
+        x1_off = col_lookup->x1[col] * SGL_BPP32;
+        x2_off = col_lookup->x2[col] * SGL_BPP32;
+        p = (sgl_q11_ext_t)col_lookup->p[col];
+
+        src0 = (sgl_q11_ext_t)src_row[x1_off];
+        src1 = (sgl_q11_ext_t)src_row[x2_off];
+        dst_row[dst_off] =
+            (src0 * SGL_Q11_ONE) + ((src1 - src0) * p);
+
+        src0 = (sgl_q11_ext_t)src_row[x1_off + 1];
+        src1 = (sgl_q11_ext_t)src_row[x2_off + 1];
+        dst_row[dst_off + 1] =
+            (src0 * SGL_Q11_ONE) + ((src1 - src0) * p);
+
+        src0 = (sgl_q11_ext_t)src_row[x1_off + 2];
+        src1 = (sgl_q11_ext_t)src_row[x2_off + 2];
+        dst_row[dst_off + 2] =
+            (src0 * SGL_Q11_ONE) + ((src1 - src0) * p);
+
+        src0 = (sgl_q11_ext_t)src_row[x1_off + 3];
+        src1 = (sgl_q11_ext_t)src_row[x2_off + 3];
+        dst_row[dst_off + 3] =
+            (src0 * SGL_Q11_ONE) + ((src1 - src0) * p);
+    }
+}
+
+static SGL_ALWAYS_INLINE sgl_q11_ext_t *sgl_generic_bilinear_get_cached_row_bpp32(
+    sgl_generic_bilinear_row_cache_t *SGL_RESTRICT cache,
+    sgl_int32_t y,
+    const sgl_bilinear_data_t *SGL_RESTRICT data)
+{
+    sgl_generic_bilinear_row_cache_t *slot;
+    const sgl_uint8_t *src_row;
+    sgl_int32_t d_width;
+
+    d_width = data->lut->d_width;
+    slot = &cache[y & 1];
+    if (slot->y != y) {
+        src_row = &data->src[y * data->src_stride];
+        sgl_generic_bilinear_horizontal_bpp32(
+            src_row,
+            slot->row,
+            &data->lut->col_lookup,
+            d_width);
+        slot->y = y;
+    }
+
+    return slot->row;
+}
+
+static SGL_ALWAYS_INLINE void sgl_generic_bilinear_vertical_bpp32(
+    sgl_uint8_t *SGL_RESTRICT dst_row,
+    const sgl_q11_ext_t *SGL_RESTRICT top_row,
+    const sgl_q11_ext_t *SGL_RESTRICT bottom_row,
+    sgl_q11_ext_t q,
+    sgl_int32_t row_width)
+{
+    sgl_int32_t off;
+    sgl_q11_ext_t top;
+    sgl_q11_ext_t bottom;
+
+    for (off = 0; off < row_width; ++off) {
+        top = top_row[off];
+        bottom = bottom_row[off];
+        dst_row[off] = sgl_generic_bilinear_separable_acc_to_u8(
+            (top * SGL_Q11_ONE) + ((bottom - top) * q));
+    }
+}
+
+static sgl_result_t sgl_generic_resize_bilinear_range_separable_bpp32(
+    sgl_bilinear_data_t *data,
+    sgl_int32_t start_row,
+    sgl_int32_t row_count)
+{
+    sgl_result_t result;
+    sgl_generic_bilinear_row_cache_t cache[2];
+    sgl_q11_ext_t *row_storage;
+    const sgl_q11_ext_t *top_row;
+    const sgl_q11_ext_t *bottom_row;
+    sgl_int32_t row;
+    sgl_int32_t end_row;
+    sgl_int32_t d_height;
+    sgl_int32_t row_width;
+    sgl_int32_t y1;
+    sgl_int32_t y2;
+    sgl_uint8_t *dst_row;
+
+    result = SGL_SUCCESS;
+    row_storage = SGL_NULL;
+    d_height = data->lut->d_height;
+    row_width = data->lut->d_width * SGL_BPP32;
+    end_row = start_row + row_count;
+    if (end_row > d_height) {
+        end_row = d_height;
+    }
+
+    row_storage = sgl_memory_as_q11_ext(sgl_malloc(
+        sizeof(sgl_q11_ext_t) * (sgl_size_t)row_width * 2U));
+
+    if (row_storage != SGL_NULL) {
+        cache[0].y = -1;
+        cache[0].row = row_storage;
+        cache[1].y = -1;
+        cache[1].row = &row_storage[row_width];
+
+        for (row = start_row; row < end_row; ++row) {
+            y1 = data->lut->row_lookup.y1[row];
+            y2 = data->lut->row_lookup.y2[row];
+            top_row = sgl_generic_bilinear_get_cached_row_bpp32(
+                cache, y1, data);
+            bottom_row = sgl_generic_bilinear_get_cached_row_bpp32(
+                cache, y2, data);
+            dst_row = &data->dst[row * data->dst_stride];
+            sgl_generic_bilinear_vertical_bpp32(
+                dst_row,
+                top_row,
+                bottom_row,
+                (sgl_q11_ext_t)data->lut->row_lookup.q[row],
+                row_width);
+        }
+    }
+    else {
+        result = SGL_ERROR_MEMORY_ALLOCATION;
+    }
+
+    SGL_SAFE_FREE(row_storage);
+
+    return result;
 }
 
 static SGL_ALWAYS_INLINE void sgl_generic_resize_bilinear_line_stripe_scalar(
@@ -369,7 +549,7 @@ static SGL_ALWAYS_INLINE void sgl_generic_resize_bilinear_set_data(
     data->dst_stride = d_width * bpp;
 }
 
-static SGL_ALWAYS_INLINE void sgl_generic_resize_bilinear_single(
+static SGL_ALWAYS_INLINE void sgl_generic_resize_bilinear_single_fallback(
     sgl_bilinear_data_t *data,
     sgl_int32_t d_height)
 {
@@ -380,11 +560,53 @@ static SGL_ALWAYS_INLINE void sgl_generic_resize_bilinear_single(
     }
 }
 
+static sgl_result_t sgl_generic_resize_bilinear_single(
+    sgl_bilinear_data_t *data,
+    sgl_int32_t d_height,
+    sgl_int32_t bpp)
+{
+    sgl_result_t result;
+
+    result = SGL_SUCCESS;
+    switch (bpp) {
+    case SGL_BPP32:
+        result = sgl_generic_resize_bilinear_range_separable_bpp32(
+            data, 0, d_height);
+        if (result != SGL_SUCCESS) {
+            result = SGL_SUCCESS;
+            sgl_generic_resize_bilinear_single_fallback(data, d_height);
+        }
+        break;
+    default:
+        sgl_generic_resize_bilinear_single_fallback(data, d_height);
+        break;
+    }
+
+    return result;
+}
+
 #if defined(SGL_CFG_HAS_THREAD)
+static sgl_int32_t sgl_generic_resize_bilinear_thread_bulk_size(sgl_int32_t bpp)
+{
+    sgl_int32_t bulk_size;
+
+    switch (bpp) {
+    case SGL_BPP32:
+        bulk_size = SGL_GENERIC_BILINEAR_CACHE_BULK_SIZE;
+        break;
+    default:
+        bulk_size = SGL_GENERIC_BULK_SIZE;
+        break;
+    }
+
+    return bulk_size;
+}
+
 static sgl_result_t sgl_generic_resize_bilinear_threaded(
     sgl_threadpool_t *SGL_RESTRICT pool,
     sgl_bilinear_data_t *data,
-    sgl_int32_t d_height)
+    sgl_int32_t d_height,
+    sgl_int32_t bpp)
 {
     sgl_result_t result;
     sgl_bilinear_current_t *currents;
@@ -392,12 +614,14 @@ static sgl_result_t sgl_generic_resize_bilinear_threaded(
     sgl_int32_t i;
     sgl_int32_t num_operations;
     sgl_int32_t mod_operations;
+    sgl_int32_t bulk_size;
 
     result = SGL_SUCCESS;
     currents = SGL_NULL;
     operations = SGL_NULL;
-    num_operations = d_height / SGL_GENERIC_BULK_SIZE;
-    mod_operations = d_height % SGL_GENERIC_BULK_SIZE;
+    bulk_size = sgl_generic_resize_bilinear_thread_bulk_size(bpp);
+    num_operations = d_height / bulk_size;
+    mod_operations = d_height % bulk_size;
     if (mod_operations != 0) {
         num_operations += 1;
     }
@@ -407,8 +631,8 @@ static sgl_result_t sgl_generic_resize_bilinear_threaded(
         sizeof(sgl_bilinear_current_t) * (sgl_size_t)num_operations));
     if ((operations != SGL_NULL) && (currents != SGL_NULL)) {
         for (i = 0; i < num_operations; ++i) {
-            currents[i].row = i * SGL_GENERIC_BULK_SIZE;
-            currents[i].count = SGL_GENERIC_BULK_SIZE;
+            currents[i].row = i * bulk_size;
+            currents[i].count = bulk_size;
             (void)sgl_queue_unsafe_enqueue(operations, (const void *)&currents[i]);
         }
 
@@ -438,17 +662,17 @@ static sgl_result_t sgl_generic_resize_bilinear_threaded(
 static sgl_result_t sgl_generic_resize_bilinear_run(
     sgl_threadpool_t *SGL_RESTRICT pool,
     sgl_bilinear_data_t *data,
-    sgl_int32_t d_height)
+    sgl_int32_t d_height,
+    sgl_int32_t bpp)
 {
     sgl_result_t result;
 
-    result = SGL_SUCCESS;
     if (pool == SGL_NULL) {
-        sgl_generic_resize_bilinear_single(data, d_height);
+        result = sgl_generic_resize_bilinear_single(data, d_height, bpp);
     }
 #if defined(SGL_CFG_HAS_THREAD)
     else {
-        result = sgl_generic_resize_bilinear_threaded(pool, data, d_height);
+        result = sgl_generic_resize_bilinear_threaded(pool, data, d_height, bpp);
     }
 #else
     else {
@@ -488,7 +712,7 @@ sgl_result_t sgl_generic_resize_bilinear(
         if (lut != SGL_NULL) {
             sgl_generic_resize_bilinear_set_data(
                 &data, lut, dst, src, s_width, d_width, bpp);
-            result = sgl_generic_resize_bilinear_run(pool, &data, d_height);
+            result = sgl_generic_resize_bilinear_run(pool, &data, d_height, bpp);
 
             if (temp_lut != SGL_NULL) {
                 /* destroy temp look-up table */
@@ -505,10 +729,23 @@ static void sgl_generic_resize_bilinear_routine(void *SGL_RESTRICT current, void
 {
     const sgl_bilinear_current_t *cur = sgl_memory_as_const_bilinear_current(current);
     sgl_bilinear_data_t *data = sgl_memory_as_bilinear_data(cookie);
+    sgl_result_t result;
     sgl_int32_t row;
 
-    for (row = cur->row; row < (cur->row + cur->count); ++row) {
-        sgl_generic_resize_bilinear_line_stripe(row, data);
+    result = SGL_ERROR_NOT_SUPPORTED;
+    switch (data->bpp) {
+    case SGL_BPP32:
+        result = sgl_generic_resize_bilinear_range_separable_bpp32(
+            data, cur->row, cur->count);
+        break;
+    default:
+        break;
+    }
+
+    if (result != SGL_SUCCESS) {
+        for (row = cur->row; row < (cur->row + cur->count); ++row) {
+            sgl_generic_resize_bilinear_line_stripe(row, data);
+        }
     }
 }
 #endif  /* !SGL_CFG_HAS_THREAD */

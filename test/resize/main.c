@@ -24,15 +24,17 @@
 #include <NE10_imgproc.h>
 #endif  /* SGL_TEST_HAS_NE10 */
 
-#define SGL_TEST_ARRAY_SIZE(array) \
-    (sizeof(array) / sizeof((array)[0]))
-#define SGL_TEST_REPEAT_COUNT       (10)
-#define SGL_TEST_MEMORY_POOL_SIZE   (64U * 1024U * 1024U)
-#define SGL_TEST_BENCHMARK_DIR      "benchmark"
-#define SGL_TEST_BENCHMARK_CSV      SGL_TEST_BENCHMARK_DIR "/resize-benchmark.csv"
-#define SGL_TEST_BUILD_DIR          "build"
-#define SGL_TEST_OUTPUT_DIR         SGL_TEST_BUILD_DIR "/output"
-#define SGL_TEST_SAMPLE_BASE_NAME   "sample.png"
+#define SGL_TEST_ARRAY_SIZE(array)          (sizeof(array) / sizeof((array)[0]))
+#define SGL_TEST_REPEAT_COUNT               (10)
+#define SGL_TEST_MEMORY_POOL_SIZE           (64U * 1024U * 1024U)
+#define SGL_TEST_BENCHMARK_DIR              "benchmark"
+#define SGL_TEST_BENCHMARK_CSV              SGL_TEST_BENCHMARK_DIR "/resize-benchmark.csv"
+#define SGL_TEST_BUILD_DIR                  "build"
+#define SGL_TEST_OUTPUT_DIR                 SGL_TEST_BUILD_DIR "/output"
+#define SGL_TEST_SAMPLE_BASE_NAME           "sample.png"
+#define SGL_TEST_THREADPOOL_UNSUPPORTED     (0)
+#define SGL_TEST_THREADPOOL_SUPPORTED       (1)
+#define SGL_TEST_BPP_ANY                    (0)
 
 /*
  * Resize test design
@@ -129,6 +131,18 @@ typedef struct {
     const sgl_test_resize_method_t *method;
     sgl_test_thread_context_t *thread;
 } sgl_test_resize_case_t;
+
+#define SGL_TEST_RESIZE_METHOD(_name, _backend, _run, _create_lut, _destroy_lut, \
+                        _supports_threads, _required_bpp) \
+    { \
+        .name = (_name), \
+        .backend = (_backend), \
+        .run = (_run), \
+        .create_lut = (_create_lut), \
+        .destroy_lut = (_destroy_lut), \
+        .supports_threads = (_supports_threads), \
+        .required_bpp = (_required_bpp) \
+    }
 
 static unsigned char sgl_test_memory_pool[SGL_TEST_MEMORY_POOL_SIZE];
 
@@ -296,86 +310,110 @@ static const sgl_test_resize_channel_t sgl_test_resize_channels[] = {
 };
 
 static const sgl_test_resize_dimension_t sgl_test_resize_dimensions[] = {
-    { .name = "vga",  .width =  640, .height =  480 },
-    { .name = "hd",   .width = 1280, .height =  720 },
-    { .name = "fhd",  .width = 1920, .height = 1080 },
-    { .name = "qhd",  .width = 2560, .height = 1440 },
+    { .name = "downscale", .width =  640, .height =  480 },
+    { .name = "upscale",   .width = 2560, .height = 1440 },
 };
 
 static const sgl_test_resize_method_t sgl_test_resize_methods[] = {
-    { .name = "nearest", .backend = "generic",
-      .run = sgl_test_resize_nearest,
-      .create_lut = NULL, .destroy_lut = NULL,
-      .supports_threads = 1, .required_bpp = 0 },
-    { .name = "bilinear", .backend = "generic",
-      .run = sgl_test_resize_bilinear,
-      .create_lut = NULL, .destroy_lut = NULL,
-      .supports_threads = 1, .required_bpp = 0 },
-    { .name = "bicubic", .backend = "generic",
-      .run = sgl_test_resize_bicubic,
-      .create_lut = NULL, .destroy_lut = NULL,
-      .supports_threads = 1, .required_bpp = 0 },
-    { .name = "nearest", .backend = "generic-lut",
-      .run = sgl_test_resize_nearest,
-      .create_lut = sgl_test_create_nearest_lut,
-      .destroy_lut = sgl_test_destroy_nearest_lut,
-      .supports_threads = 1, .required_bpp = 0 },
-    { .name = "bilinear", .backend = "generic-lut",
-      .run = sgl_test_resize_bilinear,
-      .create_lut = sgl_test_create_bilinear_lut,
-      .destroy_lut = sgl_test_destroy_bilinear_lut,
-      .supports_threads = 1, .required_bpp = 0 },
-    { .name = "bicubic", .backend = "generic-lut",
-      .run = sgl_test_resize_bicubic,
-      .create_lut = sgl_test_create_bicubic_lut,
-      .destroy_lut = sgl_test_destroy_bicubic_lut,
-      .supports_threads = 1, .required_bpp = 0 },
+    SGL_TEST_RESIZE_METHOD("nearest", "generic",
+                    sgl_test_resize_nearest,
+                    NULL,
+                    NULL,
+                    SGL_TEST_THREADPOOL_SUPPORTED,
+                    SGL_TEST_BPP_ANY),
+    SGL_TEST_RESIZE_METHOD("bilinear", "generic",
+                    sgl_test_resize_bilinear,
+                    NULL,
+                    NULL,
+                    SGL_TEST_THREADPOOL_SUPPORTED,
+                    SGL_TEST_BPP_ANY),
+    SGL_TEST_RESIZE_METHOD("bicubic", "generic",
+                    sgl_test_resize_bicubic,
+                    NULL,
+                    NULL,
+                    SGL_TEST_THREADPOOL_SUPPORTED,
+                    SGL_TEST_BPP_ANY),
+    SGL_TEST_RESIZE_METHOD("nearest", "generic-lut",
+                    sgl_test_resize_nearest,
+                    sgl_test_create_nearest_lut,
+                    sgl_test_destroy_nearest_lut,
+                    SGL_TEST_THREADPOOL_SUPPORTED,
+                    SGL_TEST_BPP_ANY),
+    SGL_TEST_RESIZE_METHOD("bilinear", "generic-lut",
+                    sgl_test_resize_bilinear,
+                    sgl_test_create_bilinear_lut,
+                    sgl_test_destroy_bilinear_lut,
+                    SGL_TEST_THREADPOOL_SUPPORTED,
+                    SGL_TEST_BPP_ANY),
+    SGL_TEST_RESIZE_METHOD("bicubic", "generic-lut",
+                    sgl_test_resize_bicubic,
+                    sgl_test_create_bicubic_lut,
+                    sgl_test_destroy_bicubic_lut,
+                    SGL_TEST_THREADPOOL_SUPPORTED,
+                    SGL_TEST_BPP_ANY),
 #if defined(SGL_TEST_HAS_CAIRO)
-    { .name = "nearest", .backend = "cairo",
-      .run = sgl_test_resize_cairo_nearest,
-      .create_lut = NULL, .destroy_lut = NULL,
-      .supports_threads = 0, .required_bpp = SGL_BPP32 },
-    { .name = "bilinear", .backend = "cairo",
-      .run = sgl_test_resize_cairo_bilinear,
-      .create_lut = NULL, .destroy_lut = NULL,
-      .supports_threads = 0, .required_bpp = SGL_BPP32 },
+    SGL_TEST_RESIZE_METHOD("nearest", "cairo",
+                    sgl_test_resize_cairo_nearest,
+                    NULL,
+                    NULL,
+                    SGL_TEST_THREADPOOL_UNSUPPORTED,
+                    SGL_BPP32),
+    SGL_TEST_RESIZE_METHOD("bilinear", "cairo",
+                    sgl_test_resize_cairo_bilinear,
+                    NULL,
+                    NULL,
+                    SGL_TEST_THREADPOOL_UNSUPPORTED,
+                    SGL_BPP32),
 #endif  /* SGL_TEST_HAS_CAIRO */
 #if defined(SGL_TEST_HAS_NE10)
-    { .name = "bilinear", .backend = "ne10",
-      .run = sgl_test_resize_ne10_bilinear,
-      .create_lut = NULL, .destroy_lut = NULL,
-      .supports_threads = 0, .required_bpp = SGL_BPP32 },
+    SGL_TEST_RESIZE_METHOD("bilinear", "ne10",
+                    sgl_test_resize_ne10_bilinear,
+                    NULL,
+                    NULL,
+                    SGL_TEST_THREADPOOL_UNSUPPORTED,
+                    SGL_BPP32),
 #endif  /* SGL_TEST_HAS_NE10 */
 #if defined(SGL_CFG_HAS_SIMD)
-    { .name = "nearest", .backend = "simd",
-      .run = sgl_test_resize_nearest_simd,
-      .create_lut = NULL, .destroy_lut = NULL,
-      .supports_threads = 1, .required_bpp = 0 },
-    { .name = "bilinear", .backend = "simd",
-      .run = sgl_test_resize_bilinear_simd,
-      .create_lut = NULL, .destroy_lut = NULL,
-      .supports_threads = 1, .required_bpp = 0 },
-    { .name = "bicubic", .backend = "simd",
-      .run = sgl_test_resize_bicubic_simd,
-      .create_lut = NULL, .destroy_lut = NULL,
-      .supports_threads = 1, .required_bpp = 0 },
-    { .name = "nearest", .backend = "simd-lut",
-      .run = sgl_test_resize_nearest_simd,
-      .create_lut = sgl_test_create_nearest_lut,
-      .destroy_lut = sgl_test_destroy_nearest_lut,
-      .supports_threads = 1, .required_bpp = 0 },
-    { .name = "bilinear", .backend = "simd-lut",
-      .run = sgl_test_resize_bilinear_simd,
-      .create_lut = sgl_test_create_bilinear_lut,
-      .destroy_lut = sgl_test_destroy_bilinear_lut,
-      .supports_threads = 1, .required_bpp = 0 },
-    { .name = "bicubic", .backend = "simd-lut",
-      .run = sgl_test_resize_bicubic_simd,
-      .create_lut = sgl_test_create_bicubic_lut,
-      .destroy_lut = sgl_test_destroy_bicubic_lut,
-      .supports_threads = 1, .required_bpp = 0 },
+    SGL_TEST_RESIZE_METHOD("nearest", "simd",
+                    sgl_test_resize_nearest_simd,
+                    NULL,
+                    NULL,
+                    SGL_TEST_THREADPOOL_SUPPORTED,
+                    SGL_TEST_BPP_ANY),
+    SGL_TEST_RESIZE_METHOD("bilinear", "simd",
+                    sgl_test_resize_bilinear_simd,
+                    NULL,
+                    NULL,
+                    SGL_TEST_THREADPOOL_SUPPORTED,
+                    SGL_TEST_BPP_ANY),
+    SGL_TEST_RESIZE_METHOD("bicubic", "simd",
+                    sgl_test_resize_bicubic_simd,
+                    NULL,
+                    NULL,
+                    SGL_TEST_THREADPOOL_SUPPORTED,
+                    SGL_TEST_BPP_ANY),
+    SGL_TEST_RESIZE_METHOD("nearest", "simd-lut",
+                    sgl_test_resize_nearest_simd,
+                    sgl_test_create_nearest_lut,
+                    sgl_test_destroy_nearest_lut,
+                    SGL_TEST_THREADPOOL_SUPPORTED,
+                    SGL_TEST_BPP_ANY),
+    SGL_TEST_RESIZE_METHOD("bilinear", "simd-lut",
+                    sgl_test_resize_bilinear_simd,
+                    sgl_test_create_bilinear_lut,
+                    sgl_test_destroy_bilinear_lut,
+                    SGL_TEST_THREADPOOL_SUPPORTED,
+                    SGL_TEST_BPP_ANY),
+    SGL_TEST_RESIZE_METHOD("bicubic", "simd-lut",
+                    sgl_test_resize_bicubic_simd,
+                    sgl_test_create_bicubic_lut,
+                    sgl_test_destroy_bicubic_lut,
+                    SGL_TEST_THREADPOOL_SUPPORTED,
+                    SGL_TEST_BPP_ANY),
 #endif  /* SGL_CFG_HAS_SIMD */
 };
+
+#undef SGL_TEST_RESIZE_METHOD
 
 static sgl_test_thread_context_t sgl_test_thread_counts[] = {
     { .workers = 1U, .pool = NULL },
@@ -1218,11 +1256,12 @@ static int sgl_test_should_run_resize_case(
      * are called once per benchmark sample and do not consume the SGL
      * threadpool, so only keep their single-thread baseline rows.
      */
-    if ((test_case->method->supports_threads == 0) &&
+    if ((test_case->method->supports_threads ==
+         SGL_TEST_THREADPOOL_UNSUPPORTED) &&
         (test_case->thread->workers > 1U)) {
         result = 0;
     }
-    if ((test_case->method->required_bpp != 0) &&
+    if ((test_case->method->required_bpp != SGL_TEST_BPP_ANY) &&
         (test_case->method->required_bpp != test_case->channel->bpp)) {
         result = 0;
     }
