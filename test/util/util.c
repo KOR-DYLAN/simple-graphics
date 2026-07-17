@@ -14,6 +14,9 @@
 #include "util.h"
 #include <sgl_memory_cast.h>
 
+#define SGL_TEST_PNG_COMPRESSION_LEVEL  (1)
+#define SGL_TEST_PNG_WRITE_BUFFER_SIZE  (1024U * 1024U)
+
 typedef struct {
     png_structp png;
     png_infop info;
@@ -191,6 +194,8 @@ int32_t sgl_test_save_png(sgl_test_png_t *png, const char *path)
                  (png_uint_32)png->width, (png_uint_32)png->height,
                  8, color_type, PNG_INTERLACE_NONE,
                  PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
+    png_set_compression_level(handle->png, SGL_TEST_PNG_COMPRESSION_LEVEL);
+    png_set_filter(handle->png, PNG_FILTER_TYPE_BASE, PNG_FILTER_NONE);
     png_write_info(handle->png, handle->info);
 
     /* rowbytes in bytes per row, check overflow */
@@ -323,6 +328,7 @@ static png_t *sgl_test_png_write_init(const char *path)
         sgl_test_png_write_deinit(handle);
         return NULL;
     }
+    (void)setvbuf(handle->fp, NULL, _IOFBF, SGL_TEST_PNG_WRITE_BUFFER_SIZE);
 
     png_init_io(handle->png, handle->fp);
 

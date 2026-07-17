@@ -18,9 +18,9 @@ set(SGL_TEST_DEPS_DOWNLOAD_DIR
     "${CMAKE_SOURCE_DIR}/downloads"
     CACHE PATH "Download cache for test-only third-party source tarballs")
 
-set(SGL_TEST_ZLIB_TAG
+set(SGL_TEST_ZLIB_NG_TAG
     "latest"
-    CACHE STRING "zlib release tag used for test dependencies")
+    CACHE STRING "zlib-ng release tag used for test dependencies")
 set(SGL_TEST_LIBPNG_TAG
     "latest"
     CACHE STRING "libpng release tag used for test dependencies")
@@ -39,7 +39,7 @@ function(sgl_resolve_latest_release_tag
          OUTPUT_VAR REPOSITORY_URL TAG_GLOB TAG_PATTERN)
     # Test dependencies intentionally follow the latest stable upstream release
     # by default.  Callers can still pin a specific version by setting
-    # SGL_TEST_ZLIB_TAG or SGL_TEST_LIBPNG_TAG to an explicit tag value.
+    # SGL_TEST_ZLIB_NG_TAG or SGL_TEST_LIBPNG_TAG to an explicit tag value.
     execute_process(
         COMMAND git ls-remote --tags --refs ${REPOSITORY_URL}
                 refs/tags/${TAG_GLOB}
@@ -80,14 +80,14 @@ function(sgl_resolve_latest_release_tag
     set(${OUTPUT_VAR} "${SGL_LATEST_TAG}" PARENT_SCOPE)
 endfunction()
 
-set(SGL_TEST_ZLIB_RESOLVED_TAG "${SGL_TEST_ZLIB_TAG}")
+set(SGL_TEST_ZLIB_NG_RESOLVED_TAG "${SGL_TEST_ZLIB_NG_TAG}")
 set(SGL_TEST_LIBPNG_RESOLVED_TAG "${SGL_TEST_LIBPNG_TAG}")
 
-if(SGL_TEST_ZLIB_TAG STREQUAL "latest")
-    sgl_resolve_latest_release_tag(SGL_TEST_ZLIB_RESOLVED_TAG
-        "https://github.com/madler/zlib.git"
-        "v*"
-        "^v[0-9]+(\\.[0-9]+)*$")
+if(SGL_TEST_ZLIB_NG_TAG STREQUAL "latest")
+    sgl_resolve_latest_release_tag(SGL_TEST_ZLIB_NG_RESOLVED_TAG
+        "https://github.com/zlib-ng/zlib-ng.git"
+        "*"
+        "^[0-9]+\\.[0-9]+\\.[0-9]+$")
 endif()
 
 if(SGL_TEST_LIBPNG_TAG STREQUAL "latest")
@@ -98,7 +98,7 @@ if(SGL_TEST_LIBPNG_TAG STREQUAL "latest")
 endif()
 
 message(STATUS
-    "test dependency zlib tag: ${SGL_TEST_ZLIB_RESOLVED_TAG}")
+    "test dependency zlib-ng tag: ${SGL_TEST_ZLIB_NG_RESOLVED_TAG}")
 message(STATUS
     "test dependency libpng tag: ${SGL_TEST_LIBPNG_RESOLVED_TAG}")
 
@@ -111,9 +111,9 @@ if(WITH_BENCHMARK_COMPARE)
         "test dependency NE10 tag: ${SGL_TEST_NE10_TAG}")
 endif()
 
-set(SGL_TEST_ZLIB_URL
-    "https://github.com/madler/zlib/archive/refs/tags/${SGL_TEST_ZLIB_RESOLVED_TAG}.tar.gz"
-    CACHE STRING "zlib source tarball URL used for test dependencies")
+set(SGL_TEST_ZLIB_NG_URL
+    "https://github.com/zlib-ng/zlib-ng/archive/refs/tags/${SGL_TEST_ZLIB_NG_RESOLVED_TAG}.tar.gz"
+    CACHE STRING "zlib-ng source tarball URL used for test dependencies")
 set(SGL_TEST_LIBPNG_URL
     "https://github.com/pnggroup/libpng/archive/refs/tags/${SGL_TEST_LIBPNG_RESOLVED_TAG}.tar.gz"
     CACHE STRING "libpng source tarball URL used for test dependencies")
@@ -162,7 +162,7 @@ file(MAKE_DIRECTORY
     "${SGL_TEST_DEPS_INSTALL_DIR}/include/pixman-1"
     "${SGL_TEST_DEPS_INSTALL_DIR}/lib")
 
-set(SGL_TEST_ZLIB_LIBRARY
+set(SGL_TEST_ZLIB_NG_LIBRARY
     "${SGL_TEST_DEPS_INSTALL_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}z${CMAKE_STATIC_LIBRARY_SUFFIX}")
 set(SGL_TEST_LIBPNG_LIBRARY
     "${SGL_TEST_DEPS_INSTALL_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}png16${CMAKE_STATIC_LIBRARY_SUFFIX}")
@@ -173,25 +173,28 @@ set(SGL_TEST_CAIRO_LIBRARY
 set(SGL_TEST_NE10_LIBRARY
     "${SGL_TEST_DEPS_INSTALL_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}NE10${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
-# Build zlib as a static test-only dependency for PNG load/save helpers.
-ExternalProject_Add(sgl-test-zlib
-    URL ${SGL_TEST_ZLIB_URL}
+# Build zlib-ng in zlib-compatible mode for PNG load/save helpers.
+ExternalProject_Add(sgl-test-zlib-ng
+    URL ${SGL_TEST_ZLIB_NG_URL}
     DOWNLOAD_DIR "${SGL_TEST_DEPS_DOWNLOAD_DIR}"
-    DOWNLOAD_NAME "zlib-${SGL_TEST_ZLIB_RESOLVED_TAG}.tar.gz"
-    PREFIX "${CMAKE_BINARY_DIR}/test-deps/zlib"
+    DOWNLOAD_NAME "zlib-ng-${SGL_TEST_ZLIB_NG_RESOLVED_TAG}.tar.gz"
+    PREFIX "${CMAKE_BINARY_DIR}/test-deps/zlib-ng"
     CMAKE_ARGS
         ${SGL_TEST_DEPS_CMAKE_ARGS}
-        -DZLIB_BUILD_TESTING=OFF
-        -DZLIB_BUILD_SHARED=OFF
+        -DZLIB_COMPAT=ON
+        -DBUILD_TESTING=OFF
+        -DWITH_GTEST=OFF
+        -DWITH_BENCHMARKS=OFF
+        -DINSTALL_UTILS=OFF
 )
 
-# Build libpng against the test-only zlib install tree.
+# Build libpng against the test-only zlib-ng install tree.
 ExternalProject_Add(sgl-test-libpng
     URL ${SGL_TEST_LIBPNG_URL}
     DOWNLOAD_DIR "${SGL_TEST_DEPS_DOWNLOAD_DIR}"
     DOWNLOAD_NAME "libpng-${SGL_TEST_LIBPNG_RESOLVED_TAG}.tar.gz"
     PREFIX "${CMAKE_BINARY_DIR}/test-deps/libpng"
-    DEPENDS sgl-test-zlib
+    DEPENDS sgl-test-zlib-ng
     CMAKE_ARGS
         ${SGL_TEST_DEPS_CMAKE_ARGS}
         -DPNG_SHARED=OFF
@@ -200,7 +203,7 @@ ExternalProject_Add(sgl-test-libpng
         -DPNG_TOOLS=OFF
         -DZLIB_ROOT=${SGL_TEST_DEPS_INSTALL_DIR}
         -DZLIB_INCLUDE_DIR=${SGL_TEST_DEPS_INSTALL_DIR}/include
-        -DZLIB_LIBRARY=${SGL_TEST_ZLIB_LIBRARY}
+        -DZLIB_LIBRARY=${SGL_TEST_ZLIB_NG_LIBRARY}
 )
 
 set(SGL_TEST_OPTIONAL_DEPENDENCIES)
@@ -333,14 +336,14 @@ endif()
 # Aggregate target that makes all enabled test dependencies buildable together.
 add_custom_target(sgl-test-dependencies
     DEPENDS
-        sgl-test-zlib
+        sgl-test-zlib-ng
         sgl-test-libpng
         ${SGL_TEST_OPTIONAL_DEPENDENCIES})
 
-# Imported target for the static zlib built by sgl-test-zlib.
+# Imported zlib-compatible target backed by static zlib-ng.
 add_library(SGLTest::ZLIB STATIC IMPORTED GLOBAL)
 set_target_properties(SGLTest::ZLIB PROPERTIES
-    IMPORTED_LOCATION "${SGL_TEST_ZLIB_LIBRARY}"
+    IMPORTED_LOCATION "${SGL_TEST_ZLIB_NG_LIBRARY}"
     INTERFACE_INCLUDE_DIRECTORIES "${SGL_TEST_DEPS_INSTALL_DIR}/include")
 
 # Imported target for the static libpng built by sgl-test-libpng.

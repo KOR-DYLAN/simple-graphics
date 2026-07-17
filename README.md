@@ -35,7 +35,7 @@ Implemented:
 | Threading | Optional pthread-backed threadpool on Linux, plus dummy backend when threading is disabled. |
 | Queue | Fixed-capacity queue used by tests and threaded execution paths. |
 | Test apps | `resize`, `memory`, `queue`, and `sample` applications. |
-| Test image I/O | PNG load/save helpers built from test-only zlib/libpng dependencies. |
+| Test image I/O | PNG load/save helpers built from test-only zlib-ng/libpng dependencies. |
 | Cross-run support | AArch64 Linux toolchains with QEMU runner and detected sysroot. |
 | Packaging | Install/export rules, pkg-config metadata, CMake package config, CPack archives. |
 
