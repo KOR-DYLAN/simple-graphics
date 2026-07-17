@@ -12,33 +12,54 @@
 #include "util.h"
 
 #define SGL_TEST_MEMORY_POOL_SIZE   (32U * 1024U * 1024U)
+#ifndef SGL_TEST_BUILD_DIR
+#define SGL_TEST_BUILD_DIR          "."
+#endif
+#define SGL_TEST_SAMPLE_RAW         SGL_TEST_BUILD_DIR "/image.raw"
+#define SGL_TEST_SAMPLE_CLONE       SGL_TEST_BUILD_DIR "/clone.png"
 
 static unsigned char sgl_test_memory_pool[SGL_TEST_MEMORY_POOL_SIZE];
 
 int main(int argc, char *argv[]) {
     sgl_test_png_t *png = NULL;
     int result = 0;
+    int memory_pool_initialized = 0;
 
-    SGL_UNUSED_PARAM(argc);
-
-    if (sgl_memory_pool_initialize(
-            sgl_test_memory_pool,
-            sizeof(sgl_test_memory_pool)) != SGL_SUCCESS) {
+    if (argc != 2) {
+        (void)fprintf(stderr, "usage: %s <input.png>\n", argv[0]);
         result = 1;
+    }
+
+    if ((result == 0) &&
+        (sgl_memory_pool_initialize(
+            sgl_test_memory_pool,
+            sizeof(sgl_test_memory_pool)) != SGL_SUCCESS)) {
+        result = 1;
+    }
+    else if (result == 0) {
+        memory_pool_initialized = 1;
     }
     if (result == 0) {
         png = sgl_test_load_png(argv[1]);
         if (png != NULL) {
-            sgl_test_save_data("build/image.raw", png->data, png->width * png->height * png->channels);
+            if (sgl_test_save_data(
+                    SGL_TEST_SAMPLE_RAW,
+                    png->data,
+                    png->width * png->height * png->channels) != 0) {
+                result = 1;
+            }
 
-            sgl_test_save_png(png, "build/clone.png");
+            if (sgl_test_save_png(png, SGL_TEST_SAMPLE_CLONE) != 0) {
+                result = 1;
+            }
             sgl_test_release_png(png);
         }
         else {
             result = 1;
         }
     }
-    if (sgl_memory_pool_deinitialize() != SGL_SUCCESS) {
+    if ((memory_pool_initialized != 0) &&
+        (sgl_memory_pool_deinitialize() != SGL_SUCCESS)) {
         result = 1;
     }
 

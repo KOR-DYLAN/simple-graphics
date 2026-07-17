@@ -29,10 +29,16 @@
 #define SGL_TEST_MEMORY_POOL_SIZE           (64U * 1024U * 1024U)
 #define SGL_TEST_BENCHMARK_DIR              "benchmark"
 #define SGL_TEST_BENCHMARK_CSV              SGL_TEST_BENCHMARK_DIR "/resize-benchmark.csv"
-#define SGL_TEST_BUILD_DIR                  "build"
+#ifndef SGL_TEST_BUILD_DIR
+#define SGL_TEST_BUILD_DIR                  "."
+#endif
+#ifndef SGL_TEST_OUTPUT_DIR
 #define SGL_TEST_OUTPUT_DIR                 SGL_TEST_BUILD_DIR "/output"
+#endif
 #define SGL_TEST_SAMPLE_BASE_NAME           "sample.png"
 #define SGL_TEST_THREADPOOL_UNSUPPORTED     (0)
+
+static const char *sgl_test_output_dir = SGL_TEST_OUTPUT_DIR;
 #define SGL_TEST_THREADPOOL_SUPPORTED       (1)
 #define SGL_TEST_BPP_ANY                    (0)
 
@@ -428,9 +434,17 @@ int main(int argc, char *argv[])
 {
     int result = 0;
 
-    if (argc < 2) {
-        (void)fprintf(stderr, "usage: %s <input.png>\n", argv[0]);
+    if ((argc < 2) || (argc > 3)) {
+        (void)fprintf(stderr,
+                      "usage: %s <input.png> [output-dir]\n",
+                      argv[0]);
+        (void)fprintf(stderr,
+                      "default output-dir: %s\n",
+                      SGL_TEST_OUTPUT_DIR);
         result = 1;
+    }
+    if ((result == 0) && (argc >= 3)) {
+        sgl_test_output_dir = argv[2];
     }
 
     if ((result == 0) &&
@@ -921,6 +935,7 @@ static int sgl_test_run_resize_matrix(const char *input_path)
 
     if (result == 0) {
         (void)printf("\nbenchmark csv: %s\n", SGL_TEST_BENCHMARK_CSV);
+        (void)printf("output dir: %s\n", sgl_test_output_dir);
     }
 
     return result;
@@ -1282,10 +1297,7 @@ static int sgl_test_make_output_dir(void)
 {
     int result;
 
-    result = sgl_test_make_dir(SGL_TEST_BUILD_DIR);
-    if (result == 0) {
-        result = sgl_test_make_dir(SGL_TEST_OUTPUT_DIR);
-    }
+    result = sgl_test_make_dir(sgl_test_output_dir);
 
     return result;
 }
@@ -1368,8 +1380,8 @@ static int sgl_test_write_png_output(const sgl_test_resize_case_t *test_case,
 
     written = snprintf(path,
                        path_size,
-                       SGL_TEST_OUTPUT_DIR
-                       "/%03zu_resize_%s_%s_%dch_%zuthread_%dx%d.png",
+                       "%s/%03zu_resize_%s_%s_%dch_%zuthread_%dx%d.png",
+                       sgl_test_output_dir,
                        case_index,
                        test_case->method->backend,
                        test_case->method->name,

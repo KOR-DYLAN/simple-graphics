@@ -12,7 +12,10 @@ project(test-util
 
 list(APPEND SRC util.c)
 
+# Static helper library for test PNG load/save and common utility functions.
 add_library(${PROJECT_NAME} ${SRC})
+
+# Ensure zlib/libpng external projects are built before this helper is linked.
 add_dependencies(${PROJECT_NAME} sgl-test-dependencies)
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_LIST_DIR})
 target_link_libraries(${PROJECT_NAME} PRIVATE SGLTest::PNG SGLTest::ZLIB)

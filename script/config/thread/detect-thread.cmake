@@ -9,6 +9,7 @@ set(SGL_CFG_HAS_THREAD FALSE)
 set(SGL_CFG_HAS_PTHREAD FALSE)
 set(SGL_CFG_HAS_WINTHREAD FALSE)
 
+# Select the thread backend available to the target platform.
 if(NOT WITH_THREAD)
     message(STATUS "Threading is force disabled")
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")

@@ -12,7 +12,10 @@ project(sgl-core
     LANGUAGES ASM C
 )
 
+# Main library target.  Module subdirectories attach their sources to this target.
 add_library(${PROJECT_NAME})
+
+# Attach implementation modules while keeping each domain's source list local.
 add_subdirectory(memory)
 add_subdirectory(convert)
 add_subdirectory(crop)
@@ -22,16 +25,18 @@ add_subdirectory(queue)
 add_subdirectory(threadpool)
 
 if(SGL_CFG_HAS_PTHREAD)
+    # Link pthread only when the platform detection selected the pthread backend.
     find_package(Threads REQUIRED)
     target_link_libraries(${PROJECT_NAME} PUBLIC Threads::Threads)
 endif()
 
-# Apply C99
+# The public C API is C99-oriented; extensions stay enabled for compiler intrinsics.
 set_property(TARGET ${PROJECT_NAME} PROPERTY C_STANDARD 99)
 set_property(TARGET ${PROJECT_NAME} PROPERTY C_STANDARD_REQUIRED ON)
 set_property(TARGET ${PROJECT_NAME} PROPERTY C_EXTENSIONS ON)
 
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+    # SGL provides memory primitives, so avoid compiler builtin substitutions in the core library.
     target_compile_options(${PROJECT_NAME} PRIVATE
         -fno-builtin-memcpy
         -fno-builtin-memset
@@ -39,6 +44,7 @@ if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
 endif()
 
 if(WITH_CPPCHECK)
+    # Run cppcheck only on the core library; test applications remain fast to iterate.
     set_property(TARGET ${PROJECT_NAME} PROPERTY C_CPPCHECK "${SGL_C_CPPCHECK}")
     set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_CPPCHECK "${SGL_CXX_CPPCHECK}")
 endif()

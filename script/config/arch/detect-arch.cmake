@@ -5,9 +5,7 @@
 # This file is released under the MIT License.
 # For conditions of distribution and use, see the LICENSE file.
 
-# ---------------------------------------------------------------------
-# 1. Detect CPU architecture
-# ---------------------------------------------------------------------
+# Normalize CMake's processor string into booleans consumed by SIMD/QEMU logic.
 string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" ARCH_LOWER)
 
 set(SGL_CFG_IS_ARM FALSE)

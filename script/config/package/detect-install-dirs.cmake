@@ -5,6 +5,7 @@
 # This file is released under the MIT License.
 # For conditions of distribution and use, see the LICENSE file.
 
+# Preserve deprecated install directory cache names while normalizing to GNUInstallDirs.
 function(sgl_apply_install_dir_alias OUTPUT_VAR NEW_ALIAS OLD_ALIAS OLD_HELP)
     # Older builds accepted project-specific install directory variables.  Keep
     # them working, but normalize everything into GNUInstallDirs variables so

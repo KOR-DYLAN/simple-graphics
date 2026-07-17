@@ -7,6 +7,7 @@
 
 file(READ "${CMAKE_SOURCE_DIR}/SGL_VERSION" _version_file)
 
+# Extract one component from the project version file into a CMake variable.
 function(sgl_read_version_component OUTPUT_VAR PATTERN)
     # SGL_VERSION follows the simple KEY = VALUE format used by the original
     # project.  Keep parsing local to one helper so adding a new component later

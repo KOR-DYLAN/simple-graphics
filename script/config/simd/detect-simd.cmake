@@ -13,6 +13,7 @@ set(SGL_CFG_HAS_NEON    FALSE)
 set(SGL_CFG_HAS_SSE42   FALSE)
 set(SGL_CFG_HAS_AVX2    FALSE)
 
+# Probe ARM NEON support and add the required compiler flag when ARMv7 needs it.
 function(sgl_check_neon SGL_NEON_FLAGS)
     # ARMv7 needs -mfpu=neon for both the feature probe and normal compilation.
     # AArch64 has NEON as part of the baseline architecture, so the flag is empty
@@ -37,6 +38,7 @@ function(sgl_check_neon SGL_NEON_FLAGS)
     endif()
 endfunction()
 
+# Probe x86 SIMD flags for configuration reporting and future x86 backends.
 function(sgl_check_x86_simd)
     # These flags are detected independently because SSE4.2 and AVX2 can be
     # enabled by different compiler defaults.  The result variables feed both
@@ -50,14 +52,12 @@ function(sgl_check_x86_simd)
         message(STATUS "SSE4.2 supported: YES")
         add_compile_options(-msse4.2)
         set(SGL_CFG_HAS_SSE42 TRUE PARENT_SCOPE)
-        set(SGL_CFG_HAS_SIMD TRUE PARENT_SCOPE)
     endif()
 
     if(SGL_CHECK_HAS_AVX2)
         message(STATUS "AVX2 supported: YES")
         add_compile_options(-mavx2)
         set(SGL_CFG_HAS_AVX2 TRUE PARENT_SCOPE)
-        set(SGL_CFG_HAS_SIMD TRUE PARENT_SCOPE)
     endif()
 endfunction()
 
@@ -69,4 +69,7 @@ elseif(SGL_CFG_IS_ARM64)
     sgl_check_neon("")
 elseif(SGL_CFG_IS_X86 OR SGL_CFG_IS_X86_64)
     sgl_check_x86_simd()
+    message(STATUS "Note: x86 SIMD flag detection is available, but no x86 SIMD resize backend is currently implemented.")
+else()
+    message(STATUS "SIMD support is not enabled for this architecture")
 endif()

@@ -9,6 +9,7 @@ set(SGL_CORE_EXPORT_NAME sgl-core)
 set(SGL_CORE_PC sgl-core.pc)
 set(SGL_CORE_PACKAGE_CONFIGNAME sgl-core-package)
 
+# Convert install directories into pkg-config paths relative to prefix/exec_prefix.
 function(sgl_set_pkgconfig_dir OUTPUT_VAR RELATIVE_PREFIX INSTALL_DIR)
     # .pc files are consumed outside CMake.  Relative install dirs must be
     # expressed through pkg-config variables such as ${prefix}; absolute dirs are

@@ -5,6 +5,7 @@
 # This file is released under the MIT License.
 # For conditions of distribution and use, see the LICENSE file.
 
+# Add generic color-space conversion implementations to the core library.
 target_sources(${PROJECT_NAME} PRIVATE generic_rgb2rgb.c)
 target_sources(${PROJECT_NAME} PRIVATE generic_rgb2yuv.c)
 target_sources(${PROJECT_NAME} PRIVATE generic_yuv2rgb.c)

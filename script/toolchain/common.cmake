@@ -12,6 +12,7 @@
 # whole build tree, so the helpers below intentionally avoid target-level logic
 # and only prepare compiler, sysroot, and search-path defaults.
 
+# Set the common Debug/Release optimization flags before compiler checks run.
 function(sgl_toolchain_set_standard_build_flags)
     # Keep the build-type flags identical for every supported toolchain.
     #
@@ -31,6 +32,7 @@ function(sgl_toolchain_set_standard_build_flags)
     endforeach()
 endfunction()
 
+# Detect and cache the target sysroot from the selected GCC-compatible compiler.
 function(sgl_toolchain_detect_sysroot SGL_COMPILER)
     # Ask the GCC-compatible compiler where its C library and system headers
     # live.  For the aarch64 cross builds this is the sysroot used by both GCC
@@ -57,6 +59,7 @@ function(sgl_toolchain_detect_sysroot SGL_COMPILER)
     endif()
 endfunction()
 
+# Find the GCC toolchain root that Clang needs for cross runtime pieces.
 function(sgl_toolchain_find_gcc_root SGL_OUTPUT SGL_GCC)
     # Clang can emit aarch64 code directly, but it still needs a GCC toolchain
     # root for libgcc, crt objects, linker scripts, and the cross libc layout.
@@ -80,6 +83,7 @@ function(sgl_toolchain_find_gcc_root SGL_OUTPUT SGL_GCC)
     endif()
 endfunction()
 
+# Configure CMake find roots so cross builds prefer target headers/libraries.
 function(sgl_toolchain_append_project_find_roots SGL_EXTRA_ROOT SGL_PROGRAM_MODE)
     # Cross builds must prefer target libraries and headers over host files.
     # Some toolchains also need their sysroot in the CMake find root list; pass

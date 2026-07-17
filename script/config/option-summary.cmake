@@ -5,6 +5,7 @@
 # This file is released under the MIT License.
 # For conditions of distribution and use, see the LICENSE file.
 
+# Convert a simple boolean option into the summary text printed at configure time.
 function(sgl_set_enabled_status OUTPUT_VAR ENABLED_TEXT DISABLED_TEXT ENABLED)
     if(${ENABLED})
         set(${OUTPUT_VAR} "${ENABLED_TEXT}" PARENT_SCOPE)
@@ -13,6 +14,7 @@ function(sgl_set_enabled_status OUTPUT_VAR ENABLED_TEXT DISABLED_TEXT ENABLED)
     endif()
 endfunction()
 
+# Report whether warning flags were actually applied for the active compiler.
 function(sgl_set_compiler_warnings_status OUTPUT_VAR)
     set(SGL_STATUS "OFF")
 
@@ -28,6 +30,7 @@ function(sgl_set_compiler_warnings_status OUTPUT_VAR)
     set(${OUTPUT_VAR} "${SGL_STATUS}" PARENT_SCOPE)
 endfunction()
 
+# Report MISRA addon state, including optional rule text metadata.
 function(sgl_set_cppcheck_misra_status OUTPUT_VAR)
     set(SGL_STATUS "OFF")
 
@@ -46,6 +49,7 @@ function(sgl_set_cppcheck_misra_status OUTPUT_VAR)
     set(${OUTPUT_VAR} "${SGL_STATUS}" PARENT_SCOPE)
 endfunction()
 
+# Report the SIMD feature selected by architecture and compiler probes.
 function(sgl_set_simd_status OUTPUT_VAR)
     set(SGL_STATUS "OFF")
 
@@ -65,6 +69,7 @@ function(sgl_set_simd_status OUTPUT_VAR)
     set(${OUTPUT_VAR} "${SGL_STATUS}" PARENT_SCOPE)
 endfunction()
 
+# Report the thread backend selected by platform detection.
 function(sgl_set_thread_status OUTPUT_VAR)
     set(SGL_STATUS "OFF")
 
@@ -82,6 +87,22 @@ function(sgl_set_thread_status OUTPUT_VAR)
     set(${OUTPUT_VAR} "${SGL_STATUS}" PARENT_SCOPE)
 endfunction()
 
+# Report whether cross-built AArch64 test binaries can run through QEMU.
+function(sgl_set_qemu_status OUTPUT_VAR)
+    set(SGL_STATUS "N/A")
+
+    if(SGL_QEMU_IS_CROSS_BUILD)
+        if(SGL_QEMU_AVAILABLE)
+            set(SGL_STATUS "ON (${SGL_QEMU_EXECUTABLE})")
+        else()
+            set(SGL_STATUS "OFF (cross-compile detected, but QEMU not found)")
+        endif()
+    endif()
+
+    set(${OUTPUT_VAR} "${SGL_STATUS}" PARENT_SCOPE)
+endfunction()
+
+# Print the consolidated configure summary after all detection scripts run.
 function(sgl_print_configuration_summary)
     # The detection scripts run before this summary, so this function only
     # translates final boolean/config values into one-line user-facing text.
@@ -96,6 +117,7 @@ function(sgl_print_configuration_summary)
         "ON" "OFF" WITH_BENCHMARK_COMPARE)
     sgl_set_simd_status(SIMD_STATUS)
     sgl_set_thread_status(THREAD_STATUS)
+    sgl_set_qemu_status(QEMU_STATUS)
 
     if(WITH_CPPCHECK_WARNINGS_AS_ERRORS AND NOT WITH_CPPCHECK)
         set(CPPCHECK_ERRORS_STATUS "OFF (cppcheck is disabled)")
@@ -111,5 +133,6 @@ function(sgl_print_configuration_summary)
     message(STATUS "  Benchmark comparison ......... ${BENCHMARK_COMPARE_STATUS}")
     message(STATUS "  SIMD ......................... ${SIMD_STATUS}")
     message(STATUS "  Threading .................... ${THREAD_STATUS}")
+    message(STATUS "  QEMU ARM64 (test runner) ..... ${QEMU_STATUS}")
     message(STATUS "")
 endfunction()

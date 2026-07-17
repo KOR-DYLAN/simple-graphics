@@ -34,6 +34,7 @@ set(SGL_TEST_NE10_TAG
     "v1.2.1"
     CACHE STRING "NE10 release tag used for resize benchmark comparison")
 
+# Resolve a "latest" dependency selector into the newest stable matching tag.
 function(sgl_resolve_latest_release_tag
          OUTPUT_VAR REPOSITORY_URL TAG_GLOB TAG_PATTERN)
     # Test dependencies intentionally follow the latest stable upstream release
@@ -145,10 +146,13 @@ set(SGL_TEST_DEPS_CMAKE_ARGS
 )
 
 if(CMAKE_TOOLCHAIN_FILE)
+    # Build third-party test dependencies for the same target as the test apps.
     list(APPEND SGL_TEST_DEPS_CMAKE_ARGS
         -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE})
 endif()
 
+# Pre-create include and lib directories so imported targets can reference them
+# before ExternalProject has populated the install tree.
 file(MAKE_DIRECTORY
     "${SGL_TEST_DEPS_DOWNLOAD_DIR}"
     "${SGL_TEST_DEPS_INSTALL_DIR}/include"
@@ -169,6 +173,7 @@ set(SGL_TEST_CAIRO_LIBRARY
 set(SGL_TEST_NE10_LIBRARY
     "${SGL_TEST_DEPS_INSTALL_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}NE10${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
+# Build zlib as a static test-only dependency for PNG load/save helpers.
 ExternalProject_Add(sgl-test-zlib
     URL ${SGL_TEST_ZLIB_URL}
     DOWNLOAD_DIR "${SGL_TEST_DEPS_DOWNLOAD_DIR}"
@@ -180,6 +185,7 @@ ExternalProject_Add(sgl-test-zlib
         -DZLIB_BUILD_SHARED=OFF
 )
 
+# Build libpng against the test-only zlib install tree.
 ExternalProject_Add(sgl-test-libpng
     URL ${SGL_TEST_LIBPNG_URL}
     DOWNLOAD_DIR "${SGL_TEST_DEPS_DOWNLOAD_DIR}"
@@ -205,6 +211,7 @@ if(WITH_BENCHMARK_COMPARE)
     find_program(SGL_TEST_MESON_EXECUTABLE meson)
     find_program(SGL_TEST_NINJA_EXECUTABLE ninja)
 
+    # Build NE10 for optional ARM resize benchmark comparison rows.
     ExternalProject_Add(sgl-test-ne10
         URL ${SGL_TEST_NE10_URL}
         DOWNLOAD_DIR "${SGL_TEST_DEPS_DOWNLOAD_DIR}"
@@ -234,6 +241,7 @@ if(WITH_BENCHMARK_COMPARE)
     set(SGL_TEST_HAS_NE10_DEPENDENCY TRUE)
 
     if(SGL_TEST_MESON_EXECUTABLE AND SGL_TEST_NINJA_EXECUTABLE)
+        # Generate a Cairo Meson wrap file that points at the cached pixman tarball.
         file(WRITE "${SGL_TEST_CAIRO_PIXMAN_WRAP_SCRIPT}"
 "file(SHA256
     \"${SGL_TEST_DEPS_DOWNLOAD_DIR}/${SGL_TEST_PIXMAN_ARCHIVE_NAME}\"
@@ -270,6 +278,7 @@ pixman-1 = idep_pixman
                 ""
         )
 
+        # Build static Cairo with most optional surface/font backends disabled.
         ExternalProject_Add(sgl-test-cairo
             URL ${SGL_TEST_CAIRO_URL}
             DOWNLOAD_DIR "${SGL_TEST_DEPS_DOWNLOAD_DIR}"
@@ -321,17 +330,20 @@ else()
         "resize benchmark comparison dependencies: disabled")
 endif()
 
+# Aggregate target that makes all enabled test dependencies buildable together.
 add_custom_target(sgl-test-dependencies
     DEPENDS
         sgl-test-zlib
         sgl-test-libpng
         ${SGL_TEST_OPTIONAL_DEPENDENCIES})
 
+# Imported target for the static zlib built by sgl-test-zlib.
 add_library(SGLTest::ZLIB STATIC IMPORTED GLOBAL)
 set_target_properties(SGLTest::ZLIB PROPERTIES
     IMPORTED_LOCATION "${SGL_TEST_ZLIB_LIBRARY}"
     INTERFACE_INCLUDE_DIRECTORIES "${SGL_TEST_DEPS_INSTALL_DIR}/include")
 
+# Imported target for the static libpng built by sgl-test-libpng.
 add_library(SGLTest::PNG STATIC IMPORTED GLOBAL)
 set_target_properties(SGLTest::PNG PROPERTIES
     IMPORTED_LOCATION "${SGL_TEST_LIBPNG_LIBRARY}"
@@ -340,6 +352,7 @@ set_target_properties(SGLTest::PNG PROPERTIES
     INTERFACE_LINK_LIBRARIES "SGLTest::ZLIB;m")
 
 if(SGL_TEST_HAS_CAIRO_DEPENDENCY)
+    # Imported targets for optional Cairo/pixman benchmark comparison.
     add_library(SGLTest::Pixman STATIC IMPORTED GLOBAL)
     set_target_properties(SGLTest::Pixman PROPERTIES
         IMPORTED_LOCATION "${SGL_TEST_PIXMAN_LIBRARY}"
@@ -356,6 +369,7 @@ if(SGL_TEST_HAS_CAIRO_DEPENDENCY)
 endif()
 
 if(SGL_TEST_HAS_NE10_DEPENDENCY)
+    # Imported target for optional NE10 benchmark comparison.
     add_library(SGLTest::NE10 STATIC IMPORTED GLOBAL)
     set_target_properties(SGLTest::NE10 PROPERTIES
         IMPORTED_LOCATION "${SGL_TEST_NE10_LIBRARY}"

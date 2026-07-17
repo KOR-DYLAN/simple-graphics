@@ -14,6 +14,7 @@ if(NOT WITH_CPPCHECK)
     return()
 endif()
 
+# Resolve the analyzer once during configure so target properties can reuse it.
 find_program(CPPCHECK_EXECUTABLE NAMES cppcheck)
 if(NOT CPPCHECK_EXECUTABLE)
     message(FATAL_ERROR
@@ -30,6 +31,7 @@ set(CPPCHECK_COMMON_OPTIONS
 )
 
 if(WITH_CPPCHECK_WARNINGS_AS_ERRORS)
+    # Make cppcheck diagnostics fail the build when requested by the cache option.
     list(APPEND CPPCHECK_COMMON_OPTIONS --error-exitcode=1)
     message(STATUS "cppcheck findings as errors: enabled")
 else()
@@ -40,6 +42,8 @@ set(CPPCHECK_C_ENABLED_CHECKS warning,performance,portability)
 set(CPPCHECK_CXX_ENABLED_CHECKS warning,performance,portability)
 
 if(WITH_CPPCHECK_MISRA)
+    # The MISRA addon is configured through JSON so optional licensed rule texts
+    # can be passed without repeating quoting logic on every target.
     set(CPPCHECK_C_ENABLED_CHECKS warning,performance,portability,style)
     set(CPPCHECK_MISRA_ARGS_JSON "")
     if(CPPCHECK_MISRA_RULE_TEXTS)

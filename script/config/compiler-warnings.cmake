@@ -10,12 +10,14 @@ if(NOT WITH_COMPILER_WARNINGS)
     return()
 endif()
 
+# Common warning set applied to both C and C++ sources when the compiler supports it.
 set(SGL_COMPILER_WARNING_OPTIONS
     -Wall
     -Wextra
 )
 
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+    # Generator expressions keep the options scoped to compilation languages.
     foreach(WARNING_OPTION IN LISTS SGL_COMPILER_WARNING_OPTIONS)
         add_compile_options(
             "$<$<COMPILE_LANGUAGE:C>:${WARNING_OPTION}>"
