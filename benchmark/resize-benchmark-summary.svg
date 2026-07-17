@@ -7,9 +7,9 @@ This file is released under the MIT License.
 For conditions of distribution and use, see the LICENSE file.
 -->
 
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="1430" viewBox="0 0 1280 1430" role="img" aria-labelledby="title desc">
-  <title id="title">SGL resize benchmark path comparison</title>
-  <desc id="desc">Resize benchmark snapshot measured from benchmark/resize-benchmark.csv. The chart compares generic, SIMD without external LUT, SIMD with prebuilt LUT, SIMD LUT with eight threads, Cairo, and NE10.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="1340" viewBox="0 0 1280 1340" role="img" aria-labelledby="title desc">
+  <title id="title">SGL resize benchmark direction comparison</title>
+  <desc id="desc">Resize benchmark snapshot measured from benchmark/resize-benchmark.csv. The chart compares 4-channel downscale and upscale rows across nearest, bilinear, and bicubic interpolation.</desc>
   <defs>
     <style>
       .bg { fill: #101418; }
@@ -22,198 +22,143 @@ For conditions of distribution and use, see the LICENSE file.
       .cell { fill: #eef4f3; font-family: Inter, "Noto Sans KR", system-ui, sans-serif; font-size: 14px; font-weight: 650; }
       .head { fill: #c6d4d1; font-family: Inter, "Noto Sans KR", system-ui, sans-serif; font-size: 12px; font-weight: 800; }
       .speed { fill: #facc15; font-family: Inter, "Noto Sans KR", system-ui, sans-serif; font-size: 14px; font-weight: 800; }
-      .generic { fill: #38bdf8; }
-      .simd { fill: #fb7185; }
-      .lut1 { fill: #a78bfa; }
-      .lut8 { fill: #4ade80; }
-      .cairo { fill: #f97316; }
-      .ne10 { fill: #60a5fa; }
+      .down { fill: #38bdf8; }
+      .up { fill: #fb7185; }
     </style>
   </defs>
 
-  <rect class="bg" x="0" y="0" width="1280" height="1430"/>
+  <rect class="bg" x="0" y="0" width="1280" height="1340"/>
 
   <text class="text" x="36" y="52" font-size="30" font-weight="800">SGL Resize Benchmark Snapshot</text>
   <text class="muted" x="36" y="80" font-size="14">Average latency from benchmark/resize-benchmark.csv, Release build, resource/sample.png</text>
-  <text class="muted" x="36" y="102" font-size="13">4-channel rows; SIMD no-LUT rows measure the convenience path that creates a temporary lookup table.</text>
-
-  <rect class="panel" x="28" y="132" width="1224" height="270" rx="8"/>
-  <rect class="header" x="48" y="196" width="1184" height="38" rx="6"/>
-
-  <text class="text" x="58" y="172" font-size="22" font-weight="800">SGL path comparison, 2560x1440</text>
-  <text class="muted" x="58" y="194" font-size="13">Compare generic, SIMD single-thread convenience path, SIMD with prebuilt LUT, and threaded SIMD LUT.</text>
-
-  <text class="head" x="70" y="220">method</text>
-  <text class="head" x="250" y="220" text-anchor="end">generic 1t</text>
-  <text class="head" x="420" y="220" text-anchor="end">simd 1t</text>
-  <text class="head" x="600" y="220" text-anchor="end">simd-lut 1t</text>
-  <text class="head" x="790" y="220" text-anchor="end">simd-lut 8t</text>
-  <text class="head" x="990" y="220" text-anchor="end">generic / simd 1t</text>
-  <text class="head" x="1200" y="220" text-anchor="end">generic / simd-lut 8t</text>
-
-  <line class="line" x1="48" y1="246" x2="1232" y2="246"/>
-  <line class="line" x1="48" y1="300" x2="1232" y2="300"/>
-  <line class="line" x1="48" y1="354" x2="1232" y2="354"/>
-
-  <text class="cell" x="70" y="276">nearest</text>
-  <text class="cell" x="250" y="276" text-anchor="end">3.083 ms</text>
-  <text class="cell" x="420" y="276" text-anchor="end">1.182 ms</text>
-  <text class="cell" x="600" y="276" text-anchor="end">1.212 ms</text>
-  <text class="cell" x="790" y="276" text-anchor="end">0.630 ms</text>
-  <text class="speed" x="990" y="276" text-anchor="end">2.61x</text>
-  <text class="speed" x="1200" y="276" text-anchor="end">4.89x</text>
-
-  <text class="cell" x="70" y="330">bilinear</text>
-  <text class="cell" x="250" y="330" text-anchor="end">21.915 ms</text>
-  <text class="cell" x="420" y="330" text-anchor="end">3.486 ms</text>
-  <text class="cell" x="600" y="330" text-anchor="end">3.435 ms</text>
-  <text class="cell" x="790" y="330" text-anchor="end">1.149 ms</text>
-  <text class="speed" x="990" y="330" text-anchor="end">6.29x</text>
-  <text class="speed" x="1200" y="330" text-anchor="end">19.07x</text>
-
-  <text class="cell" x="70" y="384">bicubic</text>
-  <text class="cell" x="250" y="384" text-anchor="end">96.608 ms</text>
-  <text class="cell" x="420" y="384" text-anchor="end">42.372 ms</text>
-  <text class="cell" x="600" y="384" text-anchor="end">41.594 ms</text>
-  <text class="cell" x="790" y="384" text-anchor="end">7.385 ms</text>
-  <text class="speed" x="990" y="384" text-anchor="end">2.28x</text>
-  <text class="speed" x="1200" y="384" text-anchor="end">13.08x</text>
-
-  <rect class="panel" x="28" y="430" width="1224" height="180" rx="8"/>
-  <rect class="header" x="48" y="494" width="1184" height="38" rx="6"/>
-
-  <text class="text" x="58" y="470" font-size="22" font-weight="800">External backend comparison, 4-channel</text>
-  <text class="muted" x="58" y="492" font-size="13">Cairo and NE10 are 1-thread comparison rows; NE10 is available for bilinear RGBA only.</text>
-
-  <text class="head" x="70" y="518">case</text>
-  <text class="head" x="340" y="518" text-anchor="end">generic 1t</text>
-  <text class="head" x="500" y="518" text-anchor="end">simd 1t</text>
-  <text class="head" x="660" y="518" text-anchor="end">simd-lut 8t</text>
-  <text class="head" x="810" y="518" text-anchor="end">cairo 1t</text>
-  <text class="head" x="960" y="518" text-anchor="end">ne10 1t</text>
-  <text class="head" x="1200" y="518" text-anchor="end">best external / simd-lut 8t</text>
-
-  <line class="line" x1="48" y1="546" x2="1232" y2="546"/>
-  <line class="line" x1="48" y1="576" x2="1232" y2="576"/>
-
-  <text class="cell" x="70" y="568">nearest 2560x1440</text>
-  <text class="cell" x="340" y="568" text-anchor="end">3.083 ms</text>
-  <text class="cell" x="500" y="568" text-anchor="end">1.182 ms</text>
-  <text class="cell" x="660" y="568" text-anchor="end">0.630 ms</text>
-  <text class="cell" x="810" y="568" text-anchor="end">1.980 ms</text>
-  <text class="muted" x="960" y="568" text-anchor="end" font-size="14">n/a</text>
-  <text class="speed" x="1200" y="568" text-anchor="end">3.14x slower</text>
-
-  <text class="cell" x="70" y="598">bilinear 2560x1440</text>
-  <text class="cell" x="340" y="598" text-anchor="end">21.915 ms</text>
-  <text class="cell" x="500" y="598" text-anchor="end">3.486 ms</text>
-  <text class="cell" x="660" y="598" text-anchor="end">1.149 ms</text>
-  <text class="cell" x="810" y="598" text-anchor="end">3.894 ms</text>
-  <text class="cell" x="960" y="598" text-anchor="end">4.100 ms</text>
-  <text class="speed" x="1200" y="598" text-anchor="end">3.39x slower</text>
-
-  <rect class="panel" x="28" y="640" width="1224" height="400" rx="8"/>
-
-  <text class="text" x="58" y="680" font-size="22" font-weight="800">External backend latency chart</text>
-  <text class="muted" x="58" y="702" font-size="13">Each case is normalized to its slowest backend; lower bars are better.</text>
-
-  <rect class="generic" x="58" y="724" width="14" height="10" rx="2"/>
-  <text class="small" x="80" y="734">generic 1t</text>
-  <rect class="simd" x="168" y="724" width="14" height="10" rx="2"/>
-  <text class="small" x="190" y="734">simd 1t</text>
-  <rect class="lut8" x="258" y="724" width="14" height="10" rx="2"/>
-  <text class="small" x="280" y="734">simd-lut 8t</text>
-  <rect class="cairo" x="386" y="724" width="14" height="10" rx="2"/>
-  <text class="small" x="408" y="734">cairo 1t</text>
-  <rect class="ne10" x="482" y="724" width="14" height="10" rx="2"/>
-  <text class="small" x="504" y="734">ne10 1t</text>
-
-  <text class="head" x="58" y="768">nearest 2560x1440</text>
-  <text class="small" x="78" y="798">generic 1t</text>
-  <rect class="generic" x="210" y="785" width="850" height="16" rx="3"/>
-  <text class="cell" x="1074" y="798">3.083 ms</text>
-  <text class="small" x="78" y="824">simd 1t</text>
-  <rect class="simd" x="210" y="811" width="326" height="16" rx="3"/>
-  <text class="cell" x="550" y="824">1.182 ms</text>
-  <text class="small" x="78" y="850">simd-lut 8t</text>
-  <rect class="lut8" x="210" y="837" width="174" height="16" rx="3"/>
-  <text class="cell" x="398" y="850">0.630 ms</text>
-  <text class="small" x="78" y="876">cairo 1t</text>
-  <rect class="cairo" x="210" y="863" width="546" height="16" rx="3"/>
-  <text class="cell" x="770" y="876">1.980 ms</text>
-
-  <line class="line" x1="58" y1="902" x2="1222" y2="902"/>
-
-  <text class="head" x="58" y="932">bilinear 2560x1440</text>
-  <text class="small" x="78" y="962">generic 1t</text>
-  <rect class="generic" x="210" y="949" width="850" height="16" rx="3"/>
-  <text class="cell" x="1074" y="962">21.915 ms</text>
-  <text class="small" x="78" y="988">simd 1t</text>
-  <rect class="simd" x="210" y="975" width="135" height="16" rx="3"/>
-  <text class="cell" x="359" y="988">3.486 ms</text>
-  <text class="small" x="78" y="1014">simd-lut 8t</text>
-  <rect class="lut8" x="210" y="1001" width="45" height="16" rx="3"/>
-  <text class="cell" x="269" y="1014">1.149 ms</text>
-  <text class="small" x="492" y="988">cairo 1t</text>
-  <rect class="cairo" x="592" y="975" width="151" height="16" rx="3"/>
-  <text class="cell" x="757" y="988">3.894 ms</text>
-  <text class="small" x="492" y="1014">ne10 1t</text>
-  <rect class="ne10" x="592" y="1001" width="159" height="16" rx="3"/>
-  <text class="cell" x="765" y="1014">4.100 ms</text>
-
-  <rect class="panel" x="28" y="1080" width="594" height="250" rx="8"/>
-  <rect class="panel" x="658" y="1080" width="594" height="250" rx="8"/>
-
-  <text class="text" x="58" y="1120" font-size="22" font-weight="800">LUT reuse effect, 1 thread</text>
-  <text class="muted" x="58" y="1142" font-size="13">SIMD convenience path vs SIMD with a prebuilt lookup table.</text>
-
-  <rect class="simd" x="58" y="1164" width="14" height="10" rx="2"/>
-  <text class="small" x="80" y="1174">simd 1t, temp LUT</text>
-  <rect class="lut1" x="210" y="1164" width="14" height="10" rx="2"/>
-  <text class="small" x="232" y="1174">simd-lut 1t</text>
-
-  <text class="head" x="58" y="1208">case</text>
-  <text class="head" x="350" y="1208" text-anchor="end">simd 1t</text>
-  <text class="head" x="510" y="1208" text-anchor="end">simd-lut 1t</text>
-  <line class="line" x1="58" y1="1220" x2="592" y2="1220"/>
-
-  <text class="cell" x="58" y="1248">bilinear 1280x720</text>
-  <text class="cell" x="350" y="1248" text-anchor="end">1.286 ms</text>
-  <text class="cell" x="510" y="1248" text-anchor="end">1.377 ms</text>
-  <text class="cell" x="58" y="1278">bilinear 2560x1440</text>
-  <text class="cell" x="350" y="1278" text-anchor="end">3.486 ms</text>
-  <text class="cell" x="510" y="1278" text-anchor="end">3.435 ms</text>
-  <text class="cell" x="58" y="1308">bicubic 2560x1440</text>
-  <text class="cell" x="350" y="1308" text-anchor="end">42.372 ms</text>
-  <text class="cell" x="510" y="1308" text-anchor="end">41.594 ms</text>
-
-  <text class="text" x="688" y="1120" font-size="22" font-weight="800">SIMD threaded scaling</text>
-  <text class="muted" x="688" y="1142" font-size="13">Prebuilt LUT, SIMD path, 1-thread baseline vs 8 threads.</text>
-
-  <rect class="lut1" x="688" y="1164" width="14" height="10" rx="2"/>
-  <text class="small" x="710" y="1174">simd-lut 1t</text>
-  <rect class="lut8" x="800" y="1164" width="14" height="10" rx="2"/>
-  <text class="small" x="822" y="1174">simd-lut 8t</text>
-
-  <text class="head" x="688" y="1208">case</text>
-  <text class="head" x="948" y="1208" text-anchor="end">1 thread</text>
-  <text class="head" x="1090" y="1208" text-anchor="end">8 threads</text>
-  <text class="head" x="1210" y="1208" text-anchor="end">speedup</text>
-  <line class="line" x1="688" y1="1220" x2="1222" y2="1220"/>
-
-  <text class="cell" x="688" y="1248">nearest 2560x1440</text>
-  <text class="cell" x="948" y="1248" text-anchor="end">1.212 ms</text>
-  <text class="cell" x="1090" y="1248" text-anchor="end">0.630 ms</text>
-  <text class="speed" x="1210" y="1248" text-anchor="end">1.92x</text>
-  <text class="cell" x="688" y="1278">bilinear 2560x1440</text>
-  <text class="cell" x="948" y="1278" text-anchor="end">3.435 ms</text>
-  <text class="cell" x="1090" y="1278" text-anchor="end">1.149 ms</text>
-  <text class="speed" x="1210" y="1278" text-anchor="end">2.99x</text>
-  <text class="cell" x="688" y="1308">bicubic 2560x1440</text>
-  <text class="cell" x="948" y="1308" text-anchor="end">41.594 ms</text>
-  <text class="cell" x="1090" y="1308" text-anchor="end">7.385 ms</text>
-  <text class="speed" x="1210" y="1308" text-anchor="end">5.63x</text>
-
-  <text class="small" x="36" y="1378">Note: benchmark results are workload and environment dependent; rerun on the target machine before publishing final claims.</text>
-  <text class="small" x="36" y="1400">The completed CSV contains 1/2/3/4-channel SGL rows and 4-channel Cairo/NE10 comparison rows.</text>
+  <text class="muted" x="36" y="102" font-size="13">4-channel SGL rows; 640x480 downscale and 2560x1440 upscale are shown together.</text>
+  <rect class="panel" x="28" y="132" width="1224" height="430" rx="8"/>
+  <text class="text" x="58" y="172" font-size="22" font-weight="800">SGL path comparison by resize direction</text>
+  <text class="muted" x="58" y="194" font-size="13">The ratio compares generic 1-thread latency against SIMD LUT with 8 threads.</text>
+  <rect class="header" x="48" y="216" width="1184" height="38" rx="6"/>
+  <text class="head" x="70" y="240">direction</text>
+  <text class="head" x="240" y="240">method</text>
+  <text class="head" x="430" y="240" text-anchor="end">generic 1t</text>
+  <text class="head" x="580" y="240" text-anchor="end">simd 1t</text>
+  <text class="head" x="760" y="240" text-anchor="end">simd-lut 1t</text>
+  <text class="head" x="930" y="240" text-anchor="end">simd-lut 8t</text>
+  <text class="head" x="1200" y="240" text-anchor="end">generic / simd-lut 8t</text>
+  <line class="line" x1="48" y1="264" x2="1232" y2="264"/>
+  <text class="cell" x="70" y="292">downscale 640x480</text>
+  <text class="cell" x="240" y="292">nearest</text>
+  <text class="cell" x="430" y="292" text-anchor="end">0.304 ms</text>
+  <text class="cell" x="580" y="292" text-anchor="end">0.378 ms</text>
+  <text class="cell" x="760" y="292" text-anchor="end">0.305 ms</text>
+  <text class="cell" x="930" y="292" text-anchor="end">0.619 ms</text>
+  <text class="speed" x="1200" y="292" text-anchor="end">0.49x</text>
+  <line class="line" x1="48" y1="312" x2="1232" y2="312"/>
+  <text class="cell" x="70" y="340">downscale 640x480</text>
+  <text class="cell" x="240" y="340">bilinear</text>
+  <text class="cell" x="430" y="340" text-anchor="end">0.701 ms</text>
+  <text class="cell" x="580" y="340" text-anchor="end">0.581 ms</text>
+  <text class="cell" x="760" y="340" text-anchor="end">0.621 ms</text>
+  <text class="cell" x="930" y="340" text-anchor="end">0.316 ms</text>
+  <text class="speed" x="1200" y="340" text-anchor="end">2.22x</text>
+  <line class="line" x1="48" y1="360" x2="1232" y2="360"/>
+  <text class="cell" x="70" y="388">downscale 640x480</text>
+  <text class="cell" x="240" y="388">bicubic</text>
+  <text class="cell" x="430" y="388" text-anchor="end">8.197 ms</text>
+  <text class="cell" x="580" y="388" text-anchor="end">4.605 ms</text>
+  <text class="cell" x="760" y="388" text-anchor="end">4.562 ms</text>
+  <text class="cell" x="930" y="388" text-anchor="end">1.365 ms</text>
+  <text class="speed" x="1200" y="388" text-anchor="end">6.01x</text>
+  <line class="line" x1="48" y1="408" x2="1232" y2="408"/>
+  <text class="cell" x="70" y="436">upscale 2560x1440</text>
+  <text class="cell" x="240" y="436">nearest</text>
+  <text class="cell" x="430" y="436" text-anchor="end">3.231 ms</text>
+  <text class="cell" x="580" y="436" text-anchor="end">1.177 ms</text>
+  <text class="cell" x="760" y="436" text-anchor="end">1.213 ms</text>
+  <text class="cell" x="930" y="436" text-anchor="end">0.598 ms</text>
+  <text class="speed" x="1200" y="436" text-anchor="end">5.40x</text>
+  <line class="line" x1="48" y1="456" x2="1232" y2="456"/>
+  <text class="cell" x="70" y="484">upscale 2560x1440</text>
+  <text class="cell" x="240" y="484">bilinear</text>
+  <text class="cell" x="430" y="484" text-anchor="end">3.943 ms</text>
+  <text class="cell" x="580" y="484" text-anchor="end">3.180 ms</text>
+  <text class="cell" x="760" y="484" text-anchor="end">3.732 ms</text>
+  <text class="cell" x="930" y="484" text-anchor="end">1.400 ms</text>
+  <text class="speed" x="1200" y="484" text-anchor="end">2.82x</text>
+  <line class="line" x1="48" y1="504" x2="1232" y2="504"/>
+  <text class="cell" x="70" y="532">upscale 2560x1440</text>
+  <text class="cell" x="240" y="532">bicubic</text>
+  <text class="cell" x="430" y="532" text-anchor="end">91.126 ms</text>
+  <text class="cell" x="580" y="532" text-anchor="end">44.975 ms</text>
+  <text class="cell" x="760" y="532" text-anchor="end">42.906 ms</text>
+  <text class="cell" x="930" y="532" text-anchor="end">7.337 ms</text>
+  <text class="speed" x="1200" y="532" text-anchor="end">12.42x</text>
+  <rect class="panel" x="28" y="600" width="1224" height="360" rx="8"/>
+  <text class="text" x="58" y="640" font-size="22" font-weight="800">Threaded SIMD LUT latency by interpolation</text>
+  <text class="muted" x="58" y="662" font-size="13">Bars show SIMD LUT with 8 threads; each bar is normalized to the slowest displayed case.</text>
+  <rect class="down" x="58" y="684" width="14" height="10" rx="2"/>
+  <text class="small" x="80" y="694">downscale 640x480</text>
+  <rect class="up" x="218" y="684" width="14" height="10" rx="2"/>
+  <text class="small" x="240" y="694">upscale 2560x1440</text>
+  <text class="small" x="78" y="737">nearest downscale 640x480</text>
+  <rect class="down" x="310" y="724" width="69" height="16" rx="3"/>
+  <text class="cell" x="393" y="737">0.619 ms</text>
+  <text class="small" x="78" y="775">bilinear downscale 640x480</text>
+  <rect class="down" x="310" y="762" width="35" height="16" rx="3"/>
+  <text class="cell" x="359" y="775">0.316 ms</text>
+  <text class="small" x="78" y="813">bicubic downscale 640x480</text>
+  <rect class="down" x="310" y="800" width="153" height="16" rx="3"/>
+  <text class="cell" x="477" y="813">1.365 ms</text>
+  <text class="small" x="78" y="851">nearest upscale 2560x1440</text>
+  <rect class="up" x="310" y="838" width="67" height="16" rx="3"/>
+  <text class="cell" x="391" y="851">0.598 ms</text>
+  <text class="small" x="78" y="889">bilinear upscale 2560x1440</text>
+  <rect class="up" x="310" y="876" width="156" height="16" rx="3"/>
+  <text class="cell" x="480" y="889">1.400 ms</text>
+  <text class="small" x="78" y="927">bicubic upscale 2560x1440</text>
+  <rect class="up" x="310" y="914" width="820" height="16" rx="3"/>
+  <text class="cell" x="1144" y="927">7.337 ms</text>
+  <rect class="panel" x="28" y="990" width="1224" height="270" rx="8"/>
+  <text class="text" x="58" y="1030" font-size="22" font-weight="800">Cairo / NE10 external comparison</text>
+  <text class="muted" x="58" y="1052" font-size="13">4-channel rows only; Cairo provides nearest/bilinear and NE10 provides bilinear RGBA.</text>
+  <rect class="header" x="48" y="1072" width="1184" height="36" rx="6"/>
+  <text class="head" x="70" y="1096">case</text>
+  <text class="head" x="340" y="1096" text-anchor="end">generic 1t</text>
+  <text class="head" x="500" y="1096" text-anchor="end">simd 1t</text>
+  <text class="head" x="660" y="1096" text-anchor="end">simd-lut 8t</text>
+  <text class="head" x="810" y="1096" text-anchor="end">cairo 1t</text>
+  <text class="head" x="960" y="1096" text-anchor="end">ne10 1t</text>
+  <text class="head" x="1200" y="1096" text-anchor="end">best external / simd-lut 8t</text>
+  <line class="line" x1="48" y1="1116" x2="1232" y2="1116"/>
+  <text class="cell" x="70" y="1136">nearest downscale 640x480</text>
+  <text class="cell" x="340" y="1136" text-anchor="end">0.304 ms</text>
+  <text class="cell" x="500" y="1136" text-anchor="end">0.378 ms</text>
+  <text class="cell" x="660" y="1136" text-anchor="end">0.619 ms</text>
+  <text class="cell" x="810" y="1136" text-anchor="end">0.890 ms</text>
+  <text class="muted" x="960" y="1136" text-anchor="end">n/a</text>
+  <text class="speed" x="1200" y="1136" text-anchor="end">1.44x slower</text>
+  <line class="line" x1="48" y1="1150" x2="1232" y2="1150"/>
+  <text class="cell" x="70" y="1170">bilinear downscale 640x480</text>
+  <text class="cell" x="340" y="1170" text-anchor="end">0.701 ms</text>
+  <text class="cell" x="500" y="1170" text-anchor="end">0.581 ms</text>
+  <text class="cell" x="660" y="1170" text-anchor="end">0.316 ms</text>
+  <text class="cell" x="810" y="1170" text-anchor="end">0.364 ms</text>
+  <text class="cell" x="960" y="1170" text-anchor="end">0.759 ms</text>
+  <text class="speed" x="1200" y="1170" text-anchor="end">1.15x slower</text>
+  <line class="line" x1="48" y1="1184" x2="1232" y2="1184"/>
+  <text class="cell" x="70" y="1204">nearest upscale 2560x1440</text>
+  <text class="cell" x="340" y="1204" text-anchor="end">3.231 ms</text>
+  <text class="cell" x="500" y="1204" text-anchor="end">1.177 ms</text>
+  <text class="cell" x="660" y="1204" text-anchor="end">0.598 ms</text>
+  <text class="cell" x="810" y="1204" text-anchor="end">1.770 ms</text>
+  <text class="muted" x="960" y="1204" text-anchor="end">n/a</text>
+  <text class="speed" x="1200" y="1204" text-anchor="end">2.96x slower</text>
+  <line class="line" x1="48" y1="1218" x2="1232" y2="1218"/>
+  <text class="cell" x="70" y="1238">bilinear upscale 2560x1440</text>
+  <text class="cell" x="340" y="1238" text-anchor="end">3.943 ms</text>
+  <text class="cell" x="500" y="1238" text-anchor="end">3.180 ms</text>
+  <text class="cell" x="660" y="1238" text-anchor="end">1.400 ms</text>
+  <text class="cell" x="810" y="1238" text-anchor="end">3.667 ms</text>
+  <text class="cell" x="960" y="1238" text-anchor="end">4.683 ms</text>
+  <text class="speed" x="1200" y="1238" text-anchor="end">2.62x slower</text>
+  <text class="small" x="36" y="1298">Note: benchmark results are workload and environment dependent; rerun on the target machine before publishing final claims.</text>
+  <text class="small" x="36" y="1320">Use the interpolation-specific SVGs for a less crowded view of nearest, bilinear, and bicubic rows.</text>
 </svg>

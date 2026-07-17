@@ -189,7 +189,10 @@ Resized PNG outputs for visual debugging are written separately at:
 Open `tools/resize-benchmark-viewer.html` in a browser to inspect the CSV as
 latency and thread-scaling charts. The viewer can also export a representative
 Markdown snapshot for README or release notes, and download the current chart
-view or the external backend comparison chart as SVG.
+view, one chart per interpolation method, or the external backend comparison
+chart as SVG. The external SVG export uses the selected size filter; with all
+sizes selected it includes every available 4-channel external comparison size
+instead of only the largest output.
 
 By default the benchmark only builds SGL rows. Configure with
 `-DWITH_BENCHMARK_COMPARE=ON` when optional comparison backends are needed:
@@ -220,13 +223,29 @@ The default sample image is 1920x1080. The benchmark matrix keeps one
 downscale output, 640x480, and one upscale output, 2560x1440, to cover both
 resize directions without making the default run too large.
 
-The following SVG is a sample run from `resource/sample.png`. It highlights
-SGL path comparisons, including SIMD single-thread rows and the no-external-LUT
-convenience path, and includes the 4-channel Cairo/NE10 comparison rows. Treat
-it as a benchmark snapshot, not a universal claim; CPU model, clock policy,
-compiler, build flags, and input image all affect the result.
+The following SVGs are sample runs from `resource/sample.png`. They highlight
+4-channel SGL path comparisons across both default resize directions, including
+SIMD single-thread rows, prebuilt-LUT rows, and the no-external-LUT convenience
+path. The overview keeps all interpolation methods together, while the
+method-specific SVGs keep downscale and upscale comparisons easier to scan.
+Treat them as benchmark snapshots, not universal claims; CPU model, clock
+policy, compiler, build flags, and input image all affect the result.
 
 ![SGL resize benchmark summary](benchmark/resize-benchmark-summary.svg)
+
+![SGL nearest resize benchmark](benchmark/resize-benchmark-nearest.svg)
+
+![SGL bilinear resize benchmark](benchmark/resize-benchmark-bilinear.svg)
+
+![SGL bicubic resize benchmark](benchmark/resize-benchmark-bicubic.svg)
+
+Refresh the interpolation-specific SVG snapshots after rerunning the benchmark:
+
+  python3 tools/resize-benchmark-summary-svg.py
+
+The generated SVGs include Cairo/NE10 external comparison rows when the CSV
+contains them; otherwise they show that the current CSV has no external backend
+rows.
 
 | Environment | Value |
 | --- | --- |
@@ -239,29 +258,39 @@ compiler, build flags, and input image all affect the result.
 | Build | Release |
 | Input | resource/sample.png |
 
-Experimental nearest backend timing, using average latency:
+SGL 4-channel path timing, using average latency:
 
-| Scenario | SGL generic 1t | SGL simd 1t | SGL simd-lut 1t | SGL simd-lut 8t | Cairo 1t |
+| Scenario | SGL generic 1t | SGL simd 1t | SGL simd-lut 1t | SGL simd-lut 8t | Generic / simd-lut 8t |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| nearest 1280x720 | 0.792 ms | 0.941 ms | 0.954 ms | 0.382 ms | 0.564 ms |
-| nearest 2560x1440 | 3.083 ms | 1.182 ms | 1.212 ms | 0.630 ms | 1.980 ms |
+| nearest 640x480 | 0.304 ms | 0.378 ms | 0.305 ms | 0.619 ms | 0.49x |
+| bilinear 640x480 | 0.701 ms | 0.581 ms | 0.621 ms | 0.316 ms | 2.22x |
+| bicubic 640x480 | 8.197 ms | 4.605 ms | 4.562 ms | 1.365 ms | 6.01x |
+| nearest 2560x1440 | 3.231 ms | 1.177 ms | 1.213 ms | 0.598 ms | 5.40x |
+| bilinear 2560x1440 | 3.943 ms | 3.180 ms | 3.732 ms | 1.400 ms | 2.82x |
+| bicubic 2560x1440 | 91.126 ms | 44.975 ms | 42.906 ms | 7.337 ms | 12.42x |
 
-Experimental bilinear backend timing, using average latency:
+A ratio below 1x means the threaded SIMD LUT path is slower than the generic
+1-thread path for that small case.
 
-| Scenario | SGL generic 1t | SGL simd 1t | SGL simd-lut 1t | SGL simd-lut 8t | Cairo 1t | NE10 1t |
+Cairo/NE10 external comparison, using average latency:
+
+| Scenario | SGL generic 1t | SGL simd 1t | SGL simd-lut 8t | Cairo 1t | NE10 1t | Best external / simd-lut 8t |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| bilinear 1280x720 | 5.164 ms | 1.286 ms | 1.377 ms | 0.437 ms | 0.993 ms | 1.424 ms |
-| bilinear 2560x1440 | 21.915 ms | 3.486 ms | 3.435 ms | 1.149 ms | 3.894 ms | 4.100 ms |
+| nearest 640x480 | 0.304 ms | 0.378 ms | 0.619 ms | 0.890 ms | n/a | 1.44x slower |
+| nearest 2560x1440 | 3.231 ms | 1.177 ms | 0.598 ms | 1.770 ms | n/a | 2.96x slower |
+| bilinear 640x480 | 0.701 ms | 0.581 ms | 0.316 ms | 0.364 ms | 0.759 ms | 1.15x slower |
+| bilinear 2560x1440 | 3.943 ms | 3.180 ms | 1.400 ms | 3.667 ms | 4.683 ms | 2.62x slower |
 
 Representative optimized SGL thread scaling, using average latency:
 
 | Scenario | simd-lut 1t | simd-lut 8t | Speedup |
 | --- | ---: | ---: | ---: |
-| bicubic 2560x1440 | 41.594 ms | 7.385 ms | 5.63x |
-| bicubic 1280x720 | 14.713 ms | 2.804 ms | 5.25x |
-| bilinear 2560x1440 | 3.435 ms | 1.149 ms | 2.99x |
-| nearest 1280x720 | 0.954 ms | 0.382 ms | 2.50x |
-| nearest 2560x1440 | 1.212 ms | 0.630 ms | 1.92x |
+| nearest 640x480 | 0.305 ms | 0.619 ms | 0.49x |
+| bilinear 640x480 | 0.621 ms | 0.316 ms | 1.97x |
+| bicubic 640x480 | 4.562 ms | 1.365 ms | 3.34x |
+| nearest 2560x1440 | 1.213 ms | 0.598 ms | 2.03x |
+| bilinear 2560x1440 | 3.732 ms | 1.400 ms | 2.67x |
+| bicubic 2560x1440 | 42.906 ms | 7.337 ms | 5.85x |
 
 Notes
 -----

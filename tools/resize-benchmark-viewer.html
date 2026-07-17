@@ -405,6 +405,7 @@ For conditions of distribution and use, see the LICENSE file.
       </select>
     </label>
     <button id="downloadSvgButton" type="button">Download SVG</button>
+    <button id="downloadMethodSvgsButton" type="button">Download Method SVGs</button>
     <button id="exportButton" type="button">Export README</button>
   </section>
 
@@ -534,6 +535,7 @@ const ui = {
   viewSelect: document.getElementById("viewSelect"),
   fileButton: document.getElementById("fileButton"),
   downloadSvgButton: document.getElementById("downloadSvgButton"),
+  downloadMethodSvgsButton: document.getElementById("downloadMethodSvgsButton"),
   exportButton: document.getElementById("exportButton"),
   refreshExportButton: document.getElementById("refreshExportButton"),
   copyExportButton: document.getElementById("copyExportButton"),
@@ -724,15 +726,14 @@ function rowValueLabel(row) {
   return state.view === "speedup" ? `${speedup(row).toFixed(2)}x` : ms(row[state.metric]);
 }
 
-function backendColor(backend) {
-  const groups = uniqueValues(state.filtered, "backend");
+function backendColor(backend, rows) {
+  const groups = uniqueValues(rows, "backend");
   const index = Math.max(groups.indexOf(backend), 0);
 
   return COLORS[index % COLORS.length];
 }
 
-function renderChart(rows) {
-  const svg = ui.chart;
+function renderChartSvg(svg, rows) {
   const width = 1100;
   const top = 28;
   const left = 238;
@@ -770,7 +771,7 @@ function renderChart(rows) {
     const y = top + (index * rowHeight);
     const value = rowValue(row);
     const barWidth = Math.max(2, (value / maxValue) * chartWidth);
-    const color = backendColor(row.backend);
+    const color = backendColor(row.backend, rows);
 
     svg.append(svgText(14, y + 16, `${row.method} ${row.backend} ${row.channel} ${row.size}`, {
       fill: "#eef4f3",
@@ -798,6 +799,10 @@ function renderChart(rows) {
   }
 }
 
+function renderChart(rows) {
+  renderChartSvg(ui.chart, rows);
+}
+
 function sizePixels(size) {
   const parts = String(size).split("x").map(Number);
   let pixels = 0;
@@ -809,25 +814,22 @@ function sizePixels(size) {
   return pixels;
 }
 
-function preferredExternalSize() {
-  const sizes = Array.from(new Set(state.rows
-    .filter(row => (row.channels === 4) && ((row.backend === "cairo") || (row.backend === "ne10")))
-    .map(row => row.size)));
-  let size = "2560x1440";
-
-  if (!sizes.includes(size)) {
-    size = sizes.sort((a, b) => sizePixels(b) - sizePixels(a))[0];
-  }
-
-  return size;
+function externalComparisonSizes() {
+  return Array.from(new Set(state.rows
+    .filter(row =>
+      (row.channels === 4) &&
+      ((row.backend === "cairo") || (row.backend === "ne10")) &&
+      ((ui.sizeFilter.value === "all") || (row.size === ui.sizeFilter.value)))
+    .map(row => row.size)))
+    .sort((a, b) => sizePixels(a) - sizePixels(b));
 }
 
 function externalComparisonCases() {
-  const size = preferredExternalSize();
+  const sizes = externalComparisonSizes();
   const methods = ["nearest", "bilinear"];
   const cases = [];
 
-  if (size !== undefined) {
+  sizes.forEach(size => {
     methods.forEach(method => {
       const items = EXTERNAL_BACKENDS
         .map(option => ({
@@ -845,19 +847,20 @@ function externalComparisonCases() {
         cases.push({ method, size, items });
       }
     });
-  }
+  });
 
-  return { size, cases };
+  return { sizes, cases };
 }
 
 function renderExternalChart() {
   const svg = ui.externalChart;
   const width = 1100;
-  const height = 390;
+  const data = externalComparisonCases();
+  const height = Math.max(390, 96 + (data.cases.length * 150));
   const left = 180;
   const chartWidth = 760;
-  const data = externalComparisonCases();
   const metricLabel = ui.metricSelect.options[ui.metricSelect.selectedIndex].text;
+  const sizeLabel = data.sizes.length === 1 ? data.sizes[0] : `${data.sizes.length} sizes`;
   let legendX = 32;
 
   svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
@@ -865,7 +868,7 @@ function renderExternalChart() {
   svg.append(svgEl("rect", { x: 0, y: 0, width, height, fill: "#171d23" }));
 
   if (data.cases.length === 0) {
-    ui.externalSubtitle.textContent = "No 4-channel Cairo/NE10 rows in the loaded CSV";
+    ui.externalSubtitle.textContent = "No matching 4-channel Cairo/NE10 rows in the loaded CSV";
     svg.append(svgText(40, 64, "No external backend rows are available.", {
       fill: "#9ba9a7",
       "font-size": 16,
@@ -874,7 +877,7 @@ function renderExternalChart() {
     return;
   }
 
-  ui.externalSubtitle.textContent = `4-channel ${data.size}, ${metricLabel} latency`;
+  ui.externalSubtitle.textContent = `4-channel ${sizeLabel}, ${metricLabel} latency`;
   EXTERNAL_BACKENDS.forEach(option => {
     svg.append(svgEl("rect", { x: legendX, y: 24, width: 14, height: 10, rx: 2, fill: option.color }));
     svg.append(svgText(legendX + 22, 34, option.label, {
@@ -1099,6 +1102,28 @@ function svgDownloadName() {
   return `${parts.map(exportFilePart).join("_")}.svg`;
 }
 
+function methodSvgDownloadName(method) {
+  const parts = [
+    "resize-benchmark",
+    method,
+    ui.backendFilter.value,
+    ui.channelFilter.value,
+    ui.sizeFilter.value,
+    state.view,
+    state.metric,
+  ];
+
+  return `${parts.map(exportFilePart).join("_")}.svg`;
+}
+
+function rowsForMethodSvg(method) {
+  return state.rows.filter(row =>
+    (row.method === method) &&
+    ((ui.backendFilter.value === "all") || (row.backend === ui.backendFilter.value)) &&
+    ((ui.channelFilter.value === "all") || (row.channel === ui.channelFilter.value)) &&
+    ((ui.sizeFilter.value === "all") || (row.size === ui.sizeFilter.value)));
+}
+
 function downloadSvgElement(svg, fileName, label) {
   const source = svg.cloneNode(true);
   const viewBox = source.getAttribute("viewBox") || "0 0 1100 620";
@@ -1129,8 +1154,37 @@ function downloadCurrentSvg() {
   setStatus("SVG chart downloaded.", false);
 }
 
+function downloadMethodSvgs() {
+  const methods = uniqueValues(state.rows, "method");
+  let count = 0;
+
+  methods.forEach(method => {
+    const rows = rowsForMethodSvg(method);
+
+    if (rows.length > 0) {
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      renderChartSvg(svg, rows);
+      downloadSvgElement(svg, methodSvgDownloadName(method), `${method} resize benchmark chart`);
+      count++;
+    }
+  });
+
+  if (count > 0) {
+    setStatus(`${count} method SVG downloads queued.`, false);
+  } else {
+    setStatus("No method rows match the current filters.", true);
+  }
+}
+
 function externalSvgDownloadName() {
-  const size = preferredExternalSize() || "no-external-rows";
+  const sizes = externalComparisonSizes();
+  let size = "no-external-rows";
+
+  if (sizes.length === 1) {
+    size = sizes[0];
+  } else if (sizes.length > 1) {
+    size = "all-sizes";
+  }
 
   return `resize-benchmark_external_4ch_${exportFilePart(size)}_${state.metric}.svg`;
 }
@@ -1203,6 +1257,7 @@ ui.fileButton.addEventListener("click", () => {
   ui.fileInput.click();
 });
 ui.downloadSvgButton.addEventListener("click", downloadCurrentSvg);
+ui.downloadMethodSvgsButton.addEventListener("click", downloadMethodSvgs);
 ui.downloadExternalSvgButton.addEventListener("click", downloadExternalSvg);
 ui.exportButton.addEventListener("click", () => {
   ui.readmeExport.scrollIntoView({ behavior: "smooth", block: "center" });
