@@ -8,6 +8,7 @@
  */
 #include <sgl-core.h>
 #include "sgl-osal.h"
+#include "sgl_trace.h"
 #include <sgl_memory_cast.h>
 
 struct sgl_queue {
@@ -18,6 +19,41 @@ struct sgl_queue {
     sgl_size_t tail;
     sgl_osal_spinlock_t lock;
 };
+
+#define SGL_QUEUE_CACHE_LINE_SIZE    (64U)
+#define SGL_QUEUE_DATA_OFFSET \
+    ((sizeof(sgl_queue_t) + SGL_QUEUE_CACHE_LINE_SIZE - 1U) & \
+     ~(SGL_QUEUE_CACHE_LINE_SIZE - 1U))
+
+#if defined(SGL_CFG_HAS_LTTNG)
+/*
+ * A profiling build pays one trylock only to distinguish uncontended queue
+ * access from the shared-ring contention interval shown in Trace Compass.
+ */
+static SGL_ALWAYS_INLINE void sgl_queue_profiled_lock(
+    sgl_queue_t *queue,
+    const char *operation)
+{
+    if (sgl_osal_spinlock_try_lock(&queue->lock) == SGL_FALSE) {
+        SGL_TRACE_QUEUE_LOCK_CONTENDED(queue, operation);
+        sgl_osal_spinlock_lock(&queue->lock);
+        SGL_TRACE_QUEUE_LOCK_ACQUIRED(queue, operation);
+    }
+}
+#else
+#define sgl_queue_profiled_lock(queue, operation) \
+    sgl_osal_spinlock_lock(&(queue)->lock)
+#endif
+
+static SGL_ALWAYS_INLINE void **sgl_queue_data_address(sgl_queue_t *queue)
+{
+    sgl_uint8_t *address;
+
+    /* cppcheck-suppress misra-c2012-11.3 */
+    address = (sgl_uint8_t *)queue;
+
+    return sgl_memory_as_void_ptr_array(&address[SGL_QUEUE_DATA_OFFSET]);
+}
 
 static SGL_ALWAYS_INLINE void *sgl_queue_as_void_ptr(const void *data)
 {
@@ -43,22 +79,34 @@ static SGL_ALWAYS_INLINE void *sgl_queue_as_void_ptr(const void *data)
 sgl_queue_t *sgl_queue_create(sgl_size_t capacity)
 {
     sgl_queue_t *queue = SGL_NULL;
+    sgl_size_t allocation_size;
+    sgl_size_t maximum_capacity;
 
-    if (0U < capacity) {
-        queue = sgl_memory_as_queue(sgl_malloc(sizeof(sgl_queue_t)));
+    /*
+     * Queue allocation layout
+     * -----------------------
+     * Keep metadata and the pointer ring in one allocation to remove one
+     * allocator lock/unlock pair from each short-lived resize submission.
+     * A cache-line-sized gap prevents the spinlock/count writes from sharing
+     * a line with the first operation pointers consumed by worker threads.
+     *
+     *   allocation
+     *   +---------------- metadata ----------------+ gap + pointer ring ...
+     *   ^ queue                                    ^ queue->data
+     */
+    maximum_capacity =
+        (SGL_SIZE_MAX - SGL_QUEUE_DATA_OFFSET) / sizeof(void *);
+    if ((0U < capacity) && (capacity <= maximum_capacity)) {
+        allocation_size = SGL_QUEUE_DATA_OFFSET +
+            (sizeof(void *) * capacity);
+        queue = sgl_memory_as_queue(sgl_malloc(allocation_size));
         if (queue != SGL_NULL) {
-            queue->data = sgl_memory_as_void_ptr_array(sgl_malloc(sizeof(void *) * capacity));
-            if (queue->data != SGL_NULL) {
-                queue->head = 0;
-                queue->tail = 0;
-                queue->count = 0;
-                queue->capacity = capacity;
-                sgl_osal_spinlock_init(&queue->lock);
-            }
-            else {
-                sgl_free(queue);
-                queue = SGL_NULL;
-            }
+            queue->data = sgl_queue_data_address(queue);
+            queue->head = 0U;
+            queue->tail = 0U;
+            queue->count = 0U;
+            queue->capacity = capacity;
+            sgl_osal_spinlock_init(&queue->lock);
         }
     }
 
@@ -70,7 +118,6 @@ void sgl_queue_destroy(sgl_queue_t **queue)
     if (queue != SGL_NULL) {
         if (*queue != SGL_NULL) {
             sgl_osal_spinlock_destroy(&(*queue)->lock);
-            sgl_free((*queue)->data);
             sgl_free(*queue);
             *queue = SGL_NULL;
         }
@@ -106,7 +153,7 @@ sgl_result_t sgl_queue_unsafe_enqueue(sgl_queue_t *SGL_RESTRICT queue, const voi
 
     if ((queue != SGL_NULL) && (data != SGL_NULL)) {
         result = sgl_queue_is_full(queue);
-        if (result == SGL_QUEUE_IS_NOT_FULL) {
+        if (SGL_LIKELY(result == SGL_QUEUE_IS_NOT_FULL)) {
             head = queue->head;
             queue->data[head] = sgl_queue_as_void_ptr(data);
             if (queue->capacity <= ++head) {
@@ -129,9 +176,9 @@ sgl_result_t sgl_queue_enqueue(sgl_queue_t *SGL_RESTRICT queue, const void *SGL_
     sgl_size_t head;
 
     if ((queue != SGL_NULL) && (data != SGL_NULL)) {
-        sgl_osal_spinlock_lock(&queue->lock);
+        sgl_queue_profiled_lock(queue, SGL_TRACE_QUEUE_ENQUEUE);
         result = sgl_queue_is_full(queue);
-        if (result == SGL_QUEUE_IS_NOT_FULL) {
+        if (SGL_LIKELY(result == SGL_QUEUE_IS_NOT_FULL)) {
             head = queue->head;
             queue->data[head] = sgl_queue_as_void_ptr(data);
             if (queue->capacity <= ++head) {
@@ -156,9 +203,9 @@ void *sgl_queue_dequeue(sgl_queue_t *queue)
     sgl_size_t tail;
 
     if (queue != SGL_NULL) {
-        sgl_osal_spinlock_lock(&queue->lock);
+        sgl_queue_profiled_lock(queue, SGL_TRACE_QUEUE_DEQUEUE);
         result = sgl_queue_is_empty(queue);
-        if (result == SGL_QUEUE_IS_NOT_EMPTY) {
+        if (SGL_LIKELY(result == SGL_QUEUE_IS_NOT_EMPTY)) {
             tail = queue->tail;
             data = queue->data[tail];
             if (queue->capacity <= ++tail) {
@@ -180,9 +227,9 @@ void *sgl_queue_peek(sgl_queue_t *queue)
     sgl_size_t tail;
 
     if (queue != SGL_NULL) {
-        sgl_osal_spinlock_lock(&queue->lock);
+        sgl_queue_profiled_lock(queue, SGL_TRACE_QUEUE_PEEK);
         result = sgl_queue_is_empty(queue);
-        if (result == SGL_QUEUE_IS_NOT_EMPTY) {
+        if (SGL_LIKELY(result == SGL_QUEUE_IS_NOT_EMPTY)) {
             tail = queue->tail;
             data = queue->data[tail];
         }

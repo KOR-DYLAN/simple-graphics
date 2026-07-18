@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SGL Circular Queue</title>
+  <style>
+    :root{color-scheme:dark;--bg:#07111f;--panel:#101d31;--panel2:#172842;--text:#edf6ff;--muted:#91a6c1;--line:#365273;--accent:#38bdf8;--green:#34d399;--yellow:#fbbf24;--red:#fb7185}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 15% 10%,#153558 0,transparent 30rem),radial-gradient(circle at 88% 82%,#123c38 0,transparent 28rem),var(--bg);color:var(--text);font-family:Inter,"Noto Sans KR",system-ui,sans-serif}
+    main{width:min(1180px,calc(100% - 32px));margin:28px auto}header{display:flex;align-items:end;justify-content:space-between;gap:24px;margin-bottom:18px}h1{margin:0;font-size:clamp(24px,4vw,42px);letter-spacing:-.04em}header p{max-width:650px;margin:8px 0 0;color:var(--muted);line-height:1.55}.badge{flex:none;padding:8px 12px;border:1px solid var(--line);border-radius:999px;background:#101d31cc;color:#bad4f3;font:13px ui-monospace,monospace}
+    .stage{overflow:hidden;border:1px solid #263955;border-radius:20px;background:linear-gradient(145deg,#111c30e8,#0b1424ed);box-shadow:0 24px 80px #0008}svg{display:block;width:100%;height:auto;aspect-ratio:16/9}.controls{display:grid;grid-template-columns:auto auto 1fr auto;align-items:center;gap:12px;padding:14px 16px;border-top:1px solid #263955;background:#0b1424}button{min-width:42px;height:38px;border:1px solid var(--line);border-radius:10px;background:#182742;color:var(--text);cursor:pointer;font-weight:700}button:hover{background:#213654}input[type=range]{width:100%;accent-color:var(--accent)}#counter{min-width:66px;color:var(--muted);text-align:right;font:13px ui-monospace,monospace}.notes{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}.note{padding:14px 16px;border:1px solid #263955;border-radius:14px;background:#111b2ecc;color:var(--muted);font-size:14px;line-height:1.5}.note strong{color:var(--text)}code{color:#bae6fd}@media(max-width:760px){header{align-items:start;flex-direction:column}.notes{grid-template-columns:1fr}.controls{grid-template-columns:auto auto 1fr}#counter{display:none}}
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div><h1>SGL Circular Queue</h1><p>A visual walk through allocation, spinlock-protected enqueue/dequeue, index wrap-around, and full/empty detection.</p></div>
+    <div class="badge">library/sgl-core/queue/queue.c</div>
+  </header>
+  <section class="stage">
+    <svg id="scene" viewBox="0 0 1120 630" role="img" aria-label="Animation of the SGL circular queue"></svg>
+    <div class="controls"><button id="previous">←</button><button id="play">Ⅱ</button><input id="timeline" type="range" min="0" max="9" value="0"><span id="counter"></span></div>
+  </section>
+  <section class="notes">
+    <div class="note"><strong>Ring storage</strong><br><code>head</code> is the next write slot; <code>tail</code> is the next read slot.</div>
+    <div class="note"><strong>Occupancy</strong><br><code>count</code> distinguishes empty and full even when both indices are equal.</div>
+    <div class="note"><strong>Synchronization</strong><br>Public enqueue, dequeue, and peek operations hold the queue spinlock.</div>
+  </section>
+</main>
+<script>
+const NS="http://www.w3.org/2000/svg",C={bg:"#0d1728",panel:"#111b2e",text:"#edf6ff",muted:"#91a6c1",line:"#365273",accent:"#38bdf8",green:"#34d399",yellow:"#fbbf24",red:"#fb7185",empty:"#172842"};
+const steps=[
+ {t:"1. Create a queue with four slots",op:"sgl_queue_create(4)",d:"The queue object and pointer array are allocated; head, tail, and count start at zero.",v:[null,null,null,null],h:0,ta:0,c:0,lock:"init",focus:-1,code:["allocate queue + data[4]","head = tail = count = 0","spinlock_init(&queue->lock)"]},
+ {t:"2. Enqueue A",op:"sgl_queue_enqueue(queue, A)",d:"The spinlock is acquired, A is stored at head, then head and count advance.",v:["A",null,null,null],h:1,ta:0,c:1,lock:"locked",focus:0,code:["lock(queue)","data[head] = A","head++; count++"]},
+ {t:"3. Enqueue B",op:"sgl_queue_enqueue(queue, B)",d:"B occupies slot 1. Tail still points to A, the oldest element.",v:["A","B",null,null],h:2,ta:0,c:2,lock:"locked",focus:1,code:["is_full() → false","data[1] = B","head = 2; count = 2"]},
+ {t:"4. Enqueue C",op:"sgl_queue_enqueue(queue, C)",d:"Insertion order is preserved while head moves clockwise through the ring.",v:["A","B","C",null],h:3,ta:0,c:3,lock:"locked",focus:2,code:["data[2] = C","head = 3","count = 3"]},
+ {t:"5. Dequeue A",op:"sgl_queue_dequeue(queue)",d:"The value at tail is returned; tail advances and A's old slot becomes reusable.",v:[null,"B","C",null],h:3,ta:1,c:2,lock:"locked",focus:0,code:["data = data[tail]","tail++; count--","return A"]},
+ {t:"6. Enqueue D",op:"sgl_queue_enqueue(queue, D)",d:"D is written to slot 3 and head wraps to zero at capacity.",v:[null,"B","C","D"],h:0,ta:1,c:3,lock:"locked",focus:3,code:["data[3] = D","++head == capacity","head = 0"]},
+ {t:"7. Enqueue E after wrap-around",op:"sgl_queue_enqueue(queue, E)",d:"The reclaimed slot 0 is reused. count now equals capacity, so the queue is full.",v:["E","B","C","D"],h:1,ta:1,c:4,lock:"locked",focus:0,code:["data[0] = E","head = 1; count = 4","is_full() → true"]},
+ {t:"8. Reject an enqueue while full",op:"sgl_queue_enqueue(queue, F)",d:"The full check prevents data overwrite and leaves every field unchanged.",v:["E","B","C","D"],h:1,ta:1,c:4,lock:"locked",focus:-1,code:["is_full() → true","skip data write","return SGL_QUEUE_IS_FULL"],warn:true},
+ {t:"9. Peek B without removal",op:"sgl_queue_peek(queue)",d:"Peek reads data[tail] but does not change tail or count.",v:["E","B","C","D"],h:1,ta:1,c:4,lock:"locked",focus:1,code:["data = data[tail]","tail and count unchanged","return B"]},
+ {t:"10. Destroy the queue",op:"sgl_queue_destroy(&queue)",d:"The spinlock, pointer array, and queue object are released; the caller pointer becomes SGL_NULL.",v:[],h:0,ta:0,c:0,lock:"destroyed",focus:-1,code:["spinlock_destroy()","sgl_free(data); sgl_free(queue)","queue = SGL_NULL"]}
+];
+const svg=document.querySelector("#scene"),timeline=document.querySelector("#timeline"),play=document.querySelector("#play"),counter=document.querySelector("#counter");let index=0,playing=true,timer;
+function e(n,a={},s=""){const x=document.createElementNS(NS,n);Object.entries(a).forEach(([k,v])=>x.setAttribute(k,v));if(s)x.textContent=s;return x}
+function tx(x,y,s,z=16,f=C.text,w=400,a="start"){return e("text",{x,y,fill:f,"font-size":z,"font-weight":w,"text-anchor":a},s)}
+function rr(x,y,w,h,f,st=C.line,r=12){return e("rect",{x,y,width:w,height:h,rx:r,fill:f,stroke:st,"stroke-width":2})}
+function arrow(x1,y1,x2,y2,col){const g=e("g");g.append(e("line",{x1,y1,x2,y2,stroke:col,"stroke-width":3}),e("path",{d:`M${x2},${y2} l-10,-6 v12 z`,fill:col}));return g}
+function arcArrow(cx,cy,r,col){const endX=cx+r*.72,endY=cy-r*.69;return e("path",{d:`M ${cx-r*.72} ${cy-r*.69} A ${r} ${r} 0 0 1 ${endX} ${endY} l-13,-2 l7,11`,fill:"none",stroke:col,"stroke-width":4,"stroke-linecap":"round","stroke-linejoin":"round"})}
+function render(n){index=(n+steps.length)%steps.length;const s=steps[index];svg.replaceChildren();svg.append(rr(24,24,1072,582,C.bg,"#263955",18),tx(54,70,s.t,27,C.text,750),tx(54,99,s.op,16,C.yellow,650),tx(54,128,s.d,15,C.muted));
+ svg.append(tx(54,175,"CIRCULAR STORAGE",12,C.muted,700));
+ if(!s.v.length){svg.append(rr(54,195,650,280,"#09111f",C.line,16),tx(379,342,"QUEUE RELEASED",25,C.muted,700,"middle"))}
+ else{const cx=379,cy=337,r=142;svg.append(e("circle",{cx,cy,r:108,fill:"#09111f",stroke:C.line,"stroke-width":22}),arcArrow(cx,cy,126,C.muted));s.v.forEach((v,i)=>{const ang=(-90+i*90)*Math.PI/180,x=cx+Math.cos(ang)*r,y=cy+Math.sin(ang)*r,active=i===s.focus;svg.append(e("circle",{cx:x,cy:y,r:54,fill:v?C.panel:C.empty,stroke:active?C.yellow:C.line,"stroke-width":active?5:3}),tx(x,y-8,`slot ${i}`,13,C.muted,650,"middle"),tx(x,y+21,v||"empty",21,v?C.text:C.muted,750,"middle"));});
+ const hp=(-90+s.h*90)*Math.PI/180,tp=(-90+s.ta*90)*Math.PI/180;svg.append(arrow(cx+Math.cos(hp)*76,cy+Math.sin(hp)*76,cx+Math.cos(hp)*104,cy+Math.sin(hp)*104,C.accent),arrow(cx+Math.cos(tp)*205,cy+Math.sin(tp)*205,cx+Math.cos(tp)*181,cy+Math.sin(tp)*181,C.green),tx(cx,326,`count ${s.c} / 4`,22,s.c===4?C.red:C.text,750,"middle"),tx(cx,353,s.c===0?"EMPTY":s.c===4?"FULL":"READY",14,s.c===4?C.red:C.green,700,"middle"),tx(78,541,"head → next write",13,C.accent,650),tx(78,564,"tail → next read",13,C.green,650),tx(379,535,"clockwise index progression",12,C.muted,650,"middle"));}
+ svg.append(rr(735,174,331,310,C.panel,"#263955",14),tx(760,208,"QUEUE STATE",12,C.muted,700),tx(760,246,`head     ${s.h}`,18,C.accent,700),tx(760,278,`tail     ${s.ta}`,18,C.green,700),tx(760,310,`count    ${s.c}`,18,s.c===4?C.red:C.text,700),tx(760,342,`capacity ${s.v.length?4:0}`,18,C.text,700),tx(760,382,`spinlock: ${s.lock}`,14,s.lock==="locked"?C.yellow:C.muted,650),tx(760,422,s.warn?"write blocked":"indices update after access",14,s.warn?C.red:C.muted,650));
+ svg.append(rr(735,502,331,82,"#0a1423","#263955",12));s.code.forEach((l,i)=>svg.append(tx(754,526+i*20,l,12,i===1?C.yellow:"#cbdcf0",i===1?700:450)));
+ timeline.value=index;counter.textContent=`${index+1} / ${steps.length}`}
+function schedule(){clearInterval(timer);if(playing)timer=setInterval(()=>render(index+1),2200);play.textContent=playing?"Ⅱ":"▶"}document.querySelector("#previous").onclick=()=>{render(index-1);schedule()};play.onclick=()=>{playing=!playing;schedule()};timeline.oninput=x=>{render(Number(x.target.value));schedule()};document.onkeydown=x=>{if(x.key==="ArrowRight")render(index+1);if(x.key==="ArrowLeft")render(index-1);if(x.key===" "){x.preventDefault();playing=!playing;schedule()}};render(0);schedule();
+</script>
+</body>
+</html>

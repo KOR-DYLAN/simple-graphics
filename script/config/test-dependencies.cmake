@@ -164,8 +164,12 @@ file(MAKE_DIRECTORY
 
 set(SGL_TEST_ZLIB_NG_LIBRARY
     "${SGL_TEST_DEPS_INSTALL_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}z${CMAKE_STATIC_LIBRARY_SUFFIX}")
+# libpng installs a configuration-dependent libpng16 name in Debug
+# (libpng16d.a on current libpng) and also installs the stable zlib-compatible
+# libpng.a alias.  Use the alias so Debug sanitizer builds and Release builds
+# share the same imported target path.
 set(SGL_TEST_LIBPNG_LIBRARY
-    "${SGL_TEST_DEPS_INSTALL_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}png16${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    "${SGL_TEST_DEPS_INSTALL_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}png${CMAKE_STATIC_LIBRARY_SUFFIX}")
 set(SGL_TEST_PIXMAN_LIBRARY
     "${SGL_TEST_DEPS_INSTALL_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}pixman-1${CMAKE_STATIC_LIBRARY_SUFFIX}")
 set(SGL_TEST_CAIRO_LIBRARY
@@ -211,10 +215,23 @@ set(SGL_TEST_HAS_CAIRO_DEPENDENCY FALSE)
 set(SGL_TEST_HAS_NE10_DEPENDENCY FALSE)
 
 if(WITH_BENCHMARK_COMPARE)
+    if(NOT SGL_CFG_IS_ARM64)
+        message(FATAL_ERROR
+            "WITH_BENCHMARK_COMPARE requires an AArch64 target because the "
+            "NE10 benchmark builds its AArch64 image-processing backend")
+    endif()
+
     find_program(SGL_TEST_MESON_EXECUTABLE meson)
     find_program(SGL_TEST_NINJA_EXECUTABLE ninja)
 
-    # Build NE10 for optional ARM resize benchmark comparison rows.
+    if(NOT SGL_TEST_MESON_EXECUTABLE OR NOT SGL_TEST_NINJA_EXECUTABLE)
+        message(FATAL_ERROR
+            "WITH_BENCHMARK_COMPARE requires both meson and ninja so "
+            "Cairo benchmark rows cannot be omitted")
+    endif()
+
+    # Build the AArch64 image-processing module; this compiles both the scalar
+    # NE10_resize.c and ASIMD NE10_resize.neon.c implementations.
     ExternalProject_Add(sgl-test-ne10
         URL ${SGL_TEST_NE10_URL}
         DOWNLOAD_DIR "${SGL_TEST_DEPS_DOWNLOAD_DIR}"
@@ -243,9 +260,8 @@ if(WITH_BENCHMARK_COMPARE)
     list(APPEND SGL_TEST_OPTIONAL_DEPENDENCIES sgl-test-ne10)
     set(SGL_TEST_HAS_NE10_DEPENDENCY TRUE)
 
-    if(SGL_TEST_MESON_EXECUTABLE AND SGL_TEST_NINJA_EXECUTABLE)
-        # Generate a Cairo Meson wrap file that points at the cached pixman tarball.
-        file(WRITE "${SGL_TEST_CAIRO_PIXMAN_WRAP_SCRIPT}"
+    # Generate a Cairo Meson wrap file that points at the cached pixman tarball.
+    file(WRITE "${SGL_TEST_CAIRO_PIXMAN_WRAP_SCRIPT}"
 "file(SHA256
     \"${SGL_TEST_DEPS_DOWNLOAD_DIR}/${SGL_TEST_PIXMAN_ARCHIVE_NAME}\"
     SGL_TEST_PIXMAN_SHA256)
@@ -263,71 +279,71 @@ pixman-1 = idep_pixman
 \")
 ")
 
-        # Keep pixman as its own download target so the tarball lives in the
-        # workspace-level download cache.  Cairo still builds pixman through its
-        # Meson fallback path because that works even when pkg-config is not
-        # installed in a minimal test environment.
-        ExternalProject_Add(sgl-test-pixman
-            URL ${SGL_TEST_PIXMAN_URL}
-            DOWNLOAD_DIR "${SGL_TEST_DEPS_DOWNLOAD_DIR}"
-            DOWNLOAD_NAME "${SGL_TEST_PIXMAN_ARCHIVE_NAME}"
-            PREFIX "${CMAKE_BINARY_DIR}/test-deps/pixman"
-            SOURCE_DIR "${CMAKE_BINARY_DIR}/test-deps/pixman/src/sgl-test-pixman"
-            CONFIGURE_COMMAND
-                ""
-            BUILD_COMMAND
-                ""
-            INSTALL_COMMAND
-                ""
-        )
+    # Keep pixman as its own download target so the tarball lives in the
+    # workspace-level download cache.  Cairo still builds pixman through its
+    # Meson fallback path because that works even when pkg-config is not
+    # installed in a minimal test environment.
+    ExternalProject_Add(sgl-test-pixman
+        URL ${SGL_TEST_PIXMAN_URL}
+        DOWNLOAD_DIR "${SGL_TEST_DEPS_DOWNLOAD_DIR}"
+        DOWNLOAD_NAME "${SGL_TEST_PIXMAN_ARCHIVE_NAME}"
+        PREFIX "${CMAKE_BINARY_DIR}/test-deps/pixman"
+        SOURCE_DIR "${CMAKE_BINARY_DIR}/test-deps/pixman/src/sgl-test-pixman"
+        CONFIGURE_COMMAND
+            ""
+        BUILD_COMMAND
+            ""
+        INSTALL_COMMAND
+            ""
+    )
 
-        # Build static Cairo with most optional surface/font backends disabled.
-        ExternalProject_Add(sgl-test-cairo
-            URL ${SGL_TEST_CAIRO_URL}
-            DOWNLOAD_DIR "${SGL_TEST_DEPS_DOWNLOAD_DIR}"
-            DOWNLOAD_NAME "${SGL_TEST_CAIRO_ARCHIVE_NAME}"
-            PREFIX "${CMAKE_BINARY_DIR}/test-deps/cairo"
-            SOURCE_DIR "${CMAKE_BINARY_DIR}/test-deps/cairo/src/sgl-test-cairo"
-            BINARY_DIR "${CMAKE_BINARY_DIR}/test-deps/cairo/src/sgl-test-cairo-build"
-            DEPENDS sgl-test-pixman
-            PATCH_COMMAND
-                ${CMAKE_COMMAND}
-                    -DSGL_TEST_CAIRO_SOURCE_DIR=<SOURCE_DIR>
-                    -P "${SGL_TEST_CAIRO_PIXMAN_WRAP_SCRIPT}"
-            CONFIGURE_COMMAND
-                ${CMAKE_COMMAND} -E env
-                    PKG_CONFIG_PATH=${SGL_TEST_DEPS_INSTALL_DIR}/lib/pkgconfig
-                    ${SGL_TEST_MESON_EXECUTABLE} setup
-                        <BINARY_DIR>
-                        <SOURCE_DIR>
-                        --force-fallback-for=pixman-1
-                        --prefix=${SGL_TEST_DEPS_INSTALL_DIR}
-                        --libdir=lib
-                        --buildtype=release
-                        --default-library=static
-                        -Dtests=disabled
-                        -Dpng=disabled
-                        -Dzlib=disabled
-                        -Dglib=disabled
-                        -Dspectre=disabled
-                        -Dfreetype=disabled
-                        -Dfontconfig=disabled
-                        -Dxlib=disabled
-                        -Dxcb=disabled
-            BUILD_COMMAND
-                ${SGL_TEST_MESON_EXECUTABLE} compile -C <BINARY_DIR>
-            INSTALL_COMMAND
-                ${SGL_TEST_MESON_EXECUTABLE} install -C <BINARY_DIR>
-        )
+    # Build static Cairo with most optional surface/font backends disabled.
+    ExternalProject_Add(sgl-test-cairo
+        URL ${SGL_TEST_CAIRO_URL}
+        DOWNLOAD_DIR "${SGL_TEST_DEPS_DOWNLOAD_DIR}"
+        DOWNLOAD_NAME "${SGL_TEST_CAIRO_ARCHIVE_NAME}"
+        PREFIX "${CMAKE_BINARY_DIR}/test-deps/cairo"
+        SOURCE_DIR "${CMAKE_BINARY_DIR}/test-deps/cairo/src/sgl-test-cairo"
+        BINARY_DIR "${CMAKE_BINARY_DIR}/test-deps/cairo/src/sgl-test-cairo-build"
+        DEPENDS sgl-test-pixman
+        PATCH_COMMAND
+            ${CMAKE_COMMAND}
+                -DSGL_TEST_CAIRO_SOURCE_DIR=<SOURCE_DIR>
+                -P "${SGL_TEST_CAIRO_PIXMAN_WRAP_SCRIPT}"
+        CONFIGURE_COMMAND
+            ${CMAKE_COMMAND} -E env
+                PKG_CONFIG_PATH=${SGL_TEST_DEPS_INSTALL_DIR}/lib/pkgconfig
+                ${SGL_TEST_MESON_EXECUTABLE} setup
+                    <BINARY_DIR>
+                    <SOURCE_DIR>
+                    --force-fallback-for=pixman-1
+                    --prefix=${SGL_TEST_DEPS_INSTALL_DIR}
+                    --libdir=lib
+                    --buildtype=release
+                    --default-library=static
+                    -Dtests=disabled
+                    -Dpixman:tests=disabled
+                    -Dpixman:demos=disabled
+                    -Dpixman:libpng=disabled
+                    -Dpixman:openmp=disabled
+                    -Dpng=disabled
+                    -Dzlib=disabled
+                    -Dglib=disabled
+                    -Dspectre=disabled
+                    -Dfreetype=disabled
+                    -Dfontconfig=disabled
+                    -Dxlib=disabled
+                    -Dxcb=disabled
+        BUILD_COMMAND
+            ${SGL_TEST_MESON_EXECUTABLE} compile -C <BINARY_DIR>
+        INSTALL_COMMAND
+            ${SGL_TEST_MESON_EXECUTABLE} install -C <BINARY_DIR>
+    )
 
-        list(APPEND SGL_TEST_OPTIONAL_DEPENDENCIES
-            sgl-test-pixman
-            sgl-test-cairo)
-        set(SGL_TEST_HAS_CAIRO_DEPENDENCY TRUE)
-    else()
-        message(STATUS
-            "test dependency cairo disabled: meson and ninja are required")
-    endif()
+    list(APPEND SGL_TEST_OPTIONAL_DEPENDENCIES
+        sgl-test-pixman
+        sgl-test-cairo)
+    set(SGL_TEST_HAS_CAIRO_DEPENDENCY TRUE)
 else()
     message(STATUS
         "resize benchmark comparison dependencies: disabled")
@@ -355,13 +371,14 @@ set_target_properties(SGLTest::PNG PROPERTIES
     INTERFACE_LINK_LIBRARIES "SGLTest::ZLIB;m")
 
 if(SGL_TEST_HAS_CAIRO_DEPENDENCY)
-    # Imported targets for optional Cairo/pixman benchmark comparison.
+    # Imported targets for the required Cairo/pixman benchmark comparison.
     add_library(SGLTest::Pixman STATIC IMPORTED GLOBAL)
     set_target_properties(SGLTest::Pixman PROPERTIES
         IMPORTED_LOCATION "${SGL_TEST_PIXMAN_LIBRARY}"
         INTERFACE_INCLUDE_DIRECTORIES
             "${SGL_TEST_DEPS_INSTALL_DIR}/include/pixman-1"
         INTERFACE_LINK_LIBRARIES "m")
+    add_dependencies(SGLTest::Pixman sgl-test-pixman)
 
     add_library(SGLTest::Cairo STATIC IMPORTED GLOBAL)
     set_target_properties(SGLTest::Cairo PROPERTIES
@@ -369,10 +386,11 @@ if(SGL_TEST_HAS_CAIRO_DEPENDENCY)
         INTERFACE_INCLUDE_DIRECTORIES
             "${SGL_TEST_DEPS_INSTALL_DIR}/include/cairo;${SGL_TEST_DEPS_INSTALL_DIR}/include/pixman-1"
         INTERFACE_LINK_LIBRARIES "SGLTest::Pixman;m")
+    add_dependencies(SGLTest::Cairo sgl-test-cairo)
 endif()
 
 if(SGL_TEST_HAS_NE10_DEPENDENCY)
-    # Imported target for optional NE10 benchmark comparison.
+    # Imported target for the required NE10 benchmark comparison.
     add_library(SGLTest::NE10 STATIC IMPORTED GLOBAL)
     set_target_properties(SGLTest::NE10 PROPERTIES
         IMPORTED_LOCATION "${SGL_TEST_NE10_LIBRARY}"

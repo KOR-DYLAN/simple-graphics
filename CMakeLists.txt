@@ -141,6 +141,38 @@ else()
 endif()
 
 #============================================================================
+# LTTng profiling target
+#============================================================================
+if(SGL_CFG_HAS_LTTNG AND WITH_TEST_APP AND NOT CMAKE_CROSSCOMPILING)
+    if(SGL_LTTNG_EXECUTABLE)
+        set(SGL_LTTNG_CAPTURE_COMMAND "${SGL_LTTNG_EXECUTABLE}")
+    else()
+        set(SGL_LTTNG_CAPTURE_COMMAND "lttng")
+    endif()
+    if(SGL_LTTNG_SESSIOND_EXECUTABLE)
+        set(SGL_LTTNG_SESSIOND_COMMAND "${SGL_LTTNG_SESSIOND_EXECUTABLE}")
+    else()
+        set(SGL_LTTNG_SESSIOND_COMMAND "lttng-sessiond")
+    endif()
+
+    add_custom_target(profile-lttng
+        COMMAND ${CMAKE_COMMAND} -E env
+            "SGL_LTTNG_COMMAND=${SGL_LTTNG_CAPTURE_COMMAND}"
+            "SGL_LTTNG_SESSIOND_COMMAND=${SGL_LTTNG_SESSIOND_COMMAND}"
+            "SGL_LTTNG_LIBRARY_DIR=${SGL_LTTNG_UST_LIBRARY_DIR}"
+            "SGL_LTTNG_REPORT=${CMAKE_SOURCE_DIR}/tools/lttng-resize-report.py"
+            "${CMAKE_SOURCE_DIR}/script/profile-lttng.sh"
+            "${CMAKE_BINARY_DIR}/profile/lttng"
+            "$<TARGET_FILE:resize>"
+            "${CMAKE_SOURCE_DIR}/resource/sample.png"
+            "${CMAKE_BINARY_DIR}/profile/output"
+        COMMENT "Recording SGL resize LTTng-UST trace"
+        DEPENDS resize
+        USES_TERMINAL
+    )
+endif()
+
+#============================================================================
 # CPack Target
 #============================================================================
 set(CPACK_GENERATOR

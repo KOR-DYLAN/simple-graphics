@@ -10,7 +10,11 @@ downloads/*
 report/*/cppcheck-build/*
 benchmark/*
 !benchmark/
-!benchmark/resize-benchmark-summary.svg
-!benchmark/resize-benchmark-nearest.svg
-!benchmark/resize-benchmark-bilinear.svg
-!benchmark/resize-benchmark-bicubic.svg
+!benchmark/README.md
+!benchmark/resize/
+benchmark/resize/*
+!benchmark/resize/README.md
+!benchmark/resize/[1-4]ch/
+benchmark/resize/[1-4]ch/*
+!benchmark/resize/[1-4]ch/README.md
+!benchmark/resize/[1-4]ch/*.svg

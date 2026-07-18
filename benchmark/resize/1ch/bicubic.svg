@@ -1,0 +1,97 @@
+<!--
+SPDX-License-Identifier: MIT
+
+Copyright (c) 2025 Dylan Hong
+
+This file is released under the MIT License.
+For conditions of distribution and use, see the LICENSE file.
+-->
+
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="978" viewBox="0 0 1400 978" role="img" aria-labelledby="title desc">
+  <title id="title">SGL 1-channel resize benchmark bicubic comparison</title>
+  <desc id="desc">bicubic resize benchmark snapshot measured from benchmark/resize/benchmark.csv. The chart compares available 1-channel resize cases.</desc>
+  <defs>
+    <style>
+      .bg { fill: #101418; }
+      .panel { fill: #171d23; stroke: #34424a; stroke-width: 1.5; }
+      .header { fill: #1f262e; }
+      .line { stroke: #34424a; stroke-width: 1; }
+      .text { fill: #eef4f3; font-family: Inter, "Noto Sans KR", system-ui, sans-serif; }
+      .muted { fill: #9ba9a7; font-family: Inter, "Noto Sans KR", system-ui, sans-serif; }
+      .small { fill: #9ba9a7; font-family: Inter, "Noto Sans KR", system-ui, sans-serif; font-size: 12px; }
+      .cell { fill: #eef4f3; font-family: Inter, "Noto Sans KR", system-ui, sans-serif; font-size: 14px; font-weight: 650; }
+      .head { fill: #c6d4d1; font-family: Inter, "Noto Sans KR", system-ui, sans-serif; font-size: 12px; font-weight: 800; }
+      .speed { fill: #facc15; font-family: Inter, "Noto Sans KR", system-ui, sans-serif; font-size: 14px; font-weight: 800; }
+    </style>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1400" height="978"/>
+
+  <text class="text" x="36" y="52" font-size="30" font-weight="800">SGL Resize Benchmark: bicubic</text>
+  <text class="muted" x="36" y="80" font-size="14">Median latency from benchmark/resize/benchmark.csv, Release build, resource/sample.png</text>
+  <text class="muted" x="36" y="102" font-size="13">1-channel median latency; table columns and chart rows adapt to available benchmark entries.</text>
+  <rect class="panel" x="28" y="132" width="1344" height="236" rx="8"/>
+  <text class="text" x="58" y="172" font-size="22" font-weight="800">bicubic path comparison</text>
+  <text class="muted" x="58" y="194" font-size="13">1-channel median latency; external columns appear only when measured for this method.</text>
+  <rect class="header" x="48" y="216" width="1304" height="38" rx="6"/>
+  <text class="head" x="64" y="240">resize case</text>
+  <text class="head" x="368" y="240" text-anchor="end">generic 1t</text>
+  <text class="head" x="504" y="240" text-anchor="end">generic 8t</text>
+  <text class="head" x="648" y="240" text-anchor="end">generic-lut 1t</text>
+  <text class="head" x="792" y="240" text-anchor="end">generic-lut 8t</text>
+  <text class="head" x="928" y="240" text-anchor="end">simd 1t</text>
+  <text class="head" x="1064" y="240" text-anchor="end">simd 8t</text>
+  <text class="head" x="1200" y="240" text-anchor="end">simd-lut 1t</text>
+  <text class="head" x="1336" y="240" text-anchor="end">simd-lut 8t</text>
+  <line class="line" x1="48" y1="262" x2="1352" y2="262"/>
+  <text class="cell" x="64" y="288">downscale 640x480</text>
+  <text class="cell" x="368" y="288" text-anchor="end">14.912 ms</text>
+  <text class="cell" x="504" y="288" text-anchor="end">3.611 ms</text>
+  <text class="cell" x="648" y="288" text-anchor="end">14.845 ms</text>
+  <text class="cell" x="792" y="288" text-anchor="end">3.559 ms</text>
+  <text class="cell" x="928" y="288" text-anchor="end">1.407 ms</text>
+  <text class="cell" x="1064" y="288" text-anchor="end">0.535 ms</text>
+  <text class="cell" x="1200" y="288" text-anchor="end">1.402 ms</text>
+  <text class="cell" x="1336" y="288" text-anchor="end">0.530 ms</text>
+  <line class="line" x1="48" y1="314" x2="1352" y2="314"/>
+  <text class="cell" x="64" y="340">upscale 2560x1440</text>
+  <text class="cell" x="368" y="340" text-anchor="end">169.344 ms</text>
+  <text class="cell" x="504" y="340" text-anchor="end">29.692 ms</text>
+  <text class="cell" x="648" y="340" text-anchor="end">169.172 ms</text>
+  <text class="cell" x="792" y="340" text-anchor="end">29.832 ms</text>
+  <text class="cell" x="928" y="340" text-anchor="end">11.757 ms</text>
+  <text class="cell" x="1064" y="340" text-anchor="end">2.255 ms</text>
+  <text class="cell" x="1200" y="340" text-anchor="end">11.264 ms</text>
+  <text class="cell" x="1336" y="340" text-anchor="end">2.276 ms</text>
+  <rect class="panel" x="28" y="406" width="1344" height="242" rx="8"/>
+  <text class="text" x="58" y="446" font-size="22" font-weight="800">bicubic downscale 640x480 latency comparison</text>
+  <text class="muted" x="58" y="468" font-size="13">1-channel prebuilt-LUT SGL paths and available external baselines; bars are normalized to the slowest displayed row.</text>
+  <text class="small" x="78" y="514">generic-lut 1t</text>
+  <rect x="268" y="500" width="962" height="18" rx="3" fill="#38bdf8"/>
+  <text class="cell" x="1244" y="514">14.845 ms</text>
+  <text class="small" x="78" y="548">generic-lut 8t</text>
+  <rect x="268" y="534" width="231" height="18" rx="3" fill="#2563eb"/>
+  <text class="cell" x="513" y="548">3.559 ms</text>
+  <text class="small" x="78" y="582">simd-lut 1t</text>
+  <rect x="268" y="568" width="91" height="18" rx="3" fill="#fb7185"/>
+  <text class="cell" x="373" y="582">1.402 ms</text>
+  <text class="small" x="78" y="616">simd-lut 8t</text>
+  <rect x="268" y="602" width="34" height="18" rx="3" fill="#4ade80"/>
+  <text class="cell" x="316" y="616">0.530 ms</text>
+  <rect class="panel" x="28" y="686" width="1344" height="242" rx="8"/>
+  <text class="text" x="58" y="726" font-size="22" font-weight="800">bicubic upscale 2560x1440 latency comparison</text>
+  <text class="muted" x="58" y="748" font-size="13">1-channel prebuilt-LUT SGL paths and available external baselines; bars are normalized to the slowest displayed row.</text>
+  <text class="small" x="78" y="794">generic-lut 1t</text>
+  <rect x="268" y="780" width="962" height="18" rx="3" fill="#38bdf8"/>
+  <text class="cell" x="1244" y="794">169.172 ms</text>
+  <text class="small" x="78" y="828">generic-lut 8t</text>
+  <rect x="268" y="814" width="170" height="18" rx="3" fill="#2563eb"/>
+  <text class="cell" x="452" y="828">29.832 ms</text>
+  <text class="small" x="78" y="862">simd-lut 1t</text>
+  <rect x="268" y="848" width="64" height="18" rx="3" fill="#fb7185"/>
+  <text class="cell" x="346" y="862">11.264 ms</text>
+  <text class="small" x="78" y="896">simd-lut 8t</text>
+  <rect x="268" y="882" width="13" height="18" rx="3" fill="#4ade80"/>
+  <text class="cell" x="295" y="896">2.276 ms</text>
+  <text class="small" x="36" y="956">Note: benchmark results are workload and environment dependent; rerun on the target machine before publishing final claims.</text>
+</svg>

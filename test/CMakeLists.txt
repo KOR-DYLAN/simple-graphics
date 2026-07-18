@@ -18,6 +18,9 @@ add_subdirectory(sample)
 add_subdirectory(resize)
 add_subdirectory(queue)
 add_subdirectory(memory)
+if(SGL_CFG_HAS_PTHREAD)
+    add_subdirectory(threadpool)
+endif()
 
 # Build the shared PNG helper library after dependency targets are declared.
 add_subdirectory(util)

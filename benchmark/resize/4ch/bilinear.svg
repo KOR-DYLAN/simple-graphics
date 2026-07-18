@@ -1,0 +1,118 @@
+<!--
+SPDX-License-Identifier: MIT
+
+Copyright (c) 2025 Dylan Hong
+
+This file is released under the MIT License.
+For conditions of distribution and use, see the LICENSE file.
+-->
+
+<svg xmlns="http://www.w3.org/2000/svg" width="1808" height="1114" viewBox="0 0 1808 1114" role="img" aria-labelledby="title desc">
+  <title id="title">SGL 4-channel resize benchmark bilinear comparison</title>
+  <desc id="desc">bilinear resize benchmark snapshot measured from benchmark/resize/benchmark.csv. The chart compares available 4-channel resize cases.</desc>
+  <defs>
+    <style>
+      .bg { fill: #101418; }
+      .panel { fill: #171d23; stroke: #34424a; stroke-width: 1.5; }
+      .header { fill: #1f262e; }
+      .line { stroke: #34424a; stroke-width: 1; }
+      .text { fill: #eef4f3; font-family: Inter, "Noto Sans KR", system-ui, sans-serif; }
+      .muted { fill: #9ba9a7; font-family: Inter, "Noto Sans KR", system-ui, sans-serif; }
+      .small { fill: #9ba9a7; font-family: Inter, "Noto Sans KR", system-ui, sans-serif; font-size: 12px; }
+      .cell { fill: #eef4f3; font-family: Inter, "Noto Sans KR", system-ui, sans-serif; font-size: 14px; font-weight: 650; }
+      .head { fill: #c6d4d1; font-family: Inter, "Noto Sans KR", system-ui, sans-serif; font-size: 12px; font-weight: 800; }
+      .speed { fill: #facc15; font-family: Inter, "Noto Sans KR", system-ui, sans-serif; font-size: 14px; font-weight: 800; }
+    </style>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1808" height="1114"/>
+
+  <text class="text" x="36" y="52" font-size="30" font-weight="800">SGL Resize Benchmark: bilinear</text>
+  <text class="muted" x="36" y="80" font-size="14">Median latency from benchmark/resize/benchmark.csv, Release build, resource/sample.png</text>
+  <text class="muted" x="36" y="102" font-size="13">4-channel median latency; table columns and chart rows adapt to available benchmark entries.</text>
+  <rect class="panel" x="28" y="132" width="1752" height="236" rx="8"/>
+  <text class="text" x="58" y="172" font-size="22" font-weight="800">bilinear path comparison</text>
+  <text class="muted" x="58" y="194" font-size="13">4-channel median latency; external columns appear only when measured for this method.</text>
+  <rect class="header" x="48" y="216" width="1712" height="38" rx="6"/>
+  <text class="head" x="64" y="240">resize case</text>
+  <text class="head" x="368" y="240" text-anchor="end">generic 1t</text>
+  <text class="head" x="504" y="240" text-anchor="end">generic 8t</text>
+  <text class="head" x="648" y="240" text-anchor="end">generic-lut 1t</text>
+  <text class="head" x="792" y="240" text-anchor="end">generic-lut 8t</text>
+  <text class="head" x="928" y="240" text-anchor="end">simd 1t</text>
+  <text class="head" x="1064" y="240" text-anchor="end">simd 8t</text>
+  <text class="head" x="1200" y="240" text-anchor="end">simd-lut 1t</text>
+  <text class="head" x="1336" y="240" text-anchor="end">simd-lut 8t</text>
+  <text class="head" x="1472" y="240" text-anchor="end">cairo 1t</text>
+  <text class="head" x="1608" y="240" text-anchor="end">ne10 C 1t</text>
+  <text class="head" x="1744" y="240" text-anchor="end">ne10 NEON 1t</text>
+  <line class="line" x1="48" y1="262" x2="1760" y2="262"/>
+  <text class="cell" x="64" y="288">downscale 640x480</text>
+  <text class="cell" x="368" y="288" text-anchor="end">0.667 ms</text>
+  <text class="cell" x="504" y="288" text-anchor="end">0.362 ms</text>
+  <text class="cell" x="648" y="288" text-anchor="end">0.617 ms</text>
+  <text class="cell" x="792" y="288" text-anchor="end">0.410 ms</text>
+  <text class="cell" x="928" y="288" text-anchor="end">0.457 ms</text>
+  <text class="cell" x="1064" y="288" text-anchor="end">0.318 ms</text>
+  <text class="cell" x="1200" y="288" text-anchor="end">0.450 ms</text>
+  <text class="cell" x="1336" y="288" text-anchor="end">0.293 ms</text>
+  <text class="cell" x="1472" y="288" text-anchor="end">0.393 ms</text>
+  <text class="cell" x="1608" y="288" text-anchor="end">1.469 ms</text>
+  <text class="cell" x="1744" y="288" text-anchor="end">0.657 ms</text>
+  <line class="line" x1="48" y1="314" x2="1760" y2="314"/>
+  <text class="cell" x="64" y="340">upscale 2560x1440</text>
+  <text class="cell" x="368" y="340" text-anchor="end">3.940 ms</text>
+  <text class="cell" x="504" y="340" text-anchor="end">1.125 ms</text>
+  <text class="cell" x="648" y="340" text-anchor="end">4.027 ms</text>
+  <text class="cell" x="792" y="340" text-anchor="end">1.268 ms</text>
+  <text class="cell" x="928" y="340" text-anchor="end">3.161 ms</text>
+  <text class="cell" x="1064" y="340" text-anchor="end">1.187 ms</text>
+  <text class="cell" x="1200" y="340" text-anchor="end">3.151 ms</text>
+  <text class="cell" x="1336" y="340" text-anchor="end">1.108 ms</text>
+  <text class="cell" x="1472" y="340" text-anchor="end">4.394 ms</text>
+  <text class="cell" x="1608" y="340" text-anchor="end">10.247 ms</text>
+  <text class="cell" x="1744" y="340" text-anchor="end">4.404 ms</text>
+  <rect class="panel" x="28" y="406" width="1752" height="310" rx="8"/>
+  <text class="text" x="58" y="446" font-size="22" font-weight="800">bilinear downscale 640x480 latency comparison</text>
+  <text class="muted" x="58" y="468" font-size="13">4-channel prebuilt-LUT SGL paths and available external baselines; bars are normalized to the slowest displayed row.</text>
+  <text class="small" x="78" y="514">generic-lut 1t</text>
+  <rect x="268" y="500" width="1287" height="18" rx="3" fill="#38bdf8"/>
+  <text class="cell" x="1569" y="514">0.617 ms</text>
+  <text class="small" x="78" y="548">generic-lut 8t</text>
+  <rect x="268" y="534" width="855" height="18" rx="3" fill="#2563eb"/>
+  <text class="cell" x="1137" y="548">0.410 ms</text>
+  <text class="small" x="78" y="582">simd-lut 1t</text>
+  <rect x="268" y="568" width="938" height="18" rx="3" fill="#fb7185"/>
+  <text class="cell" x="1220" y="582">0.450 ms</text>
+  <text class="small" x="78" y="616">simd-lut 8t</text>
+  <rect x="268" y="602" width="611" height="18" rx="3" fill="#4ade80"/>
+  <text class="cell" x="893" y="616">0.293 ms</text>
+  <text class="small" x="78" y="650">cairo 1t</text>
+  <rect x="268" y="636" width="819" height="18" rx="3" fill="#f97316"/>
+  <text class="cell" x="1101" y="650">0.393 ms</text>
+  <text class="small" x="78" y="684">ne10 NEON 1t</text>
+  <rect x="268" y="670" width="1370" height="18" rx="3" fill="#a78bfa"/>
+  <text class="cell" x="1652" y="684">0.657 ms</text>
+  <rect class="panel" x="28" y="754" width="1752" height="310" rx="8"/>
+  <text class="text" x="58" y="794" font-size="22" font-weight="800">bilinear upscale 2560x1440 latency comparison</text>
+  <text class="muted" x="58" y="816" font-size="13">4-channel prebuilt-LUT SGL paths and available external baselines; bars are normalized to the slowest displayed row.</text>
+  <text class="small" x="78" y="862">generic-lut 1t</text>
+  <rect x="268" y="848" width="1253" height="18" rx="3" fill="#38bdf8"/>
+  <text class="cell" x="1535" y="862">4.027 ms</text>
+  <text class="small" x="78" y="896">generic-lut 8t</text>
+  <rect x="268" y="882" width="394" height="18" rx="3" fill="#2563eb"/>
+  <text class="cell" x="676" y="896">1.268 ms</text>
+  <text class="small" x="78" y="930">simd-lut 1t</text>
+  <rect x="268" y="916" width="980" height="18" rx="3" fill="#fb7185"/>
+  <text class="cell" x="1262" y="930">3.151 ms</text>
+  <text class="small" x="78" y="964">simd-lut 8t</text>
+  <rect x="268" y="950" width="345" height="18" rx="3" fill="#4ade80"/>
+  <text class="cell" x="627" y="964">1.108 ms</text>
+  <text class="small" x="78" y="998">cairo 1t</text>
+  <rect x="268" y="984" width="1367" height="18" rx="3" fill="#f97316"/>
+  <text class="cell" x="1649" y="998">4.394 ms</text>
+  <text class="small" x="78" y="1032">ne10 NEON 1t</text>
+  <rect x="268" y="1018" width="1370" height="18" rx="3" fill="#a78bfa"/>
+  <text class="cell" x="1652" y="1032">4.404 ms</text>
+  <text class="small" x="36" y="1092">Note: benchmark results are workload and environment dependent; rerun on the target machine before publishing final claims.</text>
+</svg>

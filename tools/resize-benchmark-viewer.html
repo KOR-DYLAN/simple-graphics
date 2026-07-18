@@ -364,7 +364,7 @@ For conditions of distribution and use, see the LICENSE file.
       <h1>SGL Resize Benchmark Viewer</h1>
       <p>Load resize-benchmark.csv, compare generic, SIMD, Cairo, NE10, and other backends, and inspect thread scaling by method and output size.</p>
     </div>
-    <div class="status" id="status">Loading benchmark/resize-benchmark.csv...</div>
+    <div class="status" id="status">Loading benchmark/resize/benchmark.csv...</div>
   </header>
 
   <section class="toolbar" aria-label="benchmark controls">
@@ -392,6 +392,7 @@ For conditions of distribution and use, see the LICENSE file.
     <label>
       Metric
       <select id="metricSelect">
+        <option value="median_us">Median</option>
         <option value="avg_us">Average</option>
         <option value="min_us">Minimum</option>
         <option value="max_us">Maximum</option>
@@ -508,19 +509,21 @@ For conditions of distribution and use, see the LICENSE file.
 <script>
 "use strict";
 
-const DEFAULT_CSV_PATH = "../benchmark/resize-benchmark.csv";
+const DEFAULT_CSV_PATH = "../benchmark/resize/benchmark.csv";
 const COLORS = ["#38bdf8", "#4ade80", "#facc15", "#fb7185", "#a78bfa", "#f97316"];
 const EXTERNAL_BACKENDS = [
   { backend: "generic", threads: 1, label: "generic 1t", color: "#38bdf8" },
   { backend: "simd", threads: 1, label: "simd 1t", color: "#fb7185" },
   { backend: "simd-lut", threads: 8, label: "simd-lut 8t", color: "#4ade80" },
   { backend: "cairo", threads: 1, label: "cairo 1t", color: "#f97316" },
-  { backend: "ne10", threads: 1, label: "ne10 1t", color: "#60a5fa" },
+  { backend: "ne10-c", threads: 1, label: "ne10 C 1t", color: "#60a5fa" },
+  { backend: "ne10-neon", threads: 1, label: "ne10 NEON 1t", color: "#a78bfa" },
+  { backend: "ne10", threads: 1, label: "ne10 1t (legacy)", color: "#60a5fa" },
 ];
 const state = {
   rows: [],
   filtered: [],
-  metric: "avg_us",
+  metric: "median_us",
   view: "bars",
 };
 
@@ -611,6 +614,10 @@ function parseCsv(text) {
     row.avg_us = Number(row.avg_us);
     row.min_us = Number(row.min_us);
     row.max_us = Number(row.max_us);
+    row.median_us = Number(row.median_us);
+    if (!Number.isFinite(row.median_us)) {
+      row.median_us = row.avg_us;
+    }
     row.size = `${row.width}x${row.height}`;
     row.channel = `${row.channels}ch`;
     row.label = `${row.method} ${row.backend} ${row.channel} ${row.threads}t`;
@@ -818,7 +825,7 @@ function externalComparisonSizes() {
   return Array.from(new Set(state.rows
     .filter(row =>
       (row.channels === 4) &&
-      ((row.backend === "cairo") || (row.backend === "ne10")) &&
+      ((row.backend === "cairo") || row.backend.startsWith("ne10")) &&
       ((ui.sizeFilter.value === "all") || (row.size === ui.sizeFilter.value)))
     .map(row => row.size)))
     .sort((a, b) => sizePixels(a) - sizePixels(b));
@@ -1225,7 +1232,7 @@ async function loadDefaultCsv() {
     }
     loadCsvText(await response.text(), DEFAULT_CSV_PATH);
   } catch (error) {
-    setStatus("Select benchmark/resize-benchmark.csv to view results.", false);
+    setStatus("Select benchmark/resize/benchmark.csv to view results.", false);
   }
 }
 

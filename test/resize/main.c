@@ -25,7 +25,13 @@
 #endif  /* SGL_TEST_HAS_NE10 */
 
 #define SGL_TEST_ARRAY_SIZE(array)          (sizeof(array) / sizeof((array)[0]))
+/* CMake may override this for sanitizer runs; standalone builds keep 10. */
+#ifndef SGL_TEST_REPEAT_COUNT
 #define SGL_TEST_REPEAT_COUNT               (10)
+#endif
+#ifndef SGL_TEST_WARMUP_COUNT
+#define SGL_TEST_WARMUP_COUNT               (3)
+#endif
 #define SGL_TEST_MEMORY_POOL_SIZE           (64U * 1024U * 1024U)
 #define SGL_TEST_BENCHMARK_DIR              "benchmark"
 #define SGL_TEST_BENCHMARK_CSV              SGL_TEST_BENCHMARK_DIR "/resize-benchmark.csv"
@@ -55,7 +61,7 @@ static const char *sgl_test_output_dir = SGL_TEST_OUTPUT_DIR;
  *                              |
  *                       one benchmark case
  *                              |
- *          repeat N times, record min/avg/max latency and debug PNG
+ *       warm up, repeat N times, record median/avg/min/max and debug PNG
  *
  * Extension points:
  * - Add a new source channel count to sgl_test_resize_channels.
@@ -91,6 +97,14 @@ typedef void *(*sgl_test_lut_creator_t)(
     int32_t s_width,
     int32_t s_height);
 typedef void (*sgl_test_lut_destroyer_t)(void *lut);
+typedef int (*sgl_test_resize_validator_t)(
+    uint8_t *dst,
+    int32_t d_width,
+    int32_t d_height,
+    uint8_t *src,
+    int32_t s_width,
+    int32_t s_height,
+    int32_t bpp);
 
 typedef struct {
     uint8_t *buf;
@@ -116,6 +130,7 @@ typedef struct {
     sgl_test_resize_runner_t run;
     sgl_test_lut_creator_t create_lut;
     sgl_test_lut_destroyer_t destroy_lut;
+    sgl_test_resize_validator_t validate;
     int32_t supports_threads;
     int32_t required_bpp;
 } sgl_test_resize_method_t;
@@ -129,6 +144,8 @@ typedef struct {
     uint64_t min_us;
     uint64_t max_us;
     uint64_t total_us;
+    uint64_t samples[SGL_TEST_REPEAT_COUNT];
+    size_t sample_count;
 } sgl_test_benchmark_stats_t;
 
 typedef struct {
@@ -138,17 +155,27 @@ typedef struct {
     sgl_test_thread_context_t *thread;
 } sgl_test_resize_case_t;
 
-#define SGL_TEST_RESIZE_METHOD(_name, _backend, _run, _create_lut, _destroy_lut, \
-                        _supports_threads, _required_bpp) \
+#define SGL_TEST_RESIZE_METHOD_EX(_name, _backend, _run, _create_lut, \
+                        _destroy_lut, _validate, _supports_threads, \
+                        _required_bpp) \
     { \
         .name = (_name), \
         .backend = (_backend), \
         .run = (_run), \
         .create_lut = (_create_lut), \
         .destroy_lut = (_destroy_lut), \
+        .validate = (_validate), \
         .supports_threads = (_supports_threads), \
         .required_bpp = (_required_bpp) \
     }
+#define SGL_TEST_RESIZE_METHOD(_name, _backend, _run, _create_lut, _destroy_lut, \
+                        _supports_threads, _required_bpp) \
+    SGL_TEST_RESIZE_METHOD_EX(_name, _backend, _run, _create_lut, _destroy_lut, \
+        NULL, _supports_threads, _required_bpp)
+#define SGL_TEST_RESIZE_VALIDATED_METHOD(_name, _backend, _run, _validate, \
+                        _supports_threads, _required_bpp) \
+    SGL_TEST_RESIZE_METHOD_EX(_name, _backend, _run, NULL, NULL, _validate, \
+        _supports_threads, _required_bpp)
 
 static unsigned char sgl_test_memory_pool[SGL_TEST_MEMORY_POOL_SIZE];
 
@@ -206,9 +233,27 @@ static sgl_result_t sgl_test_resize_cairo_bilinear(
 #endif  /* SGL_TEST_HAS_CAIRO */
 #if defined(SGL_TEST_HAS_NE10)
 static int sgl_test_ne10_init(void);
-static sgl_result_t sgl_test_resize_ne10_bilinear(
+static sgl_result_t sgl_test_resize_ne10_bilinear_c(
     sgl_threadpool_t *pool,
     void *lut,
+    uint8_t *dst,
+    int32_t d_width,
+    int32_t d_height,
+    uint8_t *src,
+    int32_t s_width,
+    int32_t s_height,
+    int32_t bpp);
+static sgl_result_t sgl_test_resize_ne10_bilinear_neon(
+    sgl_threadpool_t *pool,
+    void *lut,
+    uint8_t *dst,
+    int32_t d_width,
+    int32_t d_height,
+    uint8_t *src,
+    int32_t s_width,
+    int32_t s_height,
+    int32_t bpp);
+static int sgl_test_validate_ne10_bilinear_neon(
     uint8_t *dst,
     int32_t d_width,
     int32_t d_height,
@@ -299,6 +344,8 @@ static void sgl_test_stats_add_sample(sgl_test_benchmark_stats_t *stats,
                                       uint64_t elapsed_us);
 static uint64_t sgl_test_stats_average_us(
     const sgl_test_benchmark_stats_t *stats);
+static uint64_t sgl_test_stats_median_us(
+    const sgl_test_benchmark_stats_t *stats);
 static void sgl_test_print_table_header(void);
 static void sgl_test_write_csv_header(FILE *csv);
 static int sgl_test_write_png_output(const sgl_test_resize_case_t *test_case,
@@ -321,42 +368,35 @@ static const sgl_test_resize_dimension_t sgl_test_resize_dimensions[] = {
 };
 
 static const sgl_test_resize_method_t sgl_test_resize_methods[] = {
+    /* Keep generic/SIMD peers adjacent to limit thermal and DVFS drift. */
     SGL_TEST_RESIZE_METHOD("nearest", "generic",
                     sgl_test_resize_nearest,
                     NULL,
                     NULL,
                     SGL_TEST_THREADPOOL_SUPPORTED,
                     SGL_TEST_BPP_ANY),
-    SGL_TEST_RESIZE_METHOD("bilinear", "generic",
-                    sgl_test_resize_bilinear,
+#if defined(SGL_CFG_HAS_SIMD)
+    SGL_TEST_RESIZE_METHOD("nearest", "simd",
+                    sgl_test_resize_nearest_simd,
                     NULL,
                     NULL,
                     SGL_TEST_THREADPOOL_SUPPORTED,
                     SGL_TEST_BPP_ANY),
-    SGL_TEST_RESIZE_METHOD("bicubic", "generic",
-                    sgl_test_resize_bicubic,
-                    NULL,
-                    NULL,
-                    SGL_TEST_THREADPOOL_SUPPORTED,
-                    SGL_TEST_BPP_ANY),
+#endif  /* SGL_CFG_HAS_SIMD */
     SGL_TEST_RESIZE_METHOD("nearest", "generic-lut",
                     sgl_test_resize_nearest,
                     sgl_test_create_nearest_lut,
                     sgl_test_destroy_nearest_lut,
                     SGL_TEST_THREADPOOL_SUPPORTED,
                     SGL_TEST_BPP_ANY),
-    SGL_TEST_RESIZE_METHOD("bilinear", "generic-lut",
-                    sgl_test_resize_bilinear,
-                    sgl_test_create_bilinear_lut,
-                    sgl_test_destroy_bilinear_lut,
+#if defined(SGL_CFG_HAS_SIMD)
+    SGL_TEST_RESIZE_METHOD("nearest", "simd-lut",
+                    sgl_test_resize_nearest_simd,
+                    sgl_test_create_nearest_lut,
+                    sgl_test_destroy_nearest_lut,
                     SGL_TEST_THREADPOOL_SUPPORTED,
                     SGL_TEST_BPP_ANY),
-    SGL_TEST_RESIZE_METHOD("bicubic", "generic-lut",
-                    sgl_test_resize_bicubic,
-                    sgl_test_create_bicubic_lut,
-                    sgl_test_destroy_bicubic_lut,
-                    SGL_TEST_THREADPOOL_SUPPORTED,
-                    SGL_TEST_BPP_ANY),
+#endif  /* SGL_CFG_HAS_SIMD */
 #if defined(SGL_TEST_HAS_CAIRO)
     SGL_TEST_RESIZE_METHOD("nearest", "cairo",
                     sgl_test_resize_cairo_nearest,
@@ -364,6 +404,36 @@ static const sgl_test_resize_method_t sgl_test_resize_methods[] = {
                     NULL,
                     SGL_TEST_THREADPOOL_UNSUPPORTED,
                     SGL_BPP32),
+#endif  /* SGL_TEST_HAS_CAIRO */
+    SGL_TEST_RESIZE_METHOD("bilinear", "generic",
+                    sgl_test_resize_bilinear,
+                    NULL,
+                    NULL,
+                    SGL_TEST_THREADPOOL_SUPPORTED,
+                    SGL_TEST_BPP_ANY),
+#if defined(SGL_CFG_HAS_SIMD)
+    SGL_TEST_RESIZE_METHOD("bilinear", "simd",
+                    sgl_test_resize_bilinear_simd,
+                    NULL,
+                    NULL,
+                    SGL_TEST_THREADPOOL_SUPPORTED,
+                    SGL_TEST_BPP_ANY),
+#endif  /* SGL_CFG_HAS_SIMD */
+    SGL_TEST_RESIZE_METHOD("bilinear", "generic-lut",
+                    sgl_test_resize_bilinear,
+                    sgl_test_create_bilinear_lut,
+                    sgl_test_destroy_bilinear_lut,
+                    SGL_TEST_THREADPOOL_SUPPORTED,
+                    SGL_TEST_BPP_ANY),
+#if defined(SGL_CFG_HAS_SIMD)
+    SGL_TEST_RESIZE_METHOD("bilinear", "simd-lut",
+                    sgl_test_resize_bilinear_simd,
+                    sgl_test_create_bilinear_lut,
+                    sgl_test_destroy_bilinear_lut,
+                    SGL_TEST_THREADPOOL_SUPPORTED,
+                    SGL_TEST_BPP_ANY),
+#endif  /* SGL_CFG_HAS_SIMD */
+#if defined(SGL_TEST_HAS_CAIRO)
     SGL_TEST_RESIZE_METHOD("bilinear", "cairo",
                     sgl_test_resize_cairo_bilinear,
                     NULL,
@@ -372,44 +442,39 @@ static const sgl_test_resize_method_t sgl_test_resize_methods[] = {
                     SGL_BPP32),
 #endif  /* SGL_TEST_HAS_CAIRO */
 #if defined(SGL_TEST_HAS_NE10)
-    SGL_TEST_RESIZE_METHOD("bilinear", "ne10",
-                    sgl_test_resize_ne10_bilinear,
+    SGL_TEST_RESIZE_METHOD("bilinear", "ne10-c",
+                    sgl_test_resize_ne10_bilinear_c,
                     NULL,
                     NULL,
                     SGL_TEST_THREADPOOL_UNSUPPORTED,
                     SGL_BPP32),
+    SGL_TEST_RESIZE_VALIDATED_METHOD("bilinear", "ne10-neon",
+                    sgl_test_resize_ne10_bilinear_neon,
+                    sgl_test_validate_ne10_bilinear_neon,
+                    SGL_TEST_THREADPOOL_UNSUPPORTED,
+                    SGL_BPP32),
 #endif  /* SGL_TEST_HAS_NE10 */
+    SGL_TEST_RESIZE_METHOD("bicubic", "generic",
+                    sgl_test_resize_bicubic,
+                    NULL,
+                    NULL,
+                    SGL_TEST_THREADPOOL_SUPPORTED,
+                    SGL_TEST_BPP_ANY),
 #if defined(SGL_CFG_HAS_SIMD)
-    SGL_TEST_RESIZE_METHOD("nearest", "simd",
-                    sgl_test_resize_nearest_simd,
-                    NULL,
-                    NULL,
-                    SGL_TEST_THREADPOOL_SUPPORTED,
-                    SGL_TEST_BPP_ANY),
-    SGL_TEST_RESIZE_METHOD("bilinear", "simd",
-                    sgl_test_resize_bilinear_simd,
-                    NULL,
-                    NULL,
-                    SGL_TEST_THREADPOOL_SUPPORTED,
-                    SGL_TEST_BPP_ANY),
     SGL_TEST_RESIZE_METHOD("bicubic", "simd",
                     sgl_test_resize_bicubic_simd,
                     NULL,
                     NULL,
                     SGL_TEST_THREADPOOL_SUPPORTED,
                     SGL_TEST_BPP_ANY),
-    SGL_TEST_RESIZE_METHOD("nearest", "simd-lut",
-                    sgl_test_resize_nearest_simd,
-                    sgl_test_create_nearest_lut,
-                    sgl_test_destroy_nearest_lut,
+#endif  /* SGL_CFG_HAS_SIMD */
+    SGL_TEST_RESIZE_METHOD("bicubic", "generic-lut",
+                    sgl_test_resize_bicubic,
+                    sgl_test_create_bicubic_lut,
+                    sgl_test_destroy_bicubic_lut,
                     SGL_TEST_THREADPOOL_SUPPORTED,
                     SGL_TEST_BPP_ANY),
-    SGL_TEST_RESIZE_METHOD("bilinear", "simd-lut",
-                    sgl_test_resize_bilinear_simd,
-                    sgl_test_create_bilinear_lut,
-                    sgl_test_destroy_bilinear_lut,
-                    SGL_TEST_THREADPOOL_SUPPORTED,
-                    SGL_TEST_BPP_ANY),
+#if defined(SGL_CFG_HAS_SIMD)
     SGL_TEST_RESIZE_METHOD("bicubic", "simd-lut",
                     sgl_test_resize_bicubic_simd,
                     sgl_test_create_bicubic_lut,
@@ -420,6 +485,8 @@ static const sgl_test_resize_method_t sgl_test_resize_methods[] = {
 };
 
 #undef SGL_TEST_RESIZE_METHOD
+#undef SGL_TEST_RESIZE_VALIDATED_METHOD
+#undef SGL_TEST_RESIZE_METHOD_EX
 
 static sgl_test_thread_context_t sgl_test_thread_counts[] = {
     { .workers = 1U, .pool = NULL },
@@ -672,16 +739,24 @@ static int sgl_test_ne10_init(void)
     /*
      * NE10 exposes image resize through a function pointer selected by
      * ne10_init_imgproc().  On aarch64, NEON/ASIMD is part of the platform
-     * baseline, so the optimized path is the intended comparison target.
+     * baseline, so the optimized path is the intended comparison target.  The
+     * upstream imgproc initializer uses NE10_OK as its "NEON available" value;
+     * verify the resulting function pointer to make that unusual contract
+     * explicit instead of trusting the argument name alone.
      */
     if (ne10_init_imgproc(NE10_OK) != NE10_OK) {
+        result = 1;
+    }
+    else if (ne10_img_resize_bilinear_rgba !=
+             ne10_img_resize_bilinear_rgba_neon) {
+        (void)fprintf(stderr, "NE10 image resize did not select NEON\n");
         result = 1;
     }
 
     return result;
 }
 
-static sgl_result_t sgl_test_resize_ne10_bilinear(
+static sgl_result_t sgl_test_resize_ne10_bilinear_common(
     sgl_threadpool_t *pool,
     void *lut,
     uint8_t *dst,
@@ -690,7 +765,10 @@ static sgl_result_t sgl_test_resize_ne10_bilinear(
     uint8_t *src,
     int32_t s_width,
     int32_t s_height,
-    int32_t bpp)
+    int32_t bpp,
+    void (*resize)(ne10_uint8_t *, ne10_uint32_t, ne10_uint32_t,
+                   ne10_uint8_t *, ne10_uint32_t, ne10_uint32_t,
+                   ne10_uint32_t))
 {
     sgl_result_t result = SGL_SUCCESS;
 
@@ -701,7 +779,7 @@ static sgl_result_t sgl_test_resize_ne10_bilinear(
     }
 
     if (result == SGL_SUCCESS) {
-        ne10_img_resize_bilinear_rgba(
+        resize(
             (ne10_uint8_t *)dst,
             (ne10_uint32_t)d_width,
             (ne10_uint32_t)d_height,
@@ -709,6 +787,84 @@ static sgl_result_t sgl_test_resize_ne10_bilinear(
             (ne10_uint32_t)s_width,
             (ne10_uint32_t)s_height,
             (ne10_uint32_t)(s_width * bpp));
+    }
+
+    return result;
+}
+
+static sgl_result_t sgl_test_resize_ne10_bilinear_c(
+    sgl_threadpool_t *pool,
+    void *lut,
+    uint8_t *dst,
+    int32_t d_width,
+    int32_t d_height,
+    uint8_t *src,
+    int32_t s_width,
+    int32_t s_height,
+    int32_t bpp)
+{
+    sgl_result_t result;
+
+    result = sgl_test_resize_ne10_bilinear_common(
+        pool, lut, dst, d_width, d_height, src, s_width, s_height, bpp,
+        ne10_img_resize_bilinear_rgba_c);
+
+    return result;
+}
+
+static sgl_result_t sgl_test_resize_ne10_bilinear_neon(
+    sgl_threadpool_t *pool,
+    void *lut,
+    uint8_t *dst,
+    int32_t d_width,
+    int32_t d_height,
+    uint8_t *src,
+    int32_t s_width,
+    int32_t s_height,
+    int32_t bpp)
+{
+    sgl_result_t result;
+
+    result = sgl_test_resize_ne10_bilinear_common(
+        pool, lut, dst, d_width, d_height, src, s_width, s_height, bpp,
+        ne10_img_resize_bilinear_rgba_neon);
+
+    return result;
+}
+
+static int sgl_test_validate_ne10_bilinear_neon(
+    uint8_t *dst,
+    int32_t d_width,
+    int32_t d_height,
+    uint8_t *src,
+    int32_t s_width,
+    int32_t s_height,
+    int32_t bpp)
+{
+    uint8_t *reference;
+    size_t image_size;
+    int result;
+
+    result = 0;
+    image_size = (size_t)d_width * (size_t)d_height * (size_t)bpp;
+    reference = sgl_memory_as_uint8(sgl_malloc(image_size));
+    if (reference == NULL) {
+        result = 1;
+    }
+    else {
+        ne10_img_resize_bilinear_rgba_c(
+            (ne10_uint8_t *)reference,
+            (ne10_uint32_t)d_width,
+            (ne10_uint32_t)d_height,
+            (ne10_uint8_t *)src,
+            (ne10_uint32_t)s_width,
+            (ne10_uint32_t)s_height,
+            (ne10_uint32_t)(s_width * bpp));
+        if (memcmp(dst, reference, image_size) != 0) {
+            (void)fprintf(stderr, "NE10 C/NEON resize output mismatch\n");
+            result = 1;
+        }
+        sgl_free(reference);
     }
 
     return result;
@@ -1115,12 +1271,13 @@ static int sgl_test_run_resize_input(const char *input_path,
         for (dimension_index = 0U;
              dimension_index < SGL_TEST_ARRAY_SIZE(sgl_test_resize_dimensions);
              ++dimension_index) {
-            for (method_index = 0U;
-                 method_index < SGL_TEST_ARRAY_SIZE(sgl_test_resize_methods);
-                 ++method_index) {
-                for (thread_index = 0U;
-                     thread_index < SGL_TEST_ARRAY_SIZE(sgl_test_thread_counts);
-                     ++thread_index) {
+            /* Compare adjacent methods under the same worker configuration. */
+            for (thread_index = 0U;
+                 thread_index < SGL_TEST_ARRAY_SIZE(sgl_test_thread_counts);
+                 ++thread_index) {
+                for (method_index = 0U;
+                     method_index < SGL_TEST_ARRAY_SIZE(sgl_test_resize_methods);
+                     ++method_index) {
                     test_case.channel = channel;
                     test_case.dimension =
                         &sgl_test_resize_dimensions[dimension_index];
@@ -1156,6 +1313,7 @@ static int sgl_test_run_resize_case(const sgl_test_resize_case_t *test_case,
     uint64_t start_us;
     uint64_t elapsed_us;
     size_t repeat;
+    size_t warmup;
     size_t image_size;
     void *lut = NULL;
     char output_path[FILENAME_MAX];
@@ -1188,6 +1346,25 @@ static int sgl_test_run_resize_case(const sgl_test_resize_case_t *test_case,
         }
     }
 
+    /* Warm-up exercises the same path without contaminating reported samples. */
+    for (warmup = 0U;
+         (result == 0) && (warmup < SGL_TEST_WARMUP_COUNT);
+         ++warmup) {
+        resize_result = test_case->method->run(
+            test_case->thread->pool,
+            lut,
+            dst,
+            test_case->dimension->width,
+            test_case->dimension->height,
+            src->buf,
+            src->width,
+            src->height,
+            src->bpp);
+        if (resize_result != SGL_SUCCESS) {
+            result = 1;
+        }
+    }
+
     sgl_test_stats_init(&stats);
     for (repeat = 0U; (result == 0) && (repeat < SGL_TEST_REPEAT_COUNT);
          ++repeat) {
@@ -1212,6 +1389,17 @@ static int sgl_test_run_resize_case(const sgl_test_resize_case_t *test_case,
         }
     }
 
+    if ((result == 0) && (test_case->method->validate != NULL)) {
+        result = test_case->method->validate(
+            dst,
+            test_case->dimension->width,
+            test_case->dimension->height,
+            src->buf,
+            src->width,
+            src->height,
+            src->bpp);
+    }
+
     if (result == 0) {
         result = sgl_test_write_png_output(test_case, src, dst, case_index,
                                            output_path, sizeof(output_path));
@@ -1219,6 +1407,7 @@ static int sgl_test_run_resize_case(const sgl_test_resize_case_t *test_case,
 
     if (result == 0) {
         (void)printf("%4zu  %3d  %-8s  %-11s  %2zu  %5dx%-5d  "
+                     "%8llu.%03llums  "
                      "%8llu.%03llums  %8llu.%03llums  "
                      "%8llu.%03llums  %s\n",
                      case_index,
@@ -1228,6 +1417,8 @@ static int sgl_test_run_resize_case(const sgl_test_resize_case_t *test_case,
                      test_case->thread->workers,
                      test_case->dimension->width,
                      test_case->dimension->height,
+                     sgl_test_stats_median_us(&stats) / 1000ULL,
+                     sgl_test_stats_median_us(&stats) % 1000ULL,
                      sgl_test_stats_average_us(&stats) / 1000ULL,
                      sgl_test_stats_average_us(&stats) % 1000ULL,
                      stats.min_us / 1000ULL,
@@ -1237,7 +1428,7 @@ static int sgl_test_run_resize_case(const sgl_test_resize_case_t *test_case,
                      output_path);
 
         (void)fprintf(csv,
-                      "%zu,%d,%s,%s,%zu,%d,%d,%llu,%llu,%llu\n",
+                      "%zu,%d,%s,%s,%zu,%d,%d,%llu,%llu,%llu,%llu\n",
                       case_index,
                       test_case->channel->bpp,
                       test_case->method->name,
@@ -1247,7 +1438,8 @@ static int sgl_test_run_resize_case(const sgl_test_resize_case_t *test_case,
                       test_case->dimension->height,
                       (unsigned long long)sgl_test_stats_average_us(&stats),
                       (unsigned long long)stats.min_us,
-                      (unsigned long long)stats.max_us);
+                      (unsigned long long)stats.max_us,
+                      (unsigned long long)sgl_test_stats_median_us(&stats));
     }
 
     if (dst != NULL) {
@@ -1320,11 +1512,14 @@ static void sgl_test_stats_init(sgl_test_benchmark_stats_t *stats)
     stats->min_us = UINT64_MAX;
     stats->max_us = 0ULL;
     stats->total_us = 0ULL;
+    stats->sample_count = 0U;
 }
 
 static void sgl_test_stats_add_sample(sgl_test_benchmark_stats_t *stats,
                                       uint64_t elapsed_us)
 {
+    size_t index;
+
     stats->total_us += elapsed_us;
 
     if (elapsed_us < stats->min_us) {
@@ -1333,6 +1528,14 @@ static void sgl_test_stats_add_sample(sgl_test_benchmark_stats_t *stats,
     if (elapsed_us > stats->max_us) {
         stats->max_us = elapsed_us;
     }
+
+    index = stats->sample_count;
+    while ((index > 0U) && (stats->samples[index - 1U] > elapsed_us)) {
+        stats->samples[index] = stats->samples[index - 1U];
+        index--;
+    }
+    stats->samples[index] = elapsed_us;
+    stats->sample_count++;
 }
 
 static uint64_t sgl_test_stats_average_us(
@@ -1340,31 +1543,49 @@ static uint64_t sgl_test_stats_average_us(
 {
     uint64_t average_us;
 
-    average_us = stats->total_us / (uint64_t)SGL_TEST_REPEAT_COUNT;
+    average_us = stats->total_us / (uint64_t)stats->sample_count;
 
     return average_us;
+}
+
+static uint64_t sgl_test_stats_median_us(
+    const sgl_test_benchmark_stats_t *stats)
+{
+    size_t middle;
+    uint64_t median_us;
+
+    middle = stats->sample_count / 2U;
+    median_us = stats->samples[middle];
+    if ((stats->sample_count % 2U) == 0U) {
+        median_us = stats->samples[middle - 1U] +
+                    ((stats->samples[middle] -
+                      stats->samples[middle - 1U]) / 2ULL);
+    }
+
+    return median_us;
 }
 
 static void sgl_test_print_table_header(void)
 {
     (void)printf("\nResize benchmark\n");
+    (void)printf("warm-up count: %u\n", SGL_TEST_WARMUP_COUNT);
     (void)printf("repeat count: %u\n", SGL_TEST_REPEAT_COUNT);
     (void)printf("%4s  %3s  %-8s  %-11s  %2s  %-11s  "
-                 "%14s  %14s  %14s  %s\n",
+                 "%14s  %14s  %14s  %14s  %s\n",
                  "case", "ch", "method", "backend", "th", "size",
-                 "avg", "min", "max", "output");
+                 "median", "avg", "min", "max", "output");
     (void)printf("%4s  %3s  %-8s  %-11s  %2s  %-11s  "
-                 "%14s  %14s  %14s  %s\n",
+                 "%14s  %14s  %14s  %14s  %s\n",
                  "----", "---", "--------", "-----------", "--",
                  "-----------", "--------------", "--------------",
-                 "--------------", "------");
+                 "--------------", "--------------", "------");
 }
 
 static void sgl_test_write_csv_header(FILE *csv)
 {
     (void)fprintf(csv,
                   "case,channels,method,backend,threads,width,height,"
-                  "avg_us,min_us,max_us\n");
+                  "avg_us,min_us,max_us,median_us\n");
 }
 
 static int sgl_test_write_png_output(const sgl_test_resize_case_t *test_case,

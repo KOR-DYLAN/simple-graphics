@@ -8,58 +8,12 @@
  */
 #include <sgl-core.h>
 #include "nearest_neighbor.h"
+#include "sgl_trace.h"
+#include "threaded_resize.h"
 
 #if defined(SGL_CFG_HAS_THREAD)
 static void sgl_generic_resize_nearest_neighbor_routine(void *SGL_RESTRICT current, void *SGL_RESTRICT cookie);
 #endif  /* !SGL_CFG_HAS_THREAD */
-
-static SGL_ALWAYS_INLINE void sgl_generic_resize_nearest_neighbor_line_stripe(sgl_int32_t row, sgl_nearest_neighbor_data_t *data) {
-    sgl_nearest_neighbor_lookup_t *lut = data->lut;
-    sgl_int32_t col;
-    sgl_int32_t ch;
-    sgl_int32_t d_width;
-    sgl_int32_t bpp;
-    const sgl_int32_t *x;
-    sgl_uint8_t *src_y_buf;
-    const sgl_uint8_t *src;
-    sgl_uint8_t *dst;
-
-    d_width = lut->d_width;
-    bpp = data->bpp;
-    x = lut->x;
-    src_y_buf = &data->src[lut->y[row] * data->src_stride];
-    dst = &data->dst[row * data->dst_stride];
-
-    for (col = 0; col < d_width; ++col) {
-        src = &src_y_buf[x[col] * bpp];
-        switch (bpp) {
-        case 4:
-            dst[3] = src[3];
-            dst[2] = src[2];
-            dst[1] = src[1];
-            dst[0] = src[0];
-            break;
-        case 3:
-            dst[2] = src[2];
-            dst[1] = src[1];
-            dst[0] = src[0];
-            break;
-        case 2:
-            dst[1] = src[1];
-            dst[0] = src[0];
-            break;
-        case 1:
-            dst[0] = src[0];
-            break;
-        default:
-            for (ch = 0; ch < bpp; ++ch) {
-                dst[ch] = src[ch];
-            }
-            break;
-        }
-        dst = &dst[bpp];
-    }
-}
 
 static sgl_int32_t sgl_generic_resize_nearest_count_errors(
     const sgl_uint8_t *dst,
@@ -174,11 +128,7 @@ static SGL_ALWAYS_INLINE void sgl_generic_resize_nearest_single(
     sgl_nearest_neighbor_data_t *data,
     sgl_int32_t d_height)
 {
-    sgl_int32_t row;
-
-    for (row = 0; row < d_height; ++row) {
-        sgl_generic_resize_nearest_neighbor_line_stripe(row, data);
-    }
+    sgl_resize_nearest_neighbor_dispatch_packed_range(0, d_height, data);
 }
 
 #if defined(SGL_CFG_HAS_THREAD)
@@ -193,12 +143,15 @@ static sgl_result_t sgl_generic_resize_nearest_threaded(
     sgl_int32_t i;
     sgl_int32_t num_operations;
     sgl_int32_t mod_operations;
+    sgl_int32_t bulk_size;
 
-    result = SGL_SUCCESS;
+    result = SGL_ERROR_MEMORY_ALLOCATION;
     currents = SGL_NULL;
     operations = SGL_NULL;
-    num_operations = d_height / SGL_GENERIC_BULK_SIZE;
-    mod_operations = d_height % SGL_GENERIC_BULK_SIZE;
+    bulk_size = sgl_resize_uniform_thread_bulk_size(
+        pool, d_height, SGL_GENERIC_BULK_SIZE);
+    num_operations = d_height / bulk_size;
+    mod_operations = d_height % bulk_size;
     if (mod_operations != 0) {
         num_operations += 1;
     }
@@ -208,8 +161,8 @@ static sgl_result_t sgl_generic_resize_nearest_threaded(
         sizeof(sgl_nearest_neighbor_current_t) * (sgl_size_t)num_operations));
     if ((operations != SGL_NULL) && (currents != SGL_NULL)) {
         for (i = 0; i < num_operations; ++i) {
-            currents[i].row = i * SGL_GENERIC_BULK_SIZE;
-            currents[i].count = SGL_GENERIC_BULK_SIZE;
+            currents[i].row = i * bulk_size;
+            currents[i].count = bulk_size;
             (void)sgl_queue_unsafe_enqueue(operations, (const void *)&currents[i]);
         }
 
@@ -218,17 +171,13 @@ static sgl_result_t sgl_generic_resize_nearest_threaded(
         }
 
         /* multi-threaded resize */
-        (void)sgl_threadpool_attach_routine(
+        result = sgl_threadpool_attach_routine_consuming(
             pool,
             sgl_generic_resize_nearest_neighbor_routine,
             operations,
             (void *)data);
         sgl_queue_destroy(&operations);
     }
-    else {
-        result = SGL_ERROR_MEMORY_ALLOCATION;
-    }
-
     SGL_SAFE_FREE(currents);
     SGL_SAFE_FREE(operations);
 
@@ -248,6 +197,11 @@ static sgl_result_t sgl_generic_resize_nearest_run(
         sgl_generic_resize_nearest_single(data, d_height);
     }
 #if defined(SGL_CFG_HAS_THREAD)
+    else if (sgl_resize_nearest_should_use_threadpool(
+                 pool, data->lut->d_width, d_height,
+                 data->bpp) == SGL_FALSE) {
+        sgl_generic_resize_nearest_single(data, d_height);
+    }
     else {
         result = sgl_generic_resize_nearest_threaded(pool, data, d_height);
     }
@@ -272,6 +226,16 @@ sgl_result_t sgl_generic_resize_nearest(
     sgl_nearest_neighbor_lookup_t *temp_lut = SGL_NULL;
     sgl_int32_t errcnt = 0;
 
+    SGL_TRACE_RESIZE_BEGIN(
+        SGL_TRACE_BACKEND_GENERIC,
+        SGL_TRACE_METHOD_NEAREST,
+        d_width,
+        d_height,
+        s_width,
+        s_height,
+        bpp,
+        SGL_TRACE_REQUESTED_THREADS(pool),
+        (ext_lut != SGL_NULL));
     errcnt = sgl_generic_resize_nearest_count_errors(
         dst, d_width, d_height, src, s_width, s_height, bpp);
 
@@ -298,6 +262,9 @@ sgl_result_t sgl_generic_resize_nearest(
         }
     }
 
+    SGL_TRACE_RESIZE_END(
+        SGL_TRACE_BACKEND_GENERIC, SGL_TRACE_METHOD_NEAREST, result);
+
     return result;
 }
 
@@ -306,10 +273,8 @@ static void sgl_generic_resize_nearest_neighbor_routine(void *SGL_RESTRICT curre
 {
     const sgl_nearest_neighbor_current_t *cur = sgl_memory_as_const_nearest_neighbor_current(current);
     sgl_nearest_neighbor_data_t *data = sgl_memory_as_nearest_neighbor_data(cookie);
-    sgl_int32_t row;
 
-    for (row = cur->row; row < (cur->row + cur->count); ++row) {
-        sgl_generic_resize_nearest_neighbor_line_stripe(row, data);
-    }
+    sgl_resize_nearest_neighbor_dispatch_packed_range(
+        cur->row, cur->count, data);
 }
 #endif  /* !SGL_CFG_HAS_THREAD */

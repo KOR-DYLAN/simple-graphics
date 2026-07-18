@@ -21,6 +21,28 @@ The default Make target configures and builds the project. `make run` builds
 first, then runs the selected test application. Native host builds and AArch64
 cross builds are both supported through CMake toolchain files.
 
+Contents
+--------
+- [Overview](#overview)
+- [Project Status](#project-status)
+- [Quick Start](#quick-start)
+- [Directory Layout](#directory-layout)
+- [Prerequisites](#prerequisites)
+- [Platform Package Setup](#platform-package-setup)
+- [Configuration Variables](#configuration-variables)
+- [Build Targets](#build-targets)
+- [Running the Application](#running-the-application)
+- [Linux Profiling](docs/profiling-lttng.md)
+- [Documentation](docs/README.md)
+- [Resize Benchmark](#resize-benchmark)
+- [Benchmark index](benchmark/README.md)
+- [1-channel benchmark](benchmark/resize/1ch/README.md)
+- [2-channel benchmark](benchmark/resize/2ch/README.md)
+- [3-channel benchmark](benchmark/resize/3ch/README.md)
+- [4-channel representative benchmark](benchmark/resize/4ch/README.md)
+- [Notes](#notes)
+- [Memory Pool](#memory-pool)
+
 Project Status
 --------------
 Implemented:
@@ -34,6 +56,7 @@ Implemented:
 | Resize LUT reuse | Optional prebuilt lookup tables for repeated resize operations with fixed geometry. |
 | Threading | Optional pthread-backed threadpool on Linux, plus dummy backend when threading is disabled. |
 | Queue | Fixed-capacity queue used by tests and threaded execution paths. |
+| Profiling | Optional Linux LTTng-UST events for resize, threadpool, and queue contention analysis. |
 | Test apps | `resize`, `memory`, `queue`, and `sample` applications. |
 | Test image I/O | PNG load/save helpers built from test-only zlib-ng/libpng dependencies. |
 | Cross-run support | AArch64 Linux toolchains with QEMU runner and detected sysroot. |
@@ -46,7 +69,7 @@ Known limitations:
 | Color conversion, crop, rotate | Source files exist, but public API coverage is not exposed in `sgl-core.h` yet. |
 | SIMD coverage | NEON paths exist for memory and resize. x86 SIMD flags are detected, but no x86 resize backend is implemented. |
 | Thread backend | pthread is supported on Linux. Windows thread detection exists, but the current library implementation is not wired as a Win32 backend. |
-| External benchmark backends | Cairo and NE10 rows are timing comparisons only; pixel-accuracy validation is not implemented yet. |
+| External benchmark backends | Cairo rows are timing comparisons only. NE10 C/NEON consistency is checked, but reference pixel-accuracy validation is not implemented yet. |
 | QEMU execution | QEMU support is intended for AArch64 Linux user-mode binaries, not full-system emulation. |
 
 Planned or likely next support:
@@ -72,6 +95,7 @@ Use these commands after installing the packages for your platform.
 | Run the resize app through AArch64 QEMU | `make run TOOLCHAIN=aarch64-none-linux-llvm` |
 | Run a short AArch64 QEMU smoke test | `make run TOOLCHAIN=aarch64-none-linux-llvm TARGET=memory ARGS=` |
 | Disable cppcheck while iterating locally | `make run WITH_CPPCHECK=OFF` |
+| Capture an LTTng resize trace | `make profile-lttng BUILD_TYPE=RelWithDebInfo` |
 
 Default behavior:
 
@@ -101,6 +125,8 @@ Directory Layout
 | `script/` | Toolchain, package, QEMU, SIMD, thread, and analysis configuration. |
 | `test/` | Sample, benchmark, regression, and shared test utility targets. |
 | `library/` | Core SGL library target and implementation modules. |
+| `docs/` | Design and implementation animations grouped by subsystem. |
+| `benchmark/` | Versioned benchmark reports and generated SVG snapshots. |
 
 Prerequisites
 -------------
@@ -114,6 +140,7 @@ Required for normal test builds:
 | `gawk` | Required while building the test libpng dependency. |
 | `cppcheck` | Required only when `WITH_CPPCHECK=ON`. |
 | `qemu-aarch64-static` or `qemu-aarch64` | Required only for AArch64 cross-run execution. |
+| LTTng-UST, LTTng tools, and Babeltrace 2 | Required only for Linux tracing with `WITH_LTTNG=ON`. |
 | `nproc` | Used by the default Makefile flow to choose parallel jobs. |
 
 Platform Package Setup
@@ -193,10 +220,16 @@ Feature and analysis options:
 | `WITH_CPPCHECK_WARNINGS_AS_ERRORS` | `ON` | Makes cppcheck findings fail the build. | `make WITH_CPPCHECK_WARNINGS_AS_ERRORS=ON` |
 | `CPPCHECK_MISRA_RULE_TEXTS` | empty | Optional licensed MISRA rule-headlines file. | `make WITH_CPPCHECK_MISRA=ON CPPCHECK_MISRA_RULE_TEXTS=/path/to/misra.txt` |
 | `CPPCHECK_MAX_CTU_DEPTH` | `4` | CTU depth used by the standalone `cppcheck-report` target. | `make cppcheck-report CPPCHECK_MAX_CTU_DEPTH=6` |
+| `WITH_RUNTIME_TEST` | `OFF` | Makefile preset for runtime-check test builds: `Debug`, sanitizer, stack protector, test apps, short resize repeat, and `build/runtime-<toolchain>-<sanitizers>`. | `make test WITH_RUNTIME_TEST=ON` |
+| `SANITIZERS` | `address,undefined` | Sanitizer list used when `WITH_SANITIZER=ON` or `WITH_RUNTIME_TEST=ON`. Use `thread` in a separate build. | `make test WITH_RUNTIME_TEST=ON SANITIZERS=thread` |
 | `WITH_TEST_APP` | `ON` | Builds applications under `test/`. | `make WITH_TEST_APP=OFF` |
-| `WITH_BENCHMARK_COMPARE` | `OFF` | Builds optional resize comparison backends. May require Meson and Ninja. | `make WITH_BENCHMARK_COMPARE=ON` |
+| `SGL_TEST_RESIZE_REPEAT_COUNT` | `10` | Resize benchmark repeat count. `WITH_RUNTIME_TEST=ON` defaults this to `1` unless overridden. | `make test WITH_RUNTIME_TEST=ON SGL_TEST_RESIZE_REPEAT_COUNT=2` |
+| `SGL_TEST_RESIZE_WARMUP_COUNT` | `3` | Untimed resize warm-up count. `WITH_RUNTIME_TEST=ON` defaults this to `0`. | `make run SGL_TEST_RESIZE_WARMUP_COUNT=5` |
+| `WITH_BENCHMARK_COMPARE` | `ON` | Builds the required Cairo and NE10 resize comparison backends. Test-app configurations fail if this is disabled; library-only builds may set it to `OFF`. | `make WITH_TEST_APP=OFF WITH_BENCHMARK_COMPARE=OFF` |
 | `WITH_SIMD` | `ON` | Enables architecture-specific SIMD detection and sources. | `make WITH_SIMD=OFF` |
 | `WITH_THREAD` | `ON` | Enables platform thread support and the real threadpool backend. | `make WITH_THREAD=OFF` |
+| `WITH_LTTNG` | `OFF` | Enables Linux LTTng-UST tracepoints. Instrumented timings are for diagnosis, not benchmark publication. | `make profile-lttng BUILD_TYPE=RelWithDebInfo` |
+| `LTTNG_UST_ROOT` | empty | Optional prefix containing non-system LTTng-UST headers and libraries. | `make profile-lttng LTTNG_UST_ROOT=/opt/lttng` |
 
 Build Targets
 -------------
@@ -205,6 +238,9 @@ Build Targets
 | `all` | Default target. Same as `build`. | `make` |
 | `config` | Configure the project using CMake. | `make config` |
 | `build` | Build the configured project. | `make build` |
+| `test` | Build and run CTest entries from the selected build tree. | `make test WITH_RUNTIME_TEST=ON` |
+| `benchmark-update` | Run the complete resize benchmark and refresh the repo CSV/SVG snapshots. | `make benchmark-update` |
+| `profile-lttng` | Build an LTTng-UST resize binary and record a CTF trace. | `make profile-lttng BUILD_TYPE=RelWithDebInfo` |
 | `install` | Install headers, library, and package metadata. | `make install` |
 | `package` | Build binary CPack archives. | `make package` |
 | `package-source` | Build source CPack archives. | `make package-source` |
@@ -218,6 +254,13 @@ Build Targets
 inconclusive findings, library checks, CTU analysis, and the optional MISRA
 C:2012 addon. When `cppcheck-htmlreport` is installed, an HTML report is also
 generated under the same report directory.
+
+The profiling target uses one measured iteration and no warm-up calls by
+default in the separate `build/profile-lttng/<toolchain>` build tree. Override
+`PROFILE_BUILD`, `PROFILE_REPEAT_COUNT`, `PROFILE_WARMUP_COUNT`, or set
+`PROFILE_KERNEL=1` to include available scheduler and futex kernel events. See
+the [LTTng and Trace Compass profiling guide](docs/profiling-lttng.md) for event
+semantics, CTF import steps, and measurement rules.
 
 Running the Application
 -----------------------
@@ -255,8 +298,18 @@ The `resize` test application produces:
 
 | Output | Path |
 | --- | --- |
-| Benchmark CSV | `benchmark/resize-benchmark.csv` |
+| Build-local benchmark CSV | `build/<toolchain>/benchmark/resize-benchmark.csv` |
+| Repo-local benchmark CSV | `benchmark/resize/benchmark.csv` |
 | Resized PNG debug outputs | `build/output/` |
+
+Channel-specific reports:
+
+| Input channels | Report | External baselines |
+| ---: | --- | --- |
+| 1 | [1-channel resize benchmark](benchmark/resize/1ch/README.md) | SGL paths only |
+| 2 | [2-channel resize benchmark](benchmark/resize/2ch/README.md) | SGL paths only |
+| 3 | [3-channel resize benchmark](benchmark/resize/3ch/README.md) | SGL paths only |
+| 4 | [4-channel representative benchmark](benchmark/resize/4ch/README.md) | Cairo and NE10 where supported |
 
 Open `tools/resize-benchmark-viewer.html` in a browser to inspect the CSV as
 latency and thread-scaling charts. The viewer can export:
@@ -266,8 +319,10 @@ latency and thread-scaling charts. The viewer can export:
 - one SVG chart per interpolation method
 - an external-backend comparison chart as SVG
 
-By default the benchmark only builds SGL rows. Configure with
-`-DWITH_BENCHMARK_COMPARE=ON` when optional comparison backends are needed:
+Every resize benchmark build includes the comparison backends below. Cairo
+requires Meson and Ninja; configuration fails instead of producing an
+incomplete benchmark when either tool is unavailable. NE10 makes the complete
+comparison benchmark an AArch64-only target:
 
 | Backend | Methods | Source |
 | --- | --- | --- |
@@ -285,10 +340,14 @@ Benchmark behavior:
   temporary lookup table per resize call.
 - SGL `generic-lut` and `simd-lut` rows build the lookup table once per case and
   reuse it in the timed loop.
+- Each case runs three untimed warm-up calls by default, then records median,
+  average, minimum, and maximum latency over ten measured calls. Reports use
+  the median by default to reduce scheduler outlier bias.
 - External backends are recorded only as 1-thread baseline rows because they do
   not consume the SGL threadpool.
-- Cairo and NE10 rows are raw timing checks and should be treated as
-  experimental until pixel-accuracy validation is added.
+- Cairo rows are raw timing checks. NE10 records separate `ne10-c` and
+  `ne10-neon` rows, checks that NE10 runtime dispatch selected NEON, and verifies
+  that C and NEON outputs match byte-for-byte outside the timed loop.
 - Cairo and NE10 rows are recorded only for 4-channel inputs. NE10 is recorded
   only for bilinear rows because it provides a bilinear RGBA resize API.
 
@@ -296,29 +355,36 @@ The default sample image is 1920x1080. The benchmark matrix keeps one
 downscale output, 640x480, and one upscale output, 2560x1440, to cover both
 resize directions without making the default run too large.
 
-The following SVGs are sample runs from `resource/sample.png`. They highlight
-4-channel SGL path comparisons across both default resize directions, including
-SIMD single-thread rows, prebuilt-LUT rows, and the no-external-LUT convenience
-path. The overview keeps all interpolation methods together, while the
-method-specific SVGs keep downscale and upscale comparisons easier to scan.
-Treat them as benchmark snapshots, not universal claims; CPU model, clock
-policy, compiler, build flags, and input image all affect the result.
+The following 4-channel SVGs are the representative benchmark from
+`resource/sample.png`. Method-specific tables compare generic, generic-LUT,
+SIMD, and SIMD-LUT paths at 1 and 8 threads, plus the external rows available
+for that interpolation method. Their charts focus on 1/8-thread prebuilt-LUT
+paths, Cairo, and NE10 NEON. Table width, chart height, and the overall SVG
+dimensions adapt to the rows present in the CSV. The overview keeps all
+interpolation methods together, while the method-specific SVGs keep downscale
+and upscale comparisons easier to scan. The channel reports linked above use
+the same layout for 1, 2, 3, and 4-channel inputs. Treat them as benchmark
+snapshots, not universal claims; CPU model, clock policy, compiler, build
+flags, and input image all affect the result.
 
-![SGL resize benchmark summary](benchmark/resize-benchmark-summary.svg)
+![SGL resize benchmark summary](benchmark/resize/4ch/summary.svg)
 
-![SGL nearest resize benchmark](benchmark/resize-benchmark-nearest.svg)
+![SGL nearest resize benchmark](benchmark/resize/4ch/nearest.svg)
 
-![SGL bilinear resize benchmark](benchmark/resize-benchmark-bilinear.svg)
+![SGL bilinear resize benchmark](benchmark/resize/4ch/bilinear.svg)
 
-![SGL bicubic resize benchmark](benchmark/resize-benchmark-bicubic.svg)
+![SGL bicubic resize benchmark](benchmark/resize/4ch/bicubic.svg)
 
-Refresh the interpolation-specific SVG snapshots after rerunning the benchmark:
+Build, run, validate, and refresh the repo-local CSV and SVG snapshots with
+either entry point:
 
-  python3 tools/resize-benchmark-summary-svg.py
+  make benchmark-update
 
-The generated SVGs include Cairo/NE10 external comparison rows when the CSV
-contains them; otherwise they show that the current CSV has no external backend
-rows.
+  cmake --build build/llvm --target benchmark-update
+
+The generator rejects a CSV unless it contains Cairo nearest/bilinear plus NE10
+C/NEON bilinear rows for every reported 4-channel output size. `benchmark-svg`
+remains as a Makefile compatibility alias for `benchmark-update`.
 
 | Environment | Value |
 | --- | --- |
@@ -326,44 +392,10 @@ rows.
 | Host base clock | 3.42 GHz |
 | WSL visible CPU | aarch64, Qualcomm vendor, 8 logical CPUs visible to Linux |
 | WSL CPU model string | not reported by Linux inside WSL2 |
-| OS | Windows on WSL2, Linux 6.18.33.1-microsoft-standard-WSL2 aarch64 |
-| Compiler | GCC 13.3.0, Ubuntu 13.3.0-6ubuntu2~24.04.1 |
+| OS | Windows on WSL2, Linux 6.18.33.2-microsoft-standard-WSL2 aarch64 |
+| Compiler | Clang 18.1.3, Ubuntu 18.1.3-1ubuntu1 |
 | Build | Release |
 | Input | resource/sample.png |
-
-SGL 4-channel path timing, using average latency:
-
-| Scenario | SGL generic 1t | SGL simd 1t | SGL simd-lut 1t | SGL simd-lut 8t | Generic / simd-lut 8t |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| nearest 640x480 | 0.304 ms | 0.378 ms | 0.305 ms | 0.619 ms | 0.49x |
-| bilinear 640x480 | 0.701 ms | 0.581 ms | 0.621 ms | 0.316 ms | 2.22x |
-| bicubic 640x480 | 8.197 ms | 4.605 ms | 4.562 ms | 1.365 ms | 6.01x |
-| nearest 2560x1440 | 3.231 ms | 1.177 ms | 1.213 ms | 0.598 ms | 5.40x |
-| bilinear 2560x1440 | 3.943 ms | 3.180 ms | 3.732 ms | 1.400 ms | 2.82x |
-| bicubic 2560x1440 | 91.126 ms | 44.975 ms | 42.906 ms | 7.337 ms | 12.42x |
-
-A ratio below 1x means the threaded SIMD LUT path is slower than the generic
-1-thread path for that small case.
-
-Cairo/NE10 external comparison, using average latency:
-
-| Scenario | SGL generic 1t | SGL simd 1t | SGL simd-lut 8t | Cairo 1t | NE10 1t | Best external / simd-lut 8t |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| nearest 640x480 | 0.304 ms | 0.378 ms | 0.619 ms | 0.890 ms | n/a | 1.44x slower |
-| nearest 2560x1440 | 3.231 ms | 1.177 ms | 0.598 ms | 1.770 ms | n/a | 2.96x slower |
-| bilinear 640x480 | 0.701 ms | 0.581 ms | 0.316 ms | 0.364 ms | 0.759 ms | 1.15x slower |
-| bilinear 2560x1440 | 3.943 ms | 3.180 ms | 1.400 ms | 3.667 ms | 4.683 ms | 2.62x slower |
-
-Representative optimized SGL thread scaling, using average latency:
-
-| Scenario | simd-lut 1t | simd-lut 8t | Speedup |
-| --- | ---: | ---: | ---: |
-| nearest 640x480 | 0.305 ms | 0.619 ms | 0.49x |
-| bilinear 640x480 | 0.621 ms | 0.316 ms | 1.97x |
-| bicubic 640x480 | 4.562 ms | 1.365 ms | 3.34x |
-| nearest 2560x1440 | 1.213 ms | 0.598 ms | 2.03x |
-| bilinear 2560x1440 | 3.732 ms | 1.400 ms | 2.67x |
-| bicubic 2560x1440 | 42.906 ms | 7.337 ms | 5.85x |
 
 Notes
 -----

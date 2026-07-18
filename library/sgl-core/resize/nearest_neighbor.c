@@ -8,6 +8,153 @@
  */
 #include <sgl-core.h>
 #include "nearest_neighbor.h"
+#include "nearest_neighbor_packed.h"
+#include "resize_bitops.h"
+
+/*
+ * Keep the fixed-format downscale loops out of the larger NEON translation
+ * unit so its upscale instruction path remains compact.  Passing source and
+ * destination as separate restrict-qualified arguments also lets the compiler
+ * combine byte copies into 16/32-bit unaligned-safe memory operations.
+ */
+static SGL_NOINLINE void sgl_resize_nearest_neighbor_copy_range_bpp16(
+    sgl_int32_t start_row,
+    sgl_int32_t row_count,
+    const sgl_nearest_neighbor_lookup_t *SGL_RESTRICT lut,
+    const sgl_uint8_t *SGL_RESTRICT source,
+    sgl_int32_t src_stride,
+    sgl_uint8_t *SGL_RESTRICT destination,
+    sgl_int32_t dst_stride)
+{
+    const sgl_int32_t *x;
+    const sgl_uint8_t *src_y_buf;
+    const sgl_uint8_t *src;
+    sgl_uint8_t *dst;
+    sgl_int32_t col;
+    sgl_int32_t end_row;
+    sgl_int32_t row;
+
+    x = lut->x;
+    end_row = start_row + row_count;
+    if (end_row > lut->d_height) {
+        end_row = lut->d_height;
+    }
+
+    for (row = start_row; row < end_row; ++row) {
+        src_y_buf = &source[lut->y[row] * src_stride];
+        dst = &destination[row * dst_stride];
+        for (col = 0; col < lut->d_width; ++col) {
+            src = &src_y_buf[SGL_RESIZE_BPP16_BYTE_OFFSET(x[col])];
+            dst[1] = src[1];
+            dst[0] = src[0];
+            dst = &dst[SGL_BPP16];
+        }
+    }
+}
+
+static SGL_NOINLINE void sgl_resize_nearest_neighbor_copy_range_bpp24(
+    sgl_int32_t start_row,
+    sgl_int32_t row_count,
+    const sgl_nearest_neighbor_lookup_t *SGL_RESTRICT lut,
+    const sgl_uint8_t *SGL_RESTRICT source,
+    sgl_int32_t src_stride,
+    sgl_uint8_t *SGL_RESTRICT destination,
+    sgl_int32_t dst_stride)
+{
+    const sgl_int32_t *x;
+    const sgl_uint8_t *src_y_buf;
+    const sgl_uint8_t *src;
+    sgl_uint8_t *dst;
+    sgl_int32_t col;
+    sgl_int32_t end_row;
+    sgl_int32_t row;
+
+    x = lut->x;
+    end_row = start_row + row_count;
+    if (end_row > lut->d_height) {
+        end_row = lut->d_height;
+    }
+
+    for (row = start_row; row < end_row; ++row) {
+        src_y_buf = &source[lut->y[row] * src_stride];
+        dst = &destination[row * dst_stride];
+        for (col = 0; col < lut->d_width; ++col) {
+            src = &src_y_buf[x[col] * SGL_BPP24];
+            dst[2] = src[2];
+            dst[1] = src[1];
+            dst[0] = src[0];
+            dst = &dst[SGL_BPP24];
+        }
+    }
+}
+
+static SGL_NOINLINE void sgl_resize_nearest_neighbor_copy_range_bpp32(
+    sgl_int32_t start_row,
+    sgl_int32_t row_count,
+    const sgl_nearest_neighbor_lookup_t *SGL_RESTRICT lut,
+    const sgl_uint8_t *SGL_RESTRICT source,
+    sgl_int32_t src_stride,
+    sgl_uint8_t *SGL_RESTRICT destination,
+    sgl_int32_t dst_stride)
+{
+    const sgl_int32_t *x;
+    const sgl_uint8_t *src_y_buf;
+    const sgl_uint8_t *src;
+    sgl_uint8_t *dst;
+    sgl_int32_t col;
+    sgl_int32_t end_row;
+    sgl_int32_t row;
+
+    x = lut->x;
+    end_row = start_row + row_count;
+    if (end_row > lut->d_height) {
+        end_row = lut->d_height;
+    }
+
+    for (row = start_row; row < end_row; ++row) {
+        src_y_buf = &source[lut->y[row] * src_stride];
+        dst = &destination[row * dst_stride];
+        for (col = 0; col < lut->d_width; ++col) {
+            src = &src_y_buf[SGL_RESIZE_BPP32_BYTE_OFFSET(x[col])];
+            dst[3] = src[3];
+            dst[2] = src[2];
+            dst[1] = src[1];
+            dst[0] = src[0];
+            dst = &dst[SGL_BPP32];
+        }
+    }
+}
+
+void sgl_resize_nearest_neighbor_dispatch_packed_range(
+    sgl_int32_t start_row,
+    sgl_int32_t row_count,
+    sgl_nearest_neighbor_data_t *data)
+{
+    switch (data->bpp) {
+    case SGL_BPP32:
+        sgl_resize_nearest_neighbor_copy_range_bpp32(
+            start_row, row_count, data->lut,
+            data->src, data->src_stride,
+            data->dst, data->dst_stride);
+        break;
+    case SGL_BPP24:
+        sgl_resize_nearest_neighbor_copy_range_bpp24(
+            start_row, row_count, data->lut,
+            data->src, data->src_stride,
+            data->dst, data->dst_stride);
+        break;
+    case SGL_BPP16:
+        sgl_resize_nearest_neighbor_copy_range_bpp16(
+            start_row, row_count, data->lut,
+            data->src, data->src_stride,
+            data->dst, data->dst_stride);
+        break;
+    default:
+        sgl_resize_nearest_neighbor_copy_packed_range(
+            start_row, row_count, data);
+        break;
+    }
+}
 
 sgl_nearest_neighbor_lookup_t *sgl_generic_create_nearest_neighbor_lut(sgl_int32_t d_width, sgl_int32_t d_height, sgl_int32_t s_width, sgl_int32_t s_height)
 {

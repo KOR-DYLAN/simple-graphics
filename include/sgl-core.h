@@ -185,7 +185,10 @@ sgl_size_t sgl_queue_get_count(const sgl_queue_t *queue);
 #if defined(SGL_CFG_HAS_THREAD)
 sgl_threadpool_t *sgl_threadpool_create(sgl_size_t num_threads, sgl_size_t max_routine_lists, const char *base_name);
 sgl_result_t sgl_threadpool_destroy(sgl_threadpool_t *pool);
+sgl_size_t sgl_threadpool_get_num_threads(const sgl_threadpool_t *pool);
 sgl_result_t sgl_threadpool_attach_routine(sgl_threadpool_t *SGL_RESTRICT pool, sgl_threadpool_routine_t routine, sgl_queue_t *SGL_RESTRICT operations, void *SGL_RESTRICT cookie);
+/* Consumes operation entries; the caller retains ownership of the queue. */
+sgl_result_t sgl_threadpool_attach_routine_consuming(sgl_threadpool_t *SGL_RESTRICT pool, sgl_threadpool_routine_t routine, sgl_queue_t *SGL_RESTRICT operations, void *SGL_RESTRICT cookie);
 #endif  /* !SGL_CFG_HAS_THREAD */
 
 #if defined(__cplusplus)

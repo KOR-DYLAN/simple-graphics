@@ -8,8 +8,8 @@ For conditions of distribution and use, see the LICENSE file.
 -->
 
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="1340" viewBox="0 0 1280 1340" role="img" aria-labelledby="title desc">
-  <title id="title">SGL resize benchmark direction comparison</title>
-  <desc id="desc">Resize benchmark snapshot measured from benchmark/resize-benchmark.csv. The chart compares 4-channel downscale and upscale rows across nearest, bilinear, and bicubic interpolation.</desc>
+  <title id="title">SGL 4-channel resize benchmark overview</title>
+  <desc id="desc">Resize benchmark snapshot measured from benchmark/resize/benchmark.csv. The chart compares 4-channel downscale and upscale rows across nearest, bilinear, and bicubic interpolation.</desc>
   <defs>
     <style>
       .bg { fill: #101418; }
@@ -30,13 +30,13 @@ For conditions of distribution and use, see the LICENSE file.
   <rect class="bg" x="0" y="0" width="1280" height="1340"/>
 
   <text class="text" x="36" y="52" font-size="30" font-weight="800">SGL Resize Benchmark Snapshot</text>
-  <text class="muted" x="36" y="80" font-size="14">Average latency from benchmark/resize-benchmark.csv, Release build, resource/sample.png</text>
+  <text class="muted" x="36" y="80" font-size="14">Median latency from benchmark/resize/benchmark.csv, Release build, resource/sample.png</text>
   <text class="muted" x="36" y="102" font-size="13">4-channel SGL rows; 640x480 downscale and 2560x1440 upscale are shown together.</text>
   <rect class="panel" x="28" y="132" width="1224" height="430" rx="8"/>
-  <text class="text" x="58" y="172" font-size="22" font-weight="800">SGL path comparison by resize direction</text>
+  <text class="text" x="58" y="172" font-size="22" font-weight="800">SGL path comparison by resize case</text>
   <text class="muted" x="58" y="194" font-size="13">The ratio compares generic 1-thread latency against SIMD LUT with 8 threads.</text>
   <rect class="header" x="48" y="216" width="1184" height="38" rx="6"/>
-  <text class="head" x="70" y="240">direction</text>
+  <text class="head" x="70" y="240">resize case</text>
   <text class="head" x="240" y="240">method</text>
   <text class="head" x="430" y="240" text-anchor="end">generic 1t</text>
   <text class="head" x="580" y="240" text-anchor="end">simd 1t</text>
@@ -46,51 +46,51 @@ For conditions of distribution and use, see the LICENSE file.
   <line class="line" x1="48" y1="264" x2="1232" y2="264"/>
   <text class="cell" x="70" y="292">downscale 640x480</text>
   <text class="cell" x="240" y="292">nearest</text>
-  <text class="cell" x="430" y="292" text-anchor="end">0.304 ms</text>
-  <text class="cell" x="580" y="292" text-anchor="end">0.378 ms</text>
-  <text class="cell" x="760" y="292" text-anchor="end">0.305 ms</text>
-  <text class="cell" x="930" y="292" text-anchor="end">0.619 ms</text>
-  <text class="speed" x="1200" y="292" text-anchor="end">0.49x</text>
+  <text class="cell" x="430" y="292" text-anchor="end">0.167 ms</text>
+  <text class="cell" x="580" y="292" text-anchor="end">0.178 ms</text>
+  <text class="cell" x="760" y="292" text-anchor="end">0.173 ms</text>
+  <text class="cell" x="930" y="292" text-anchor="end">0.128 ms</text>
+  <text class="speed" x="1200" y="292" text-anchor="end">1.30x</text>
   <line class="line" x1="48" y1="312" x2="1232" y2="312"/>
   <text class="cell" x="70" y="340">downscale 640x480</text>
   <text class="cell" x="240" y="340">bilinear</text>
-  <text class="cell" x="430" y="340" text-anchor="end">0.701 ms</text>
-  <text class="cell" x="580" y="340" text-anchor="end">0.581 ms</text>
-  <text class="cell" x="760" y="340" text-anchor="end">0.621 ms</text>
-  <text class="cell" x="930" y="340" text-anchor="end">0.316 ms</text>
-  <text class="speed" x="1200" y="340" text-anchor="end">2.22x</text>
+  <text class="cell" x="430" y="340" text-anchor="end">0.667 ms</text>
+  <text class="cell" x="580" y="340" text-anchor="end">0.457 ms</text>
+  <text class="cell" x="760" y="340" text-anchor="end">0.450 ms</text>
+  <text class="cell" x="930" y="340" text-anchor="end">0.293 ms</text>
+  <text class="speed" x="1200" y="340" text-anchor="end">2.28x</text>
   <line class="line" x1="48" y1="360" x2="1232" y2="360"/>
   <text class="cell" x="70" y="388">downscale 640x480</text>
   <text class="cell" x="240" y="388">bicubic</text>
-  <text class="cell" x="430" y="388" text-anchor="end">8.197 ms</text>
-  <text class="cell" x="580" y="388" text-anchor="end">4.605 ms</text>
-  <text class="cell" x="760" y="388" text-anchor="end">4.562 ms</text>
-  <text class="cell" x="930" y="388" text-anchor="end">1.365 ms</text>
-  <text class="speed" x="1200" y="388" text-anchor="end">6.01x</text>
+  <text class="cell" x="430" y="388" text-anchor="end">8.862 ms</text>
+  <text class="cell" x="580" y="388" text-anchor="end">1.898 ms</text>
+  <text class="cell" x="760" y="388" text-anchor="end">1.755 ms</text>
+  <text class="cell" x="930" y="388" text-anchor="end">0.816 ms</text>
+  <text class="speed" x="1200" y="388" text-anchor="end">10.86x</text>
   <line class="line" x1="48" y1="408" x2="1232" y2="408"/>
   <text class="cell" x="70" y="436">upscale 2560x1440</text>
   <text class="cell" x="240" y="436">nearest</text>
-  <text class="cell" x="430" y="436" text-anchor="end">3.231 ms</text>
-  <text class="cell" x="580" y="436" text-anchor="end">1.177 ms</text>
-  <text class="cell" x="760" y="436" text-anchor="end">1.213 ms</text>
-  <text class="cell" x="930" y="436" text-anchor="end">0.598 ms</text>
-  <text class="speed" x="1200" y="436" text-anchor="end">5.40x</text>
+  <text class="cell" x="430" y="436" text-anchor="end">1.449 ms</text>
+  <text class="cell" x="580" y="436" text-anchor="end">0.714 ms</text>
+  <text class="cell" x="760" y="436" text-anchor="end">0.741 ms</text>
+  <text class="cell" x="930" y="436" text-anchor="end">0.516 ms</text>
+  <text class="speed" x="1200" y="436" text-anchor="end">2.81x</text>
   <line class="line" x1="48" y1="456" x2="1232" y2="456"/>
   <text class="cell" x="70" y="484">upscale 2560x1440</text>
   <text class="cell" x="240" y="484">bilinear</text>
-  <text class="cell" x="430" y="484" text-anchor="end">3.943 ms</text>
-  <text class="cell" x="580" y="484" text-anchor="end">3.180 ms</text>
-  <text class="cell" x="760" y="484" text-anchor="end">3.732 ms</text>
-  <text class="cell" x="930" y="484" text-anchor="end">1.400 ms</text>
-  <text class="speed" x="1200" y="484" text-anchor="end">2.82x</text>
+  <text class="cell" x="430" y="484" text-anchor="end">3.940 ms</text>
+  <text class="cell" x="580" y="484" text-anchor="end">3.161 ms</text>
+  <text class="cell" x="760" y="484" text-anchor="end">3.151 ms</text>
+  <text class="cell" x="930" y="484" text-anchor="end">1.108 ms</text>
+  <text class="speed" x="1200" y="484" text-anchor="end">3.56x</text>
   <line class="line" x1="48" y1="504" x2="1232" y2="504"/>
   <text class="cell" x="70" y="532">upscale 2560x1440</text>
   <text class="cell" x="240" y="532">bicubic</text>
-  <text class="cell" x="430" y="532" text-anchor="end">91.126 ms</text>
-  <text class="cell" x="580" y="532" text-anchor="end">44.975 ms</text>
-  <text class="cell" x="760" y="532" text-anchor="end">42.906 ms</text>
-  <text class="cell" x="930" y="532" text-anchor="end">7.337 ms</text>
-  <text class="speed" x="1200" y="532" text-anchor="end">12.42x</text>
+  <text class="cell" x="430" y="532" text-anchor="end">90.942 ms</text>
+  <text class="cell" x="580" y="532" text-anchor="end">40.326 ms</text>
+  <text class="cell" x="760" y="532" text-anchor="end">40.138 ms</text>
+  <text class="cell" x="930" y="532" text-anchor="end">7.716 ms</text>
+  <text class="speed" x="1200" y="532" text-anchor="end">11.79x</text>
   <rect class="panel" x="28" y="600" width="1224" height="360" rx="8"/>
   <text class="text" x="58" y="640" font-size="22" font-weight="800">Threaded SIMD LUT latency by interpolation</text>
   <text class="muted" x="58" y="662" font-size="13">Bars show SIMD LUT with 8 threads; each bar is normalized to the slowest displayed case.</text>
@@ -99,23 +99,23 @@ For conditions of distribution and use, see the LICENSE file.
   <rect class="up" x="218" y="684" width="14" height="10" rx="2"/>
   <text class="small" x="240" y="694">upscale 2560x1440</text>
   <text class="small" x="78" y="737">nearest downscale 640x480</text>
-  <rect class="down" x="310" y="724" width="69" height="16" rx="3"/>
-  <text class="cell" x="393" y="737">0.619 ms</text>
+  <rect class="down" x="310" y="724" width="14" height="16" rx="3"/>
+  <text class="cell" x="338" y="737">0.128 ms</text>
   <text class="small" x="78" y="775">bilinear downscale 640x480</text>
-  <rect class="down" x="310" y="762" width="35" height="16" rx="3"/>
-  <text class="cell" x="359" y="775">0.316 ms</text>
+  <rect class="down" x="310" y="762" width="31" height="16" rx="3"/>
+  <text class="cell" x="355" y="775">0.293 ms</text>
   <text class="small" x="78" y="813">bicubic downscale 640x480</text>
-  <rect class="down" x="310" y="800" width="153" height="16" rx="3"/>
-  <text class="cell" x="477" y="813">1.365 ms</text>
+  <rect class="down" x="310" y="800" width="87" height="16" rx="3"/>
+  <text class="cell" x="411" y="813">0.816 ms</text>
   <text class="small" x="78" y="851">nearest upscale 2560x1440</text>
-  <rect class="up" x="310" y="838" width="67" height="16" rx="3"/>
-  <text class="cell" x="391" y="851">0.598 ms</text>
+  <rect class="up" x="310" y="838" width="55" height="16" rx="3"/>
+  <text class="cell" x="379" y="851">0.516 ms</text>
   <text class="small" x="78" y="889">bilinear upscale 2560x1440</text>
-  <rect class="up" x="310" y="876" width="156" height="16" rx="3"/>
-  <text class="cell" x="480" y="889">1.400 ms</text>
+  <rect class="up" x="310" y="876" width="118" height="16" rx="3"/>
+  <text class="cell" x="442" y="889">1.108 ms</text>
   <text class="small" x="78" y="927">bicubic upscale 2560x1440</text>
   <rect class="up" x="310" y="914" width="820" height="16" rx="3"/>
-  <text class="cell" x="1144" y="927">7.337 ms</text>
+  <text class="cell" x="1144" y="927">7.716 ms</text>
   <rect class="panel" x="28" y="990" width="1224" height="270" rx="8"/>
   <text class="text" x="58" y="1030" font-size="22" font-weight="800">Cairo / NE10 external comparison</text>
   <text class="muted" x="58" y="1052" font-size="13">4-channel rows only; Cairo provides nearest/bilinear and NE10 provides bilinear RGBA.</text>
@@ -125,40 +125,40 @@ For conditions of distribution and use, see the LICENSE file.
   <text class="head" x="500" y="1096" text-anchor="end">simd 1t</text>
   <text class="head" x="660" y="1096" text-anchor="end">simd-lut 8t</text>
   <text class="head" x="810" y="1096" text-anchor="end">cairo 1t</text>
-  <text class="head" x="960" y="1096" text-anchor="end">ne10 1t</text>
+  <text class="head" x="960" y="1096" text-anchor="end">ne10 NEON 1t</text>
   <text class="head" x="1200" y="1096" text-anchor="end">best external / simd-lut 8t</text>
   <line class="line" x1="48" y1="1116" x2="1232" y2="1116"/>
   <text class="cell" x="70" y="1136">nearest downscale 640x480</text>
-  <text class="cell" x="340" y="1136" text-anchor="end">0.304 ms</text>
-  <text class="cell" x="500" y="1136" text-anchor="end">0.378 ms</text>
-  <text class="cell" x="660" y="1136" text-anchor="end">0.619 ms</text>
-  <text class="cell" x="810" y="1136" text-anchor="end">0.890 ms</text>
+  <text class="cell" x="340" y="1136" text-anchor="end">0.167 ms</text>
+  <text class="cell" x="500" y="1136" text-anchor="end">0.178 ms</text>
+  <text class="cell" x="660" y="1136" text-anchor="end">0.128 ms</text>
+  <text class="cell" x="810" y="1136" text-anchor="end">0.228 ms</text>
   <text class="muted" x="960" y="1136" text-anchor="end">n/a</text>
-  <text class="speed" x="1200" y="1136" text-anchor="end">1.44x slower</text>
+  <text class="speed" x="1200" y="1136" text-anchor="end">1.78x slower</text>
   <line class="line" x1="48" y1="1150" x2="1232" y2="1150"/>
   <text class="cell" x="70" y="1170">bilinear downscale 640x480</text>
-  <text class="cell" x="340" y="1170" text-anchor="end">0.701 ms</text>
-  <text class="cell" x="500" y="1170" text-anchor="end">0.581 ms</text>
-  <text class="cell" x="660" y="1170" text-anchor="end">0.316 ms</text>
-  <text class="cell" x="810" y="1170" text-anchor="end">0.364 ms</text>
-  <text class="cell" x="960" y="1170" text-anchor="end">0.759 ms</text>
-  <text class="speed" x="1200" y="1170" text-anchor="end">1.15x slower</text>
+  <text class="cell" x="340" y="1170" text-anchor="end">0.667 ms</text>
+  <text class="cell" x="500" y="1170" text-anchor="end">0.457 ms</text>
+  <text class="cell" x="660" y="1170" text-anchor="end">0.293 ms</text>
+  <text class="cell" x="810" y="1170" text-anchor="end">0.393 ms</text>
+  <text class="cell" x="960" y="1170" text-anchor="end">0.657 ms</text>
+  <text class="speed" x="1200" y="1170" text-anchor="end">1.34x slower</text>
   <line class="line" x1="48" y1="1184" x2="1232" y2="1184"/>
   <text class="cell" x="70" y="1204">nearest upscale 2560x1440</text>
-  <text class="cell" x="340" y="1204" text-anchor="end">3.231 ms</text>
-  <text class="cell" x="500" y="1204" text-anchor="end">1.177 ms</text>
-  <text class="cell" x="660" y="1204" text-anchor="end">0.598 ms</text>
-  <text class="cell" x="810" y="1204" text-anchor="end">1.770 ms</text>
+  <text class="cell" x="340" y="1204" text-anchor="end">1.449 ms</text>
+  <text class="cell" x="500" y="1204" text-anchor="end">0.714 ms</text>
+  <text class="cell" x="660" y="1204" text-anchor="end">0.516 ms</text>
+  <text class="cell" x="810" y="1204" text-anchor="end">1.847 ms</text>
   <text class="muted" x="960" y="1204" text-anchor="end">n/a</text>
-  <text class="speed" x="1200" y="1204" text-anchor="end">2.96x slower</text>
+  <text class="speed" x="1200" y="1204" text-anchor="end">3.58x slower</text>
   <line class="line" x1="48" y1="1218" x2="1232" y2="1218"/>
   <text class="cell" x="70" y="1238">bilinear upscale 2560x1440</text>
-  <text class="cell" x="340" y="1238" text-anchor="end">3.943 ms</text>
-  <text class="cell" x="500" y="1238" text-anchor="end">3.180 ms</text>
-  <text class="cell" x="660" y="1238" text-anchor="end">1.400 ms</text>
-  <text class="cell" x="810" y="1238" text-anchor="end">3.667 ms</text>
-  <text class="cell" x="960" y="1238" text-anchor="end">4.683 ms</text>
-  <text class="speed" x="1200" y="1238" text-anchor="end">2.62x slower</text>
+  <text class="cell" x="340" y="1238" text-anchor="end">3.940 ms</text>
+  <text class="cell" x="500" y="1238" text-anchor="end">3.161 ms</text>
+  <text class="cell" x="660" y="1238" text-anchor="end">1.108 ms</text>
+  <text class="cell" x="810" y="1238" text-anchor="end">4.394 ms</text>
+  <text class="cell" x="960" y="1238" text-anchor="end">4.404 ms</text>
+  <text class="speed" x="1200" y="1238" text-anchor="end">3.97x slower</text>
   <text class="small" x="36" y="1298">Note: benchmark results are workload and environment dependent; rerun on the target machine before publishing final claims.</text>
   <text class="small" x="36" y="1320">Use the interpolation-specific SVGs for a less crowded view of nearest, bilinear, and bicubic rows.</text>
 </svg>

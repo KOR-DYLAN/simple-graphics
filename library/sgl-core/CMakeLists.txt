@@ -16,6 +16,7 @@ project(sgl-core
 add_library(${PROJECT_NAME})
 
 # Attach implementation modules while keeping each domain's source list local.
+add_subdirectory(trace)
 add_subdirectory(memory)
 add_subdirectory(convert)
 add_subdirectory(crop)

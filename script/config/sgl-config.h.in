@@ -38,4 +38,7 @@
 #cmakedefine SGL_CFG_HAS_PTHREAD    @SGL_CFG_HAS_PTHREAD@
 #cmakedefine SGL_CFG_HAS_WINTHREAD  @SGL_CFG_HAS_WINTHREAD@
 
+/* Profiling Features */
+#cmakedefine SGL_CFG_HAS_LTTNG      @SGL_CFG_HAS_LTTNG@
+
 #endif  /* !SGL_CONFIG_H_ */

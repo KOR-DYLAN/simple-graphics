@@ -19,6 +19,20 @@ typedef sgl_osal_thread_return_t(*sgl_osal_thread_entry_t)(sgl_osal_thread_arg_t
 typedef sgl_uintptr_t       sgl_osal_spinlock_t;
 typedef sgl_uintptr_t       sgl_osal_mutex_t;
 typedef sgl_uintptr_t       sgl_osal_cond_t;
+typedef sgl_uint32_t        sgl_osal_atomic_uint32_t;
+
+static SGL_ALWAYS_INLINE sgl_uint32_t sgl_osal_atomic_uint32_load_acquire(
+    const sgl_osal_atomic_uint32_t *value)
+{
+    return *value;
+}
+
+static SGL_ALWAYS_INLINE sgl_uint32_t sgl_osal_atomic_uint32_increment_release(
+    sgl_osal_atomic_uint32_t *value)
+{
+    *value += 1U;
+    return *value;
+}
 
 /* Thread */
 static SGL_ALWAYS_INLINE sgl_osal_thread_t sgl_thread_create(sgl_osal_thread_entry_t start_routine, sgl_osal_thread_arg_t arg)
@@ -47,6 +61,14 @@ static SGL_ALWAYS_INLINE void sgl_osal_spinlock_init(sgl_osal_spinlock_t *spinlo
 static SGL_ALWAYS_INLINE void sgl_osal_spinlock_lock(sgl_osal_spinlock_t *spinlock)
 {
     SGL_UNUSED(spinlock);
+}
+
+static SGL_ALWAYS_INLINE sgl_bool_t sgl_osal_spinlock_try_lock(
+    sgl_osal_spinlock_t *spinlock)
+{
+    SGL_UNUSED(spinlock);
+
+    return SGL_TRUE;
 }
 
 static SGL_ALWAYS_INLINE void sgl_osal_spinlock_unlock(sgl_osal_spinlock_t *spinlock)

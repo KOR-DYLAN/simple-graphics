@@ -9,10 +9,16 @@ TOPDIR			:=$(dir $(abspath $(firstword $(MAKEFILE_LIST))))
 WORKSPACE		:=$(TOPDIR)
 BUILD_ROOT		:=$(TOPDIR)/build
 BUILD			?=$(BUILD_ROOT)/$(TOOLCHAIN)
+PROFILE_BUILD		?=$(BUILD_ROOT)/profile-lttng/$(TOOLCHAIN)
 CMAKE			:=cmake
+CTEST			:=ctest
 CPACK			:=cpack
 CPPCHECK_REPORT	?=$(TOPDIR)/script/cppcheck-report.sh
 NPROC			?=$(shell nproc)
+CTEST_ARGS		?=--output-on-failure
+PROFILE_KERNEL	?=0
+PROFILE_REPEAT_COUNT	?=1
+PROFILE_WARMUP_COUNT	?=0
 
 # Verbose output
 #   Supported values:
@@ -27,6 +33,7 @@ V				?=0
 #     RelWithDebInfo
 #     MinSizeRel
 BUILD_TYPE		?=Release
+WITH_BENCHMARK_COMPARE	?=ON
 
 # Cross-compile options:
 #   TOOLCHAIN selects the CMake toolchain file used for building.
@@ -63,6 +70,11 @@ phony+=build
 build: config
 	$(CMAKE) --build $(BUILD) -j $(NPROC) $(VERBOSE)
 
+# Build and run every CTest entry in the selected build tree.
+phony+=test
+test: build
+	$(CTEST) --test-dir $(BUILD) $(CTEST_ARGS)
+
 # Install exported libraries, headers, and package metadata to the CMake prefix.
 phony+=install
 install:
@@ -92,6 +104,23 @@ distclean:
 phony+=run
 run: build
 	RUN_TARGET=$(TARGET) ARGS="$(ARGS)" $(CMAKE) --build $(BUILD) --target run
+
+# Refresh the benchmark CSV plus representative and channel-specific SVGs.
+phony+=benchmark-update benchmark-svg
+benchmark-update: config
+	$(CMAKE) --build $(BUILD) --target benchmark-update -j $(NPROC) $(VERBOSE)
+
+# Compatibility alias for the previous snapshot-only Make target.
+benchmark-svg: benchmark-update
+
+# Build an LTTng-UST instrumented resize binary and record a CTF trace.
+phony+=profile-lttng
+profile-lttng:
+	$(CMAKE) $(CMAKE_FLAGS) -DWITH_LTTNG=ON \
+		-DSGL_TEST_RESIZE_REPEAT_COUNT=$(PROFILE_REPEAT_COUNT) \
+		-DSGL_TEST_RESIZE_WARMUP_COUNT=$(PROFILE_WARMUP_COUNT) \
+		-DCMAKE_BUILD_TYPE=$(BUILD_TYPE) -S$(WORKSPACE) -B$(PROFILE_BUILD)
+	SGL_LTTNG_KERNEL=$(PROFILE_KERNEL) $(CMAKE) --build $(PROFILE_BUILD) --target profile-lttng -j $(NPROC) $(VERBOSE)
 
 # Print runnable test applications and their expected command-line arguments.
 phony+=list-tests

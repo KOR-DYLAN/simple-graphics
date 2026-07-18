@@ -8,6 +8,9 @@
  */
 #include <sgl-core.h>
 #include "bicubic.h"
+#include "resize_prefetch.h"
+#include "sgl_trace.h"
+#include "threaded_resize.h"
 
 #if defined(SGL_CFG_HAS_THREAD)
 static void sgl_generic_resize_bicubic_routine(void *SGL_RESTRICT current, void *SGL_RESTRICT cookie);
@@ -109,6 +112,15 @@ static SGL_ALWAYS_INLINE void sgl_generic_resize_bicubic_line_stripe(sgl_int32_t
         x3_off = col_lookup->x3[col] * bpp;
         x4_off = col_lookup->x4[col] * bpp;
         p = col_lookup->p[col];
+
+        sgl_resize_prefetch_source_read(
+            src_y1_buf, x1_off, src_stride, col);
+        sgl_resize_prefetch_source_read(
+            src_y2_buf, x1_off, src_stride, col);
+        sgl_resize_prefetch_source_read(
+            src_y3_buf, x1_off, src_stride, col);
+        sgl_resize_prefetch_source_read(
+            src_y4_buf, x1_off, src_stride, col);
 
         src_y1x1 = &src_y1_buf[x1_off];
         src_y1x2 = &src_y1_buf[x2_off];
@@ -246,12 +258,15 @@ static sgl_result_t sgl_generic_resize_bicubic_threaded(
     sgl_int32_t i;
     sgl_int32_t num_operations;
     sgl_int32_t mod_operations;
+    sgl_int32_t bulk_size;
 
-    result = SGL_SUCCESS;
+    result = SGL_ERROR_MEMORY_ALLOCATION;
     currents = SGL_NULL;
     operations = SGL_NULL;
-    num_operations = d_height / SGL_GENERIC_BULK_SIZE;
-    mod_operations = d_height % SGL_GENERIC_BULK_SIZE;
+    bulk_size = sgl_resize_thread_bulk_size(
+        pool, d_height, SGL_GENERIC_BULK_SIZE);
+    num_operations = d_height / bulk_size;
+    mod_operations = d_height % bulk_size;
     if (mod_operations != 0) {
         num_operations += 1;
     }
@@ -261,8 +276,8 @@ static sgl_result_t sgl_generic_resize_bicubic_threaded(
         sizeof(sgl_bicubic_current_t) * (sgl_size_t)num_operations));
     if ((operations != SGL_NULL) && (currents != SGL_NULL)) {
         for (i = 0; i < num_operations; ++i) {
-            currents[i].row = i * SGL_GENERIC_BULK_SIZE;
-            currents[i].count = SGL_GENERIC_BULK_SIZE;
+            currents[i].row = i * bulk_size;
+            currents[i].count = bulk_size;
             (void)sgl_queue_unsafe_enqueue(operations, (const void *)&currents[i]);
         }
 
@@ -271,17 +286,13 @@ static sgl_result_t sgl_generic_resize_bicubic_threaded(
         }
 
         /* multi-threaded resize */
-        (void)sgl_threadpool_attach_routine(
+        result = sgl_threadpool_attach_routine_consuming(
             pool,
             sgl_generic_resize_bicubic_routine,
             operations,
             (void *)data);
         sgl_queue_destroy(&operations);
     }
-    else {
-        result = SGL_ERROR_MEMORY_ALLOCATION;
-    }
-
     SGL_SAFE_FREE(currents);
     SGL_SAFE_FREE(operations);
 
@@ -325,6 +336,16 @@ sgl_result_t sgl_generic_resize_bicubic(
     sgl_bicubic_lookup_t *temp_lut = SGL_NULL;
     sgl_int32_t errcnt = 0;
 
+    SGL_TRACE_RESIZE_BEGIN(
+        SGL_TRACE_BACKEND_GENERIC,
+        SGL_TRACE_METHOD_BICUBIC,
+        d_width,
+        d_height,
+        s_width,
+        s_height,
+        bpp,
+        SGL_TRACE_REQUESTED_THREADS(pool),
+        (ext_lut != SGL_NULL));
     errcnt = sgl_generic_resize_bicubic_count_errors(
         dst, d_width, d_height, src, s_width, s_height, bpp);
 
@@ -346,6 +367,9 @@ sgl_result_t sgl_generic_resize_bicubic(
             }
         }
     }
+
+    SGL_TRACE_RESIZE_END(
+        SGL_TRACE_BACKEND_GENERIC, SGL_TRACE_METHOD_BICUBIC, result);
 
     return result;
 }

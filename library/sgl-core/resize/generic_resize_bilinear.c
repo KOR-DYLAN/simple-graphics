@@ -8,6 +8,9 @@
  */
 #include <sgl-core.h>
 #include "bilinear.h"
+#include "resize_bitops.h"
+#include "sgl_trace.h"
+#include "threaded_resize.h"
 
 #if defined(SGL_CFG_HAS_THREAD)
 static void sgl_generic_resize_bilinear_routine(void *SGL_RESTRICT current, void *SGL_RESTRICT cookie);
@@ -17,14 +20,25 @@ static void sgl_generic_resize_bilinear_routine(void *SGL_RESTRICT current, void
 
 enum {
     SGL_GENERIC_BILINEAR_CACHE_BULK_SIZE = 32,
-    SGL_GENERIC_BILINEAR_SEPARABLE_SCALE = SGL_Q11_ONE * SGL_Q11_ONE,
-    SGL_GENERIC_BILINEAR_SEPARABLE_HALF = SGL_Q11_ONE * SGL_Q11_HALF
+    SGL_GENERIC_BILINEAR_ROW_CACHE_COUNT = 2,
+    SGL_GENERIC_BILINEAR_ROW_CACHE_MASK =
+        SGL_GENERIC_BILINEAR_ROW_CACHE_COUNT - 1,
+    SGL_GENERIC_BILINEAR_SEPARABLE_BITS = SGL_Q11_FRAC_BITS * 2,
+    SGL_GENERIC_BILINEAR_SEPARABLE_HALF =
+        1 << (SGL_GENERIC_BILINEAR_SEPARABLE_BITS - 1)
 };
 
 typedef struct {
     sgl_int32_t y;
     sgl_q11_ext_t *SGL_RESTRICT row;
 } sgl_generic_bilinear_row_cache_t;
+
+/* Pixel and cached interpolation values are nonnegative and range-bounded. */
+static SGL_ALWAYS_INLINE sgl_q11_ext_t
+sgl_generic_bilinear_scale_nonnegative_q11(sgl_q11_ext_t value)
+{
+    return value << SGL_Q11_FRAC_BITS;
+}
 
 /*
  * Design and Operation
@@ -146,8 +160,8 @@ static SGL_ALWAYS_INLINE void sgl_generic_resize_bilinear_line_stripe_bpp32(
     dst = &data->dst[row * dst_stride];
 
     for (col = 0; col < d_width; ++col) {
-        x1_off = col_lookup->x1[col] * SGL_BPP32;
-        x2_off = col_lookup->x2[col] * SGL_BPP32;
+        x1_off = SGL_RESIZE_BPP32_BYTE_OFFSET(col_lookup->x1[col]);
+        x2_off = SGL_RESIZE_BPP32_BYTE_OFFSET(col_lookup->x2[col]);
         p = col_lookup->p[col];
         inv_p = col_lookup->inv_p[col];
 
@@ -191,8 +205,9 @@ static SGL_ALWAYS_INLINE sgl_uint8_t sgl_generic_bilinear_separable_acc_to_u8(
 {
     sgl_q11_ext_t value;
 
-    value = (acc + SGL_GENERIC_BILINEAR_SEPARABLE_HALF) /
-            SGL_GENERIC_BILINEAR_SEPARABLE_SCALE;
+    /* The rounded accumulator is nonnegative, so shift equals division by Q22. */
+    value = (acc + SGL_GENERIC_BILINEAR_SEPARABLE_HALF) >>
+            SGL_GENERIC_BILINEAR_SEPARABLE_BITS;
 
     return (sgl_uint8_t)value;
 }
@@ -212,30 +227,34 @@ static SGL_ALWAYS_INLINE void sgl_generic_bilinear_horizontal_bpp32(
     sgl_q11_ext_t src1;
 
     for (col = 0; col < d_width; ++col) {
-        dst_off = col * SGL_BPP32;
-        x1_off = col_lookup->x1[col] * SGL_BPP32;
-        x2_off = col_lookup->x2[col] * SGL_BPP32;
+        dst_off = SGL_RESIZE_BPP32_BYTE_OFFSET(col);
+        x1_off = SGL_RESIZE_BPP32_BYTE_OFFSET(col_lookup->x1[col]);
+        x2_off = SGL_RESIZE_BPP32_BYTE_OFFSET(col_lookup->x2[col]);
         p = (sgl_q11_ext_t)col_lookup->p[col];
 
         src0 = (sgl_q11_ext_t)src_row[x1_off];
         src1 = (sgl_q11_ext_t)src_row[x2_off];
         dst_row[dst_off] =
-            (src0 * SGL_Q11_ONE) + ((src1 - src0) * p);
+            sgl_generic_bilinear_scale_nonnegative_q11(src0) +
+            ((src1 - src0) * p);
 
         src0 = (sgl_q11_ext_t)src_row[x1_off + 1];
         src1 = (sgl_q11_ext_t)src_row[x2_off + 1];
         dst_row[dst_off + 1] =
-            (src0 * SGL_Q11_ONE) + ((src1 - src0) * p);
+            sgl_generic_bilinear_scale_nonnegative_q11(src0) +
+            ((src1 - src0) * p);
 
         src0 = (sgl_q11_ext_t)src_row[x1_off + 2];
         src1 = (sgl_q11_ext_t)src_row[x2_off + 2];
         dst_row[dst_off + 2] =
-            (src0 * SGL_Q11_ONE) + ((src1 - src0) * p);
+            sgl_generic_bilinear_scale_nonnegative_q11(src0) +
+            ((src1 - src0) * p);
 
         src0 = (sgl_q11_ext_t)src_row[x1_off + 3];
         src1 = (sgl_q11_ext_t)src_row[x2_off + 3];
         dst_row[dst_off + 3] =
-            (src0 * SGL_Q11_ONE) + ((src1 - src0) * p);
+            sgl_generic_bilinear_scale_nonnegative_q11(src0) +
+            ((src1 - src0) * p);
     }
 }
 
@@ -249,7 +268,8 @@ static SGL_ALWAYS_INLINE sgl_q11_ext_t *sgl_generic_bilinear_get_cached_row_bpp3
     sgl_int32_t d_width;
 
     d_width = data->lut->d_width;
-    slot = &cache[y & 1];
+    slot = &cache[(sgl_uint32_t)y &
+                  (sgl_uint32_t)SGL_GENERIC_BILINEAR_ROW_CACHE_MASK];
     if (slot->y != y) {
         src_row = &data->src[y * data->src_stride];
         sgl_generic_bilinear_horizontal_bpp32(
@@ -278,7 +298,8 @@ static SGL_ALWAYS_INLINE void sgl_generic_bilinear_vertical_bpp32(
         top = top_row[off];
         bottom = bottom_row[off];
         dst_row[off] = sgl_generic_bilinear_separable_acc_to_u8(
-            (top * SGL_Q11_ONE) + ((bottom - top) * q));
+            sgl_generic_bilinear_scale_nonnegative_q11(top) +
+            ((bottom - top) * q));
     }
 }
 
@@ -288,7 +309,8 @@ static sgl_result_t sgl_generic_resize_bilinear_range_separable_bpp32(
     sgl_int32_t row_count)
 {
     sgl_result_t result;
-    sgl_generic_bilinear_row_cache_t cache[2];
+    sgl_generic_bilinear_row_cache_t
+        cache[SGL_GENERIC_BILINEAR_ROW_CACHE_COUNT];
     sgl_q11_ext_t *row_storage;
     const sgl_q11_ext_t *top_row;
     const sgl_q11_ext_t *bottom_row;
@@ -296,6 +318,7 @@ static sgl_result_t sgl_generic_resize_bilinear_range_separable_bpp32(
     sgl_int32_t end_row;
     sgl_int32_t d_height;
     sgl_int32_t row_width;
+    sgl_int32_t slot;
     sgl_int32_t y1;
     sgl_int32_t y2;
     sgl_uint8_t *dst_row;
@@ -303,20 +326,21 @@ static sgl_result_t sgl_generic_resize_bilinear_range_separable_bpp32(
     result = SGL_SUCCESS;
     row_storage = SGL_NULL;
     d_height = data->lut->d_height;
-    row_width = data->lut->d_width * SGL_BPP32;
+    row_width = SGL_RESIZE_BPP32_BYTE_OFFSET(data->lut->d_width);
     end_row = start_row + row_count;
     if (end_row > d_height) {
         end_row = d_height;
     }
 
     row_storage = sgl_memory_as_q11_ext(sgl_malloc(
-        sizeof(sgl_q11_ext_t) * (sgl_size_t)row_width * 2U));
+        sizeof(sgl_q11_ext_t) * (sgl_size_t)row_width *
+        (sgl_size_t)SGL_GENERIC_BILINEAR_ROW_CACHE_COUNT));
 
     if (row_storage != SGL_NULL) {
-        cache[0].y = -1;
-        cache[0].row = row_storage;
-        cache[1].y = -1;
-        cache[1].row = &row_storage[row_width];
+        for (slot = 0; slot < SGL_GENERIC_BILINEAR_ROW_CACHE_COUNT; ++slot) {
+            cache[slot].y = -1;
+            cache[slot].row = &row_storage[slot * row_width];
+        }
 
         for (row = start_row; row < end_row; ++row) {
             y1 = data->lut->row_lookup.y1[row];
@@ -586,7 +610,10 @@ static sgl_result_t sgl_generic_resize_bilinear_single(
 }
 
 #if defined(SGL_CFG_HAS_THREAD)
-static sgl_int32_t sgl_generic_resize_bilinear_thread_bulk_size(sgl_int32_t bpp)
+static sgl_int32_t sgl_generic_resize_bilinear_thread_bulk_size(
+    const sgl_threadpool_t *pool,
+    sgl_int32_t d_height,
+    sgl_int32_t bpp)
 {
     sgl_int32_t bulk_size;
 
@@ -598,6 +625,8 @@ static sgl_int32_t sgl_generic_resize_bilinear_thread_bulk_size(sgl_int32_t bpp)
         bulk_size = SGL_GENERIC_BULK_SIZE;
         break;
     }
+
+    bulk_size = sgl_resize_thread_bulk_size(pool, d_height, bulk_size);
 
     return bulk_size;
 }
@@ -616,10 +645,11 @@ static sgl_result_t sgl_generic_resize_bilinear_threaded(
     sgl_int32_t mod_operations;
     sgl_int32_t bulk_size;
 
-    result = SGL_SUCCESS;
+    result = SGL_ERROR_MEMORY_ALLOCATION;
     currents = SGL_NULL;
     operations = SGL_NULL;
-    bulk_size = sgl_generic_resize_bilinear_thread_bulk_size(bpp);
+    bulk_size = sgl_generic_resize_bilinear_thread_bulk_size(
+        pool, d_height, bpp);
     num_operations = d_height / bulk_size;
     mod_operations = d_height % bulk_size;
     if (mod_operations != 0) {
@@ -641,17 +671,13 @@ static sgl_result_t sgl_generic_resize_bilinear_threaded(
         }
 
         /* multi-threaded resize */
-        (void)sgl_threadpool_attach_routine(
+        result = sgl_threadpool_attach_routine_consuming(
             pool,
             sgl_generic_resize_bilinear_routine,
             operations,
             (void *)data);
         sgl_queue_destroy(&operations);
     }
-    else {
-        result = SGL_ERROR_MEMORY_ALLOCATION;
-    }
-
     SGL_SAFE_FREE(currents);
     SGL_SAFE_FREE(operations);
 
@@ -695,6 +721,16 @@ sgl_result_t sgl_generic_resize_bilinear(
     sgl_bilinear_lookup_t *temp_lut = SGL_NULL;
     sgl_int32_t errcnt = 0;
 
+    SGL_TRACE_RESIZE_BEGIN(
+        SGL_TRACE_BACKEND_GENERIC,
+        SGL_TRACE_METHOD_BILINEAR,
+        d_width,
+        d_height,
+        s_width,
+        s_height,
+        bpp,
+        SGL_TRACE_REQUESTED_THREADS(pool),
+        (ext_lut != SGL_NULL));
     errcnt = sgl_generic_resize_bilinear_count_errors(
         dst, d_width, d_height, src, s_width, s_height, bpp);
 
@@ -720,6 +756,9 @@ sgl_result_t sgl_generic_resize_bilinear(
             }
         }
     }
+
+    SGL_TRACE_RESIZE_END(
+        SGL_TRACE_BACKEND_GENERIC, SGL_TRACE_METHOD_BILINEAR, result);
 
     return result;
 }

@@ -1,0 +1,121 @@
+<!--
+SPDX-License-Identifier: MIT
+
+Copyright (c) 2025 Dylan Hong
+
+This file is released under the MIT License.
+For conditions of distribution and use, see the LICENSE file.
+-->
+
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="1030" viewBox="0 0 1280 1030" role="img" aria-labelledby="title desc">
+  <title id="title">SGL 3-channel resize benchmark overview</title>
+  <desc id="desc">Resize benchmark snapshot measured from benchmark/resize/benchmark.csv. The chart compares 3-channel downscale and upscale rows across nearest, bilinear, and bicubic interpolation.</desc>
+  <defs>
+    <style>
+      .bg { fill: #101418; }
+      .panel { fill: #171d23; stroke: #34424a; stroke-width: 1.5; }
+      .header { fill: #1f262e; }
+      .line { stroke: #34424a; stroke-width: 1; }
+      .text { fill: #eef4f3; font-family: Inter, "Noto Sans KR", system-ui, sans-serif; }
+      .muted { fill: #9ba9a7; font-family: Inter, "Noto Sans KR", system-ui, sans-serif; }
+      .small { fill: #9ba9a7; font-family: Inter, "Noto Sans KR", system-ui, sans-serif; font-size: 12px; }
+      .cell { fill: #eef4f3; font-family: Inter, "Noto Sans KR", system-ui, sans-serif; font-size: 14px; font-weight: 650; }
+      .head { fill: #c6d4d1; font-family: Inter, "Noto Sans KR", system-ui, sans-serif; font-size: 12px; font-weight: 800; }
+      .speed { fill: #facc15; font-family: Inter, "Noto Sans KR", system-ui, sans-serif; font-size: 14px; font-weight: 800; }
+      .down { fill: #38bdf8; }
+      .up { fill: #fb7185; }
+    </style>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1280" height="1030"/>
+
+  <text class="text" x="36" y="52" font-size="30" font-weight="800">SGL Resize Benchmark Snapshot</text>
+  <text class="muted" x="36" y="80" font-size="14">Median latency from benchmark/resize/benchmark.csv, Release build, resource/sample.png</text>
+  <text class="muted" x="36" y="102" font-size="13">3-channel SGL rows; 640x480 downscale and 2560x1440 upscale are shown together.</text>
+  <rect class="panel" x="28" y="132" width="1224" height="430" rx="8"/>
+  <text class="text" x="58" y="172" font-size="22" font-weight="800">SGL path comparison by resize case</text>
+  <text class="muted" x="58" y="194" font-size="13">The ratio compares generic 1-thread latency against SIMD LUT with 8 threads.</text>
+  <rect class="header" x="48" y="216" width="1184" height="38" rx="6"/>
+  <text class="head" x="70" y="240">resize case</text>
+  <text class="head" x="240" y="240">method</text>
+  <text class="head" x="430" y="240" text-anchor="end">generic 1t</text>
+  <text class="head" x="580" y="240" text-anchor="end">simd 1t</text>
+  <text class="head" x="760" y="240" text-anchor="end">simd-lut 1t</text>
+  <text class="head" x="930" y="240" text-anchor="end">simd-lut 8t</text>
+  <text class="head" x="1200" y="240" text-anchor="end">generic / simd-lut 8t</text>
+  <line class="line" x1="48" y1="264" x2="1232" y2="264"/>
+  <text class="cell" x="70" y="292">downscale 640x480</text>
+  <text class="cell" x="240" y="292">nearest</text>
+  <text class="cell" x="430" y="292" text-anchor="end">0.186 ms</text>
+  <text class="cell" x="580" y="292" text-anchor="end">0.191 ms</text>
+  <text class="cell" x="760" y="292" text-anchor="end">0.192 ms</text>
+  <text class="cell" x="930" y="292" text-anchor="end">0.179 ms</text>
+  <text class="speed" x="1200" y="292" text-anchor="end">1.04x</text>
+  <line class="line" x1="48" y1="312" x2="1232" y2="312"/>
+  <text class="cell" x="70" y="340">downscale 640x480</text>
+  <text class="cell" x="240" y="340">bilinear</text>
+  <text class="cell" x="430" y="340" text-anchor="end">5.181 ms</text>
+  <text class="cell" x="580" y="340" text-anchor="end">1.469 ms</text>
+  <text class="cell" x="760" y="340" text-anchor="end">1.464 ms</text>
+  <text class="cell" x="930" y="340" text-anchor="end">0.471 ms</text>
+  <text class="speed" x="1200" y="340" text-anchor="end">11.00x</text>
+  <line class="line" x1="48" y1="360" x2="1232" y2="360"/>
+  <text class="cell" x="70" y="388">downscale 640x480</text>
+  <text class="cell" x="240" y="388">bicubic</text>
+  <text class="cell" x="430" y="388" text-anchor="end">38.875 ms</text>
+  <text class="cell" x="580" y="388" text-anchor="end">4.427 ms</text>
+  <text class="cell" x="760" y="388" text-anchor="end">4.437 ms</text>
+  <text class="cell" x="930" y="388" text-anchor="end">0.953 ms</text>
+  <text class="speed" x="1200" y="388" text-anchor="end">40.79x</text>
+  <line class="line" x1="48" y1="408" x2="1232" y2="408"/>
+  <text class="cell" x="70" y="436">upscale 2560x1440</text>
+  <text class="cell" x="240" y="436">nearest</text>
+  <text class="cell" x="430" y="436" text-anchor="end">2.109 ms</text>
+  <text class="cell" x="580" y="436" text-anchor="end">0.818 ms</text>
+  <text class="cell" x="760" y="436" text-anchor="end">0.806 ms</text>
+  <text class="cell" x="930" y="436" text-anchor="end">0.491 ms</text>
+  <text class="speed" x="1200" y="436" text-anchor="end">4.30x</text>
+  <line class="line" x1="48" y1="456" x2="1232" y2="456"/>
+  <text class="cell" x="70" y="484">upscale 2560x1440</text>
+  <text class="cell" x="240" y="484">bilinear</text>
+  <text class="cell" x="430" y="484" text-anchor="end">53.059 ms</text>
+  <text class="cell" x="580" y="484" text-anchor="end">4.312 ms</text>
+  <text class="cell" x="760" y="484" text-anchor="end">4.761 ms</text>
+  <text class="cell" x="930" y="484" text-anchor="end">1.367 ms</text>
+  <text class="speed" x="1200" y="484" text-anchor="end">38.81x</text>
+  <line class="line" x1="48" y1="504" x2="1232" y2="504"/>
+  <text class="cell" x="70" y="532">upscale 2560x1440</text>
+  <text class="cell" x="240" y="532">bicubic</text>
+  <text class="cell" x="430" y="532" text-anchor="end">454.408 ms</text>
+  <text class="cell" x="580" y="532" text-anchor="end">31.499 ms</text>
+  <text class="cell" x="760" y="532" text-anchor="end">32.442 ms</text>
+  <text class="cell" x="930" y="532" text-anchor="end">6.120 ms</text>
+  <text class="speed" x="1200" y="532" text-anchor="end">74.25x</text>
+  <rect class="panel" x="28" y="600" width="1224" height="360" rx="8"/>
+  <text class="text" x="58" y="640" font-size="22" font-weight="800">Threaded SIMD LUT latency by interpolation</text>
+  <text class="muted" x="58" y="662" font-size="13">Bars show SIMD LUT with 8 threads; each bar is normalized to the slowest displayed case.</text>
+  <rect class="down" x="58" y="684" width="14" height="10" rx="2"/>
+  <text class="small" x="80" y="694">downscale 640x480</text>
+  <rect class="up" x="218" y="684" width="14" height="10" rx="2"/>
+  <text class="small" x="240" y="694">upscale 2560x1440</text>
+  <text class="small" x="78" y="737">nearest downscale 640x480</text>
+  <rect class="down" x="310" y="724" width="24" height="16" rx="3"/>
+  <text class="cell" x="348" y="737">0.179 ms</text>
+  <text class="small" x="78" y="775">bilinear downscale 640x480</text>
+  <rect class="down" x="310" y="762" width="63" height="16" rx="3"/>
+  <text class="cell" x="387" y="775">0.471 ms</text>
+  <text class="small" x="78" y="813">bicubic downscale 640x480</text>
+  <rect class="down" x="310" y="800" width="128" height="16" rx="3"/>
+  <text class="cell" x="452" y="813">0.953 ms</text>
+  <text class="small" x="78" y="851">nearest upscale 2560x1440</text>
+  <rect class="up" x="310" y="838" width="66" height="16" rx="3"/>
+  <text class="cell" x="390" y="851">0.491 ms</text>
+  <text class="small" x="78" y="889">bilinear upscale 2560x1440</text>
+  <rect class="up" x="310" y="876" width="183" height="16" rx="3"/>
+  <text class="cell" x="507" y="889">1.367 ms</text>
+  <text class="small" x="78" y="927">bicubic upscale 2560x1440</text>
+  <rect class="up" x="310" y="914" width="820" height="16" rx="3"/>
+  <text class="cell" x="1144" y="927">6.120 ms</text>
+  <text class="small" x="36" y="988">Note: benchmark results are workload and environment dependent; rerun on the target machine before publishing final claims.</text>
+  <text class="small" x="36" y="1010">Use the interpolation-specific SVGs for a less crowded view of nearest, bilinear, and bicubic rows.</text>
+</svg>

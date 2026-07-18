@@ -9,16 +9,40 @@
 #include <arm_neon.h>
 #include <sgl-core.h>
 #include "bilinear.h"
+#include "resize_bitops.h"
+#include "sgl_trace.h"
+#include "threaded_resize.h"
 
-#define NEON_LANE_SIZE  (8)
+#define NEON_LANE_SHIFT (3U)
+#define NEON_LANE_SIZE  ((sgl_int32_t)(1U << NEON_LANE_SHIFT))
+#define NEON_LANE_OFFSET(lane) \
+    ((sgl_int32_t)((sgl_uint32_t)(lane) << NEON_LANE_SHIFT))
+#define NEON_LANE_COUNT(width) \
+    ((sgl_int32_t)((sgl_uint32_t)(width) >> NEON_LANE_SHIFT))
+#define NEON_LANE_BYTE_STEP(bpp) \
+    ((sgl_int32_t)((sgl_uint32_t)(bpp) << NEON_LANE_SHIFT))
 #define SGL_SIMD_BILINEAR_CACHE_BULK_SIZE (32)
+#define SGL_SIMD_BILINEAR_ROW_CACHE_COUNT (2)
+#define SGL_SIMD_BILINEAR_ROW_CACHE_MASK \
+    (SGL_SIMD_BILINEAR_ROW_CACHE_COUNT - 1)
 #define SGL_SIMD_BILINEAR_SEPARABLE_BITS  (SGL_Q11_FRAC_BITS * 2)
 #define SGL_SIMD_BILINEAR_SEPARABLE_HALF  (1 << (SGL_SIMD_BILINEAR_SEPARABLE_BITS - 1))
+#define SGL_SIMD_BILINEAR_DOWNSCALE_BATCH_PIXELS (4)
+#define SGL_SIMD_BILINEAR_VERTICAL_BATCH_SIZE (16)
+#define SGL_SIMD_BILINEAR_VERTICAL_BATCH_MASK \
+    (SGL_SIMD_BILINEAR_VERTICAL_BATCH_SIZE - 1)
 
 typedef struct {
     sgl_int32_t y;
     sgl_q11_ext_t *SGL_RESTRICT row;
 } sgl_simd_bilinear_row_cache_t;
+
+/* Pixel and cached interpolation values are nonnegative and range-bounded. */
+static SGL_ALWAYS_INLINE sgl_q11_ext_t
+sgl_simd_bilinear_scale_nonnegative_q11(sgl_q11_ext_t value)
+{
+    return value << SGL_Q11_FRAC_BITS;
+}
 
 #if defined(SGL_CFG_HAS_THREAD)
 static void sgl_simd_resize_bilinear_routine(void *SGL_RESTRICT current, void *SGL_RESTRICT cookie);
@@ -115,47 +139,64 @@ static SGL_ALWAYS_INLINE uint8x8_t sgl_neon_bilinear_make_pixel_offsets(
  *                                                   +-- NEON vertical mix
  *   source row y+1 -- horizontal Q11 row cache ----+
  *
+ * The horizontal pass treats one RGBA pixel as four SIMD lanes.  Each
+ * destination pixel therefore needs two packed 32-bit source loads, one
+ * vector multiply-add, and one 128-bit cache-row store.  Batching several
+ * destination pixels would require non-contiguous lane gathers and duplicated
+ * weights; on AArch64 that costs more instructions than the arithmetic saved.
+ * The vertical pass processes four cached pixels together, selects their low
+ * result bytes by UZP, and commits sixteen destination channels with one
+ * 128-bit store.
+ *
+ *   RGBA x1/x2 -- 2 x LDR s / widen / MLA / STR q --> row cache
+ *   2 cached rows -- LDP x4 / vertical mix / UZP / STR q --> destination
+ *
  * This trades a small two-row Q11 scratch buffer for fewer repeated source
  * loads and fewer gather/table operations.  The cache lives inside a row range,
  * so each worker thread can reuse nearby rows without synchronization.
  */
-static SGL_ALWAYS_INLINE uint8x8_t sgl_neon_bilinear_pack_u8(
-    int32x4_t lo,
-    int32x4_t hi)
-{
-    uint16x4_t u16_lo;
-    uint16x4_t u16_hi;
-    uint8x8_t result;
-
-    u16_lo = vreinterpret_u16_s16(vmovn_s32(lo));
-    u16_hi = vreinterpret_u16_s16(vmovn_s32(hi));
-    result = vmovn_u16(vcombine_u16(u16_lo, u16_hi));
-
-    return result;
-}
-
-static SGL_ALWAYS_INLINE uint8x8_t sgl_neon_bilinear_vertical_q11_to_u8(
-    int32x4_t top_lo,
-    int32x4_t bottom_lo,
-    int32x4_t top_hi,
-    int32x4_t bottom_hi,
+static SGL_ALWAYS_INLINE int32x4_t sgl_neon_bilinear_vertical_q11(
+    int32x4_t top,
+    int32x4_t bottom,
     int32x4_t vec_q)
 {
-    int32x4_t acc_lo;
-    int32x4_t acc_hi;
-    int32x4_t half;
+    int32x4_t acc;
 
-    half = vdupq_n_s32(SGL_SIMD_BILINEAR_SEPARABLE_HALF);
-    acc_lo = vmulq_n_s32(top_lo, SGL_Q11_ONE);
-    acc_hi = vmulq_n_s32(top_hi, SGL_Q11_ONE);
-    acc_lo = vmlaq_s32(acc_lo, vsubq_s32(bottom_lo, top_lo), vec_q);
-    acc_hi = vmlaq_s32(acc_hi, vsubq_s32(bottom_hi, top_hi), vec_q);
-    acc_lo = vshrq_n_s32(vaddq_s32(acc_lo, half),
-                         SGL_SIMD_BILINEAR_SEPARABLE_BITS);
-    acc_hi = vshrq_n_s32(vaddq_s32(acc_hi, half),
-                         SGL_SIMD_BILINEAR_SEPARABLE_BITS);
+    acc = vshlq_n_s32(top, SGL_Q11_FRAC_BITS);
+    acc = vmlaq_s32(acc, vsubq_s32(bottom, top), vec_q);
+    /* SRSHR combines the Q22 rounding add and shift for nonnegative pixels. */
+    acc = vrshrq_n_s32(acc, SGL_SIMD_BILINEAR_SEPARABLE_BITS);
 
-    return sgl_neon_bilinear_pack_u8(acc_lo, acc_hi);
+    return acc;
+}
+
+static SGL_ALWAYS_INLINE uint8x16_t sgl_neon_bilinear_pack_four_u8(
+    int32x4_t value0,
+    int32x4_t value1,
+    int32x4_t value2,
+    int32x4_t value3)
+{
+    uint16x8_t low_halfwords01;
+    uint16x8_t low_halfwords23;
+
+    /*
+     * Each rounded lane is 0..255.  Two 16-bit unzips select the low
+     * halfword of every 32-bit lane, then one 8-bit unzip selects each result
+     * byte.  This preserves RGBA order without the multi-register TBL4 path.
+     *
+     *   [A--- B--- C--- D---] -- UZP1.H -- [A- B- C- D- E- F- G- H-]
+     *   [I--- J--- K--- L---] -- UZP1.H -- [I- J- K- L- M- N- O- P-]
+     *                                      |
+     *                                      +-- UZP1.B --> [A ... P]
+     */
+    low_halfwords01 = vuzp1q_u16(
+        vreinterpretq_u16_s32(value0), vreinterpretq_u16_s32(value1));
+    low_halfwords23 = vuzp1q_u16(
+        vreinterpretq_u16_s32(value2), vreinterpretq_u16_s32(value3));
+
+    return vuzp1q_u8(
+        vreinterpretq_u8_u16(low_halfwords01),
+        vreinterpretq_u8_u16(low_halfwords23));
 }
 
 static SGL_ALWAYS_INLINE sgl_uint8_t sgl_simd_bilinear_separable_acc_to_u8(
@@ -169,6 +210,295 @@ static SGL_ALWAYS_INLINE sgl_uint8_t sgl_simd_bilinear_separable_acc_to_u8(
     return (sgl_uint8_t)value;
 }
 
+static SGL_ALWAYS_INLINE int32x4_t sgl_neon_bilinear_load_pixel_bpp32(
+    const sgl_uint8_t *SGL_RESTRICT src)
+{
+    uint32x2_t packed;
+    uint16x8_t u16;
+    uint32x4_t u32;
+
+    /*
+     * AArch64 NEON lane loads permit an unaligned 32-bit address.  Loading a
+     * complete pixel keeps RGBA together so the four channels become vector
+     * lanes without the scalar lane insertion used by the generic downscale
+     * gather path.
+     */
+    /* cppcheck-suppress misra-c2012-11.3 */
+    packed = vdup_n_u32(0U);
+    packed = vld1_lane_u32((const sgl_uint32_t *)src, packed, 0);
+    u16 = vmovl_u8(vreinterpret_u8_u32(packed));
+    u32 = vmovl_u16(vget_low_u16(u16));
+
+    return vreinterpretq_s32_u32(u32);
+}
+
+static SGL_ALWAYS_INLINE void sgl_neon_bilinear_store_pixel_bpp32(
+    sgl_uint8_t *SGL_RESTRICT dst,
+    int32x4_t value)
+{
+    uint16x4_t u16;
+    uint8x8_t u8;
+    uint32x2_t packed;
+
+    u16 = vqmovun_s32(value);
+    u8 = vqmovn_u16(vcombine_u16(u16, vdup_n_u16(0U)));
+    packed = vreinterpret_u32_u8(u8);
+    /* cppcheck-suppress misra-c2012-11.3 */
+    vst1_lane_u32((sgl_uint32_t *)dst, packed, 0);
+}
+
+static SGL_ALWAYS_INLINE uint32x4_t sgl_neon_bilinear_gather_four_bpp32(
+    const sgl_uint8_t *SGL_RESTRICT src_row,
+    const sgl_int32_t *SGL_RESTRICT x)
+{
+    uint32x4_t packed;
+    sgl_int32_t offset;
+
+    packed = vdupq_n_u32(0U);
+
+    offset = SGL_RESIZE_BPP32_BYTE_OFFSET(x[0]);
+    /* cppcheck-suppress misra-c2012-11.3 */
+    packed = vld1q_lane_u32(
+        (const sgl_uint32_t *)&src_row[offset], packed, 0);
+    offset = SGL_RESIZE_BPP32_BYTE_OFFSET(x[1]);
+    /* cppcheck-suppress misra-c2012-11.3 */
+    packed = vld1q_lane_u32(
+        (const sgl_uint32_t *)&src_row[offset], packed, 1);
+    offset = SGL_RESIZE_BPP32_BYTE_OFFSET(x[2]);
+    /* cppcheck-suppress misra-c2012-11.3 */
+    packed = vld1q_lane_u32(
+        (const sgl_uint32_t *)&src_row[offset], packed, 2);
+    offset = SGL_RESIZE_BPP32_BYTE_OFFSET(x[3]);
+    /* cppcheck-suppress misra-c2012-11.3 */
+    packed = vld1q_lane_u32(
+        (const sgl_uint32_t *)&src_row[offset], packed, 3);
+
+    return packed;
+}
+
+static SGL_ALWAYS_INLINE void sgl_neon_bilinear_interpolate_two_bpp32(
+    uint8x8_t y1x1_u8,
+    uint8x8_t y1x2_u8,
+    uint8x8_t y2x1_u8,
+    uint8x8_t y2x2_u8,
+    int16x8_t p,
+    int32x4_t q,
+    int32x4_t *SGL_RESTRICT value0,
+    int32x4_t *SGL_RESTRICT value1)
+{
+    int16x8_t y1x1;
+    int16x8_t y1x2;
+    int16x8_t y2x1;
+    int16x8_t y2x2;
+    int16x8_t top_diff;
+    int16x8_t bottom_diff;
+    int32x4_t top0;
+    int32x4_t top1;
+    int32x4_t bottom0;
+    int32x4_t bottom1;
+    int32x4_t half;
+
+    y1x1 = vreinterpretq_s16_u16(vmovl_u8(y1x1_u8));
+    y1x2 = vreinterpretq_s16_u16(vmovl_u8(y1x2_u8));
+    y2x1 = vreinterpretq_s16_u16(vmovl_u8(y2x1_u8));
+    y2x2 = vreinterpretq_s16_u16(vmovl_u8(y2x2_u8));
+    top_diff = vsubq_s16(y1x2, y1x1);
+    bottom_diff = vsubq_s16(y2x2, y2x1);
+
+    top0 = vshll_n_s16(vget_low_s16(y1x1), SGL_Q11_FRAC_BITS);
+    top1 = vshll_n_s16(vget_high_s16(y1x1), SGL_Q11_FRAC_BITS);
+    bottom0 = vshll_n_s16(vget_low_s16(y2x1), SGL_Q11_FRAC_BITS);
+    bottom1 = vshll_n_s16(vget_high_s16(y2x1), SGL_Q11_FRAC_BITS);
+    top0 = vmlal_s16(top0, vget_low_s16(top_diff), vget_low_s16(p));
+    top1 = vmlal_s16(top1, vget_high_s16(top_diff), vget_high_s16(p));
+    bottom0 = vmlal_s16(
+        bottom0, vget_low_s16(bottom_diff), vget_low_s16(p));
+    bottom1 = vmlal_s16(
+        bottom1, vget_high_s16(bottom_diff), vget_high_s16(p));
+
+    *value0 = vshlq_n_s32(top0, SGL_Q11_FRAC_BITS);
+    *value1 = vshlq_n_s32(top1, SGL_Q11_FRAC_BITS);
+    *value0 = vmlaq_s32(*value0, vsubq_s32(bottom0, top0), q);
+    *value1 = vmlaq_s32(*value1, vsubq_s32(bottom1, top1), q);
+    half = vdupq_n_s32(SGL_SIMD_BILINEAR_SEPARABLE_HALF);
+    *value0 = vshrq_n_s32(
+        vaddq_s32(*value0, half), SGL_SIMD_BILINEAR_SEPARABLE_BITS);
+    *value1 = vshrq_n_s32(
+        vaddq_s32(*value1, half), SGL_SIMD_BILINEAR_SEPARABLE_BITS);
+}
+
+static SGL_ALWAYS_INLINE void sgl_neon_bilinear_store_four_bpp32(
+    sgl_uint8_t *SGL_RESTRICT dst,
+    int32x4_t value0,
+    int32x4_t value1,
+    int32x4_t value2,
+    int32x4_t value3)
+{
+    uint8x8_t packed01;
+    uint8x8_t packed23;
+    uint16x8_t u16;
+
+    u16 = vcombine_u16(vqmovun_s32(value0), vqmovun_s32(value1));
+    packed01 = vqmovn_u16(u16);
+    u16 = vcombine_u16(vqmovun_s32(value2), vqmovun_s32(value3));
+    packed23 = vqmovn_u16(u16);
+    vst1q_u8(dst, vcombine_u8(packed01, packed23));
+}
+
+/*
+ * Downscale bpp32 path
+ * --------------------
+ * Downscale rows rarely reuse the same y pair, so materializing two complete
+ * horizontal rows adds scratch traffic without providing useful cache hits.
+ * Keep the separable arithmetic but fuse both axes for four RGBA pixels:
+ *
+ *   y1: 4 x [x1 RGBA] -- lane gather -- horizontal Q11 --+
+ *                                                           +-- vertical Q22
+ *   y2: 4 x [x2 RGBA] -- lane gather -- horizontal Q11 --+         |
+ *                                                                    v
+ *                                                     1 x 16-byte store
+ *
+ * Two destination pixels occupy one uint8x8_t during interpolation.  The four
+ * results are packed into one uint8x16_t so the hot loop issues one aligned or
+ * unaligned 128-bit store instead of four 32-bit stores.  The tail retains the
+ * one-pixel path for destination widths that are not multiples of four.
+ */
+static SGL_ALWAYS_INLINE void sgl_simd_resize_bilinear_downscale_line_bpp32(
+    sgl_int32_t row,
+    sgl_bilinear_data_t *SGL_RESTRICT data)
+{
+    const bilinear_column_lookup_t *col_lookup;
+    const bilinear_row_lookup_t *row_lookup;
+    const sgl_uint8_t *src_y1;
+    const sgl_uint8_t *src_y2;
+    sgl_uint8_t *dst;
+    sgl_int32_t col;
+    sgl_int32_t x1_off;
+    sgl_int32_t x2_off;
+    sgl_int32_t p;
+    sgl_int32_t q;
+    int16x4_t p_values;
+    int16x8_t p01;
+    int16x8_t p23;
+    int32x4_t vec_q;
+    uint32x4_t packed_y1x1;
+    uint32x4_t packed_y1x2;
+    uint32x4_t packed_y2x1;
+    uint32x4_t packed_y2x2;
+    uint8x16_t bytes_y1x1;
+    uint8x16_t bytes_y1x2;
+    uint8x16_t bytes_y2x1;
+    uint8x16_t bytes_y2x2;
+    int32x4_t y1x1;
+    int32x4_t y1x2;
+    int32x4_t y2x1;
+    int32x4_t y2x2;
+    int32x4_t top;
+    int32x4_t bottom;
+    int32x4_t acc;
+    int32x4_t value0;
+    int32x4_t value1;
+    int32x4_t value2;
+    int32x4_t value3;
+
+    col_lookup = &data->lut->col_lookup;
+    row_lookup = &data->lut->row_lookup;
+    src_y1 = &data->src[row_lookup->y1[row] * data->src_stride];
+    src_y2 = &data->src[row_lookup->y2[row] * data->src_stride];
+    dst = &data->dst[row * data->dst_stride];
+    q = (sgl_int32_t)row_lookup->q[row];
+    vec_q = vdupq_n_s32(q);
+
+    for (col = 0;
+         (col + SGL_SIMD_BILINEAR_DOWNSCALE_BATCH_PIXELS) <=
+             data->lut->d_width;
+         col += SGL_SIMD_BILINEAR_DOWNSCALE_BATCH_PIXELS) {
+        packed_y1x1 = sgl_neon_bilinear_gather_four_bpp32(
+            src_y1, &col_lookup->x1[col]);
+        packed_y1x2 = sgl_neon_bilinear_gather_four_bpp32(
+            src_y1, &col_lookup->x2[col]);
+        packed_y2x1 = sgl_neon_bilinear_gather_four_bpp32(
+            src_y2, &col_lookup->x1[col]);
+        packed_y2x2 = sgl_neon_bilinear_gather_four_bpp32(
+            src_y2, &col_lookup->x2[col]);
+
+        bytes_y1x1 = vreinterpretq_u8_u32(packed_y1x1);
+        bytes_y1x2 = vreinterpretq_u8_u32(packed_y1x2);
+        bytes_y2x1 = vreinterpretq_u8_u32(packed_y2x1);
+        bytes_y2x2 = vreinterpretq_u8_u32(packed_y2x2);
+        p_values = vld1_s16(&col_lookup->p[col]);
+        p01 = vcombine_s16(
+            vdup_lane_s16(p_values, 0), vdup_lane_s16(p_values, 1));
+        p23 = vcombine_s16(
+            vdup_lane_s16(p_values, 2), vdup_lane_s16(p_values, 3));
+
+        sgl_neon_bilinear_interpolate_two_bpp32(
+            vget_low_u8(bytes_y1x1),
+            vget_low_u8(bytes_y1x2),
+            vget_low_u8(bytes_y2x1),
+            vget_low_u8(bytes_y2x2),
+            p01,
+            vec_q,
+            &value0,
+            &value1);
+        sgl_neon_bilinear_interpolate_two_bpp32(
+            vget_high_u8(bytes_y1x1),
+            vget_high_u8(bytes_y1x2),
+            vget_high_u8(bytes_y2x1),
+            vget_high_u8(bytes_y2x2),
+            p23,
+            vec_q,
+            &value2,
+            &value3);
+        sgl_neon_bilinear_store_four_bpp32(
+            dst, value0, value1, value2, value3);
+        dst = &dst[SGL_RESIZE_BPP32_BYTE_OFFSET(
+            SGL_SIMD_BILINEAR_DOWNSCALE_BATCH_PIXELS)];
+    }
+
+    for (; col < data->lut->d_width; ++col) {
+        x1_off = SGL_RESIZE_BPP32_BYTE_OFFSET(col_lookup->x1[col]);
+        x2_off = SGL_RESIZE_BPP32_BYTE_OFFSET(col_lookup->x2[col]);
+        p = (sgl_int32_t)col_lookup->p[col];
+
+        y1x1 = sgl_neon_bilinear_load_pixel_bpp32(&src_y1[x1_off]);
+        y1x2 = sgl_neon_bilinear_load_pixel_bpp32(&src_y1[x2_off]);
+        y2x1 = sgl_neon_bilinear_load_pixel_bpp32(&src_y2[x1_off]);
+        y2x2 = sgl_neon_bilinear_load_pixel_bpp32(&src_y2[x2_off]);
+
+        top = vshlq_n_s32(y1x1, SGL_Q11_FRAC_BITS);
+        bottom = vshlq_n_s32(y2x1, SGL_Q11_FRAC_BITS);
+        top = vmlaq_n_s32(top, vsubq_s32(y1x2, y1x1), p);
+        bottom = vmlaq_n_s32(bottom, vsubq_s32(y2x2, y2x1), p);
+
+        acc = vshlq_n_s32(top, SGL_Q11_FRAC_BITS);
+        acc = vmlaq_n_s32(acc, vsubq_s32(bottom, top), q);
+        acc = vshrq_n_s32(
+            vaddq_s32(acc, vdupq_n_s32(SGL_SIMD_BILINEAR_SEPARABLE_HALF)),
+            SGL_SIMD_BILINEAR_SEPARABLE_BITS);
+        sgl_neon_bilinear_store_pixel_bpp32(dst, acc);
+        dst = &dst[SGL_BPP32];
+    }
+}
+
+static void sgl_simd_resize_bilinear_range_downscale_bpp32(
+    sgl_bilinear_data_t *SGL_RESTRICT data,
+    sgl_int32_t start_row,
+    sgl_int32_t row_count)
+{
+    sgl_int32_t row;
+    sgl_int32_t end_row;
+
+    end_row = start_row + row_count;
+    if (end_row > data->lut->d_height) {
+        end_row = data->lut->d_height;
+    }
+
+    for (row = start_row; row < end_row; ++row) {
+        sgl_simd_resize_bilinear_downscale_line_bpp32(row, data);
+    }
+}
+
 static SGL_ALWAYS_INLINE void sgl_simd_bilinear_horizontal_bpp32(
     const sgl_uint8_t *SGL_RESTRICT src_row,
     sgl_q11_ext_t *SGL_RESTRICT dst_row,
@@ -179,35 +509,23 @@ static SGL_ALWAYS_INLINE void sgl_simd_bilinear_horizontal_bpp32(
     sgl_int32_t dst_off;
     sgl_int32_t x1_off;
     sgl_int32_t x2_off;
-    sgl_q11_ext_t p;
-    sgl_q11_ext_t src0;
-    sgl_q11_ext_t src1;
+    int16x4_t weight_q11_s16;
+    int32x4_t weight_q11_s32;
+    int32x4_t src0;
+    int32x4_t src1;
+    int32x4_t value;
 
     for (col = 0; col < d_width; ++col) {
-        dst_off = col * SGL_BPP32;
-        x1_off = col_lookup->x1[col] * SGL_BPP32;
-        x2_off = col_lookup->x2[col] * SGL_BPP32;
-        p = (sgl_q11_ext_t)col_lookup->p[col];
-
-        src0 = (sgl_q11_ext_t)src_row[x1_off];
-        src1 = (sgl_q11_ext_t)src_row[x2_off];
-        dst_row[dst_off] =
-            (src0 * SGL_Q11_ONE) + ((src1 - src0) * p);
-
-        src0 = (sgl_q11_ext_t)src_row[x1_off + 1];
-        src1 = (sgl_q11_ext_t)src_row[x2_off + 1];
-        dst_row[dst_off + 1] =
-            (src0 * SGL_Q11_ONE) + ((src1 - src0) * p);
-
-        src0 = (sgl_q11_ext_t)src_row[x1_off + 2];
-        src1 = (sgl_q11_ext_t)src_row[x2_off + 2];
-        dst_row[dst_off + 2] =
-            (src0 * SGL_Q11_ONE) + ((src1 - src0) * p);
-
-        src0 = (sgl_q11_ext_t)src_row[x1_off + 3];
-        src1 = (sgl_q11_ext_t)src_row[x2_off + 3];
-        dst_row[dst_off + 3] =
-            (src0 * SGL_Q11_ONE) + ((src1 - src0) * p);
+        dst_off = SGL_RESIZE_BPP32_BYTE_OFFSET(col);
+        x1_off = SGL_RESIZE_BPP32_BYTE_OFFSET(col_lookup->x1[col]);
+        x2_off = SGL_RESIZE_BPP32_BYTE_OFFSET(col_lookup->x2[col]);
+        src0 = sgl_neon_bilinear_load_pixel_bpp32(&src_row[x1_off]);
+        src1 = sgl_neon_bilinear_load_pixel_bpp32(&src_row[x2_off]);
+        weight_q11_s16 = vld1_dup_s16(&col_lookup->p[col]);
+        weight_q11_s32 = vmovl_s16(weight_q11_s16);
+        value = vshlq_n_s32(src0, SGL_Q11_FRAC_BITS);
+        value = vmlaq_s32(value, vsubq_s32(src1, src0), weight_q11_s32);
+        vst1q_s32(&dst_row[dst_off], value);
     }
 }
 
@@ -221,7 +539,8 @@ static SGL_ALWAYS_INLINE sgl_q11_ext_t *sgl_simd_bilinear_get_cached_row_bpp32(
     sgl_int32_t d_width;
 
     d_width = data->lut->d_width;
-    slot = &cache[y & 1];
+    slot = &cache[(sgl_uint32_t)y &
+                  (sgl_uint32_t)SGL_SIMD_BILINEAR_ROW_CACHE_MASK];
     if (slot->y != y) {
         src_row = &data->src[y * data->src_stride];
         sgl_simd_bilinear_horizontal_bpp32(
@@ -243,32 +562,62 @@ static SGL_ALWAYS_INLINE void sgl_simd_bilinear_vertical_bpp32(
     sgl_int32_t row_width)
 {
     sgl_int32_t off;
+    sgl_int32_t vector_width;
+    const sgl_q11_ext_t *top_ptr;
+    const sgl_q11_ext_t *bottom_ptr;
+    const sgl_q11_ext_t *top_end;
+    sgl_uint8_t *dst_ptr;
     int32x4_t vec_q;
-    int32x4_t top_lo;
-    int32x4_t top_hi;
-    int32x4_t bottom_lo;
-    int32x4_t bottom_hi;
+    int32x4_t top0;
+    int32x4_t top1;
+    int32x4_t top2;
+    int32x4_t top3;
+    int32x4_t bottom0;
+    int32x4_t bottom1;
+    int32x4_t bottom2;
+    int32x4_t bottom3;
+    int32x4_t value0;
+    int32x4_t value1;
+    int32x4_t value2;
+    int32x4_t value3;
     sgl_q11_ext_t top;
     sgl_q11_ext_t bottom;
 
     vec_q = vdupq_n_s32(q);
-    off = 0;
-    while ((off + NEON_LANE_SIZE) <= row_width) {
-        top_lo = vld1q_s32(&top_row[off]);
-        bottom_lo = vld1q_s32(&bottom_row[off]);
-        top_hi = vld1q_s32(&top_row[off + 4]);
-        bottom_hi = vld1q_s32(&bottom_row[off + 4]);
-        vst1_u8(&dst_row[off],
-                sgl_neon_bilinear_vertical_q11_to_u8(
-                    top_lo, bottom_lo, top_hi, bottom_hi, vec_q));
-        off += NEON_LANE_SIZE;
+    vector_width = row_width & ~SGL_SIMD_BILINEAR_VERTICAL_BATCH_MASK;
+    top_ptr = top_row;
+    bottom_ptr = bottom_row;
+    top_end = &top_row[vector_width];
+    dst_ptr = dst_row;
+    while (top_ptr < top_end) {
+        top0 = vld1q_s32(&top_ptr[0]);
+        top1 = vld1q_s32(&top_ptr[4]);
+        top2 = vld1q_s32(&top_ptr[8]);
+        top3 = vld1q_s32(&top_ptr[12]);
+        bottom0 = vld1q_s32(&bottom_ptr[0]);
+        bottom1 = vld1q_s32(&bottom_ptr[4]);
+        bottom2 = vld1q_s32(&bottom_ptr[8]);
+        bottom3 = vld1q_s32(&bottom_ptr[12]);
+        value0 = sgl_neon_bilinear_vertical_q11(top0, bottom0, vec_q);
+        value1 = sgl_neon_bilinear_vertical_q11(top1, bottom1, vec_q);
+        value2 = sgl_neon_bilinear_vertical_q11(top2, bottom2, vec_q);
+        value3 = sgl_neon_bilinear_vertical_q11(top3, bottom3, vec_q);
+        vst1q_u8(
+            dst_ptr,
+            sgl_neon_bilinear_pack_four_u8(
+                value0, value1, value2, value3));
+        top_ptr = &top_ptr[SGL_SIMD_BILINEAR_VERTICAL_BATCH_SIZE];
+        bottom_ptr = &bottom_ptr[SGL_SIMD_BILINEAR_VERTICAL_BATCH_SIZE];
+        dst_ptr = &dst_ptr[SGL_SIMD_BILINEAR_VERTICAL_BATCH_SIZE];
     }
 
+    off = vector_width;
     while (off < row_width) {
         top = top_row[off];
         bottom = bottom_row[off];
         dst_row[off] = sgl_simd_bilinear_separable_acc_to_u8(
-            (top * SGL_Q11_ONE) + ((bottom - top) * q));
+            sgl_simd_bilinear_scale_nonnegative_q11(top) +
+            ((bottom - top) * q));
         ++off;
     }
 }
@@ -279,7 +628,7 @@ static sgl_result_t sgl_simd_resize_bilinear_range_separable_bpp32(
     sgl_int32_t row_count)
 {
     sgl_result_t result;
-    sgl_simd_bilinear_row_cache_t cache[2];
+    sgl_simd_bilinear_row_cache_t cache[SGL_SIMD_BILINEAR_ROW_CACHE_COUNT];
     sgl_q11_ext_t *row_storage;
     sgl_q11_ext_t *top_row;
     sgl_q11_ext_t *bottom_row;
@@ -287,6 +636,7 @@ static sgl_result_t sgl_simd_resize_bilinear_range_separable_bpp32(
     sgl_int32_t end_row;
     sgl_int32_t d_height;
     sgl_int32_t row_width;
+    sgl_int32_t slot;
     sgl_int32_t y1;
     sgl_int32_t y2;
     sgl_uint8_t *dst_row;
@@ -294,20 +644,21 @@ static sgl_result_t sgl_simd_resize_bilinear_range_separable_bpp32(
     result = SGL_SUCCESS;
     row_storage = SGL_NULL;
     d_height = data->lut->d_height;
-    row_width = data->lut->d_width * SGL_BPP32;
+    row_width = SGL_RESIZE_BPP32_BYTE_OFFSET(data->lut->d_width);
     end_row = start_row + row_count;
     if (end_row > d_height) {
         end_row = d_height;
     }
 
     row_storage = sgl_memory_as_q11_ext(sgl_malloc(
-        sizeof(sgl_q11_ext_t) * (sgl_size_t)row_width * 2U));
+        sizeof(sgl_q11_ext_t) * (sgl_size_t)row_width *
+        (sgl_size_t)SGL_SIMD_BILINEAR_ROW_CACHE_COUNT));
 
     if (row_storage != SGL_NULL) {
-        cache[0].y = -1;
-        cache[0].row = row_storage;
-        cache[1].y = -1;
-        cache[1].row = &row_storage[row_width];
+        for (slot = 0; slot < SGL_SIMD_BILINEAR_ROW_CACHE_COUNT; ++slot) {
+            cache[slot].y = -1;
+            cache[slot].row = &row_storage[slot * row_width];
+        }
 
         for (row = start_row; row < end_row; ++row) {
             y1 = data->lut->row_lookup.y1[row];
@@ -379,7 +730,7 @@ static SGL_ALWAYS_INLINE sgl_uint8_t *sgl_simd_resize_bilinear_upscale_line_stri
     dst = &data->dst[row * data->dst_stride];
 
     for (lane = 0; lane < num_lanes; ++lane) {
-        col = (lane * NEON_LANE_SIZE);
+        col = NEON_LANE_OFFSET(lane);
         vec_p = vld1q_s16(&col_lookup->p[col]);
         vec_p_inv = vld1q_s16(&col_lookup->inv_p[col]);
 
@@ -388,8 +739,8 @@ static SGL_ALWAYS_INLINE sgl_uint8_t *sgl_simd_resize_bilinear_upscale_line_stri
         vec_w10 = sgl_simd_q11_mul(vec_p_inv, vec_q);
         vec_w11 = sgl_simd_q11_mul(vec_p, vec_q);
 
-        x1_off = col_lookup->x1[col] * SGL_BPP32;
-        x2_off = col_lookup->x2[col] * SGL_BPP32;
+        x1_off = SGL_RESIZE_BPP32_BYTE_OFFSET(col_lookup->x1[col]);
+        x2_off = SGL_RESIZE_BPP32_BYTE_OFFSET(col_lookup->x2[col]);
 
         vec_x1_col = sgl_neon_bilinear_make_pixel_offsets(&col_lookup->x1[col]);
         vec_x2_col = sgl_neon_bilinear_make_pixel_offsets(&col_lookup->x2[col]);
@@ -436,7 +787,7 @@ static SGL_ALWAYS_INLINE sgl_uint8_t *sgl_simd_resize_bilinear_upscale_line_stri
                             vec_w00, vec_w01, vec_w10, vec_w11);
 
         vst4_u8(dst, value);
-        dst = &dst[SGL_BPP32 * NEON_LANE_SIZE];
+        dst = &dst[NEON_LANE_BYTE_STEP(SGL_BPP32)];
     }
 
     return dst;
@@ -484,7 +835,7 @@ static SGL_ALWAYS_INLINE sgl_uint8_t *sgl_simd_resize_bilinear_upscale_line_stri
     dst = &data->dst[row * data->dst_stride];
 
     for (lane = 0; lane < num_lanes; ++lane) {
-        col = (lane * NEON_LANE_SIZE);
+        col = NEON_LANE_OFFSET(lane);
         vec_p = vld1q_s16(&col_lookup->p[col]);
         vec_p_inv = vld1q_s16(&col_lookup->inv_p[col]);
         vec_w00 = sgl_simd_q11_mul(vec_p_inv, vec_q_inv);
@@ -529,7 +880,7 @@ static SGL_ALWAYS_INLINE sgl_uint8_t *sgl_simd_resize_bilinear_upscale_line_stri
                             vec_w00, vec_w01, vec_w10, vec_w11);
 
         vst3_u8(dst, value);
-        dst = &dst[SGL_BPP24 * NEON_LANE_SIZE];
+        dst = &dst[NEON_LANE_BYTE_STEP(SGL_BPP24)];
     }
 
     return dst;
@@ -577,15 +928,15 @@ static SGL_ALWAYS_INLINE sgl_uint8_t *sgl_simd_resize_bilinear_upscale_line_stri
     dst = &data->dst[row * data->dst_stride];
 
     for (lane = 0; lane < num_lanes; ++lane) {
-        col = (lane * NEON_LANE_SIZE);
+        col = NEON_LANE_OFFSET(lane);
         vec_p = vld1q_s16(&col_lookup->p[col]);
         vec_p_inv = vld1q_s16(&col_lookup->inv_p[col]);
         vec_w00 = sgl_simd_q11_mul(vec_p_inv, vec_q_inv);
         vec_w01 = sgl_simd_q11_mul(vec_p, vec_q_inv);
         vec_w10 = sgl_simd_q11_mul(vec_p_inv, vec_q);
         vec_w11 = sgl_simd_q11_mul(vec_p, vec_q);
-        x1_off = col_lookup->x1[col] * SGL_BPP16;
-        x2_off = col_lookup->x2[col] * SGL_BPP16;
+        x1_off = SGL_RESIZE_BPP16_BYTE_OFFSET(col_lookup->x1[col]);
+        x2_off = SGL_RESIZE_BPP16_BYTE_OFFSET(col_lookup->x2[col]);
         vec_x1_col = sgl_neon_bilinear_make_pixel_offsets(&col_lookup->x1[col]);
         vec_x2_col = sgl_neon_bilinear_make_pixel_offsets(&col_lookup->x2[col]);
 
@@ -613,7 +964,7 @@ static SGL_ALWAYS_INLINE sgl_uint8_t *sgl_simd_resize_bilinear_upscale_line_stri
                             vec_w00, vec_w01, vec_w10, vec_w11);
 
         vst2_u8(dst, value);
-        dst = &dst[SGL_BPP16 * NEON_LANE_SIZE];
+        dst = &dst[NEON_LANE_BYTE_STEP(SGL_BPP16)];
     }
 
     return dst;
@@ -661,7 +1012,7 @@ static SGL_ALWAYS_INLINE sgl_uint8_t *sgl_simd_resize_bilinear_upscale_line_stri
     dst = &data->dst[row * data->dst_stride];
 
     for (lane = 0; lane < num_lanes; ++lane) {
-        col = (lane * NEON_LANE_SIZE);
+        col = NEON_LANE_OFFSET(lane);
         vec_p = vld1q_s16(&col_lookup->p[col]);
         vec_p_inv = vld1q_s16(&col_lookup->inv_p[col]);
         vec_w00 = sgl_simd_q11_mul(vec_p_inv, vec_q_inv);
@@ -686,7 +1037,7 @@ static SGL_ALWAYS_INLINE sgl_uint8_t *sgl_simd_resize_bilinear_upscale_line_stri
                     vmovl_u8(vec_src_y2x1), vmovl_u8(vec_src_y2x2),
                     vec_w00, vec_w01, vec_w10, vec_w11);
         vst1_u8(dst, value);
-        dst = &dst[SGL_BPP8 * NEON_LANE_SIZE];
+        dst = &dst[NEON_LANE_BYTE_STEP(SGL_BPP8)];
     }
 
     return dst;
@@ -758,7 +1109,7 @@ static SGL_ALWAYS_INLINE sgl_uint8_t *sgl_simd_resize_bilinear_upscale_line_stri
     dst = &data->dst[row * data->dst_stride];
 
     for (lane = 0; lane < num_lanes; ++lane) {
-        col = (lane * NEON_LANE_SIZE);
+        col = NEON_LANE_OFFSET(lane);
         vec_p = vld1q_s16(&col_lookup->p[col]);
         vec_p_inv = vld1q_s16(&col_lookup->inv_p[col]);
 
@@ -767,7 +1118,7 @@ static SGL_ALWAYS_INLINE sgl_uint8_t *sgl_simd_resize_bilinear_upscale_line_stri
         vec_w10 = sgl_simd_q11_mul(vec_p_inv, vec_q);
         vec_w11 = sgl_simd_q11_mul(vec_p, vec_q);
 
-        col = (lane * NEON_LANE_SIZE);
+        col = NEON_LANE_OFFSET(lane);
         x1_off = col_lookup->x1[col] * bpp;
         x2_off = col_lookup->x2[col] * bpp;
 
@@ -911,7 +1262,7 @@ static SGL_ALWAYS_INLINE sgl_uint8_t *sgl_simd_resize_bilinear_downscale_line_st
     dst = &data->dst[row * data->dst_stride];
 
     for (lane = 0; lane < num_lanes; ++lane) {
-        col = (lane * NEON_LANE_SIZE);
+        col = NEON_LANE_OFFSET(lane);
         vec_p = vld1q_s16(&col_lookup->p[col]);
         vec_p_inv = vld1q_s16(&col_lookup->inv_p[col]);
 
@@ -1017,8 +1368,8 @@ static SGL_ALWAYS_INLINE void sgl_simd_resize_bilinear_line_stripe(sgl_int32_t r
 
     d_width = data->lut->d_width;
     bpp = data->bpp;
-    num_lanes = d_width / NEON_LANE_SIZE;
-    step = bpp * NEON_LANE_SIZE;
+    num_lanes = NEON_LANE_COUNT(d_width);
+    step = NEON_LANE_BYTE_STEP(bpp);
 
     /* set common data */
     row_lookup = &data->lut->row_lookup;
@@ -1053,7 +1404,7 @@ static SGL_ALWAYS_INLINE void sgl_simd_resize_bilinear_line_stripe(sgl_int32_t r
     src_y1_buf = &data->src[row_lookup->y1[row] * data->src_stride];
     src_y2_buf = &data->src[row_lookup->y2[row] * data->src_stride];
 
-    for (col = num_lanes * NEON_LANE_SIZE; col < d_width; ++col) {
+    for (col = NEON_LANE_OFFSET(num_lanes); col < d_width; ++col) {
         p = col_lookup->p[col];
         inv_p = col_lookup->inv_p[col];
 
@@ -1191,10 +1542,15 @@ static sgl_result_t sgl_simd_resize_bilinear_single(
 
     switch (bpp) {
     case SGL_BPP32:
-        result = sgl_simd_resize_bilinear_range_separable_bpp32(data, 0, d_height);
-        if (result != SGL_SUCCESS) {
-            result = SGL_SUCCESS;
-            sgl_simd_resize_bilinear_single_fallback(data, d_height);
+        if (data->src_stride > data->dst_stride) {
+            sgl_simd_resize_bilinear_range_downscale_bpp32(data, 0, d_height);
+        }
+        else {
+            result = sgl_simd_resize_bilinear_range_separable_bpp32(data, 0, d_height);
+            if (result != SGL_SUCCESS) {
+                result = SGL_SUCCESS;
+                sgl_simd_resize_bilinear_single_fallback(data, d_height);
+            }
         }
         break;
     default:
@@ -1206,7 +1562,10 @@ static sgl_result_t sgl_simd_resize_bilinear_single(
 }
 
 #if defined(SGL_CFG_HAS_THREAD)
-static sgl_int32_t sgl_simd_resize_bilinear_thread_bulk_size(sgl_int32_t bpp)
+static sgl_int32_t sgl_simd_resize_bilinear_thread_bulk_size(
+    const sgl_threadpool_t *pool,
+    sgl_int32_t d_height,
+    sgl_int32_t bpp)
 {
     sgl_int32_t bulk_size;
 
@@ -1219,6 +1578,8 @@ static sgl_int32_t sgl_simd_resize_bilinear_thread_bulk_size(sgl_int32_t bpp)
         break;
     }
 
+    bulk_size = sgl_resize_thread_bulk_size(pool, d_height, bulk_size);
+
     return bulk_size;
 }
 
@@ -1228,7 +1589,7 @@ static sgl_result_t sgl_simd_resize_bilinear_threaded(
                 sgl_int32_t d_height,
                 sgl_int32_t bpp)
 {
-    sgl_result_t result = SGL_SUCCESS;
+    sgl_result_t result = SGL_ERROR_MEMORY_ALLOCATION;
     sgl_bilinear_current_t *currents;
     sgl_queue_t *operations = SGL_NULL;
     sgl_int32_t i;
@@ -1236,7 +1597,8 @@ static sgl_result_t sgl_simd_resize_bilinear_threaded(
     sgl_int32_t mod_operations;
     sgl_int32_t bulk_size;
 
-    bulk_size = sgl_simd_resize_bilinear_thread_bulk_size(bpp);
+    bulk_size = sgl_simd_resize_bilinear_thread_bulk_size(
+        pool, d_height, bpp);
     num_operations = d_height / bulk_size;
     mod_operations = d_height % bulk_size;
     if (mod_operations != 0) {
@@ -1258,13 +1620,10 @@ static sgl_result_t sgl_simd_resize_bilinear_threaded(
         }
 
         /* Multi-threaded resize. */
-        (void)sgl_threadpool_attach_routine(pool, sgl_simd_resize_bilinear_routine, operations, (void *)data);
+        result = sgl_threadpool_attach_routine_consuming(
+            pool, sgl_simd_resize_bilinear_routine, operations, (void *)data);
         sgl_queue_destroy(&operations);
     }
-    else {
-        result = SGL_ERROR_MEMORY_ALLOCATION;
-    }
-
     SGL_SAFE_FREE(currents);
     SGL_SAFE_FREE(operations);
 
@@ -1309,6 +1668,16 @@ sgl_result_t sgl_simd_resize_bilinear(
     sgl_bilinear_lookup_t *temp_lut = SGL_NULL;
     sgl_int32_t errcnt = 0;
 
+    SGL_TRACE_RESIZE_BEGIN(
+        SGL_TRACE_BACKEND_SIMD,
+        SGL_TRACE_METHOD_BILINEAR,
+        d_width,
+        d_height,
+        s_width,
+        s_height,
+        bpp,
+        SGL_TRACE_REQUESTED_THREADS(pool),
+        (ext_lut != SGL_NULL));
     errcnt = sgl_simd_resize_bilinear_count_errors(dst, d_width, d_height, src, s_width, s_height, bpp);
 
     if (errcnt == 0) {
@@ -1333,6 +1702,9 @@ sgl_result_t sgl_simd_resize_bilinear(
         result = SGL_ERROR_INVALID_ARGUMENTS;
     }
 
+    SGL_TRACE_RESIZE_END(
+        SGL_TRACE_BACKEND_SIMD, SGL_TRACE_METHOD_BILINEAR, result);
+
     return result;
 }
 
@@ -1347,8 +1719,15 @@ static void sgl_simd_resize_bilinear_routine(void *SGL_RESTRICT current, void *S
     result = SGL_ERROR_NOT_SUPPORTED;
     switch (data->bpp) {
     case SGL_BPP32:
-        result = sgl_simd_resize_bilinear_range_separable_bpp32(
-            data, cur->row, cur->count);
+        if (data->src_stride > data->dst_stride) {
+            sgl_simd_resize_bilinear_range_downscale_bpp32(
+                data, cur->row, cur->count);
+            result = SGL_SUCCESS;
+        }
+        else {
+            result = sgl_simd_resize_bilinear_range_separable_bpp32(
+                data, cur->row, cur->count);
+        }
         break;
     default:
         break;

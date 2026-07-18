@@ -35,6 +35,26 @@ struct sgl_nearest_neighbor_lookup_table {
     sgl_int32_t *SGL_RESTRICT y;
 };
 
+/*
+ * Design and Operation
+ * --------------------
+ * AArch64 NEON has no arbitrary memory gather.  For multi-channel downscale,
+ * gathering every channel into a separate vector repeats address generation
+ * and scalar byte loads.  Dispatch once per contiguous row range and let
+ * fixed-bpp loops use packed scalar memory operations instead.
+ *
+ *   row range ----> x LUT ----> packed 1/2/3/4-byte copy ----> destination
+ *                     one format dispatch per contiguous task range
+ *
+ * The generic backend uses this for every direction.  The SIMD backend uses
+ * it for 2/3/4-channel downscale and keeps its table path for upscale and its
+ * faster byte-vector gather for 1-channel downscale.
+ */
+void sgl_resize_nearest_neighbor_dispatch_packed_range(
+    sgl_int32_t start_row,
+    sgl_int32_t row_count,
+    sgl_nearest_neighbor_data_t *data);
+
 static SGL_ALWAYS_INLINE sgl_nearest_neighbor_current_t *sgl_memory_as_nearest_neighbor_current(void *memory)
 {
     sgl_nearest_neighbor_current_t *result;
