@@ -45,31 +45,35 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
 )
 target_link_libraries(${PROJECT_NAME} PRIVATE test-util sgl-core)
 
-if(NOT WITH_BENCHMARK_COMPARE)
-    message(FATAL_ERROR
-        "The resize benchmark requires Cairo and NE10 comparison rows. "
-        "Configure with WITH_BENCHMARK_COMPARE=ON, or disable test apps with "
-        "WITH_TEST_APP=OFF.")
+set(SGL_TEST_BENCHMARK_VALIDATE_EXTERNAL_ARGS)
+set(SGL_TEST_BENCHMARK_VALIDATE_SIMD_ARGS)
+if(SGL_CFG_HAS_SIMD)
+    list(APPEND SGL_TEST_BENCHMARK_VALIDATE_SIMD_ARGS --require-simd)
 endif()
 
-if(TARGET SGLTest::Cairo)
-    # Every published resize benchmark includes the Cairo comparison rows.
-    target_compile_definitions(${PROJECT_NAME} PRIVATE SGL_TEST_HAS_CAIRO)
-    target_link_libraries(${PROJECT_NAME} PRIVATE SGLTest::Cairo)
-    add_dependencies(${PROJECT_NAME} sgl-test-cairo)
-    message(STATUS "resize benchmark cairo comparison: enabled")
-else()
-    message(FATAL_ERROR "Cairo is required by the resize benchmark")
-endif()
+if(WITH_BENCHMARK_COMPARE)
+    if(TARGET SGLTest::Cairo)
+        target_compile_definitions(${PROJECT_NAME} PRIVATE SGL_TEST_HAS_CAIRO)
+        target_link_libraries(${PROJECT_NAME} PRIVATE SGLTest::Cairo)
+        add_dependencies(${PROJECT_NAME} sgl-test-cairo)
+        message(STATUS "resize benchmark cairo comparison: enabled")
+        list(APPEND SGL_TEST_BENCHMARK_VALIDATE_EXTERNAL_ARGS --require-cairo)
+    else()
+        message(FATAL_ERROR "Cairo is required by the resize benchmark comparison")
+    endif()
 
-if(TARGET SGLTest::NE10)
-    # Every published resize benchmark includes the NE10 C and NEON rows.
-    target_compile_definitions(${PROJECT_NAME} PRIVATE SGL_TEST_HAS_NE10)
-    target_link_libraries(${PROJECT_NAME} PRIVATE SGLTest::NE10)
-    add_dependencies(${PROJECT_NAME} sgl-test-ne10)
-    message(STATUS "resize benchmark NE10 comparison: enabled")
+    if(TARGET SGLTest::NE10)
+        target_compile_definitions(${PROJECT_NAME} PRIVATE SGL_TEST_HAS_NE10)
+        target_link_libraries(${PROJECT_NAME} PRIVATE SGLTest::NE10)
+        add_dependencies(${PROJECT_NAME} sgl-test-ne10)
+        message(STATUS "resize benchmark NE10 comparison: enabled")
+        list(APPEND SGL_TEST_BENCHMARK_VALIDATE_EXTERNAL_ARGS --require-ne10)
+    else()
+        message(STATUS
+            "resize benchmark NE10 comparison: disabled (requires AArch64 target)")
+    endif()
 else()
-    message(FATAL_ERROR "NE10 is required by the resize benchmark")
+    message(STATUS "resize benchmark external comparison: disabled")
 endif()
 
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
@@ -108,6 +112,8 @@ else()
                 "${CMAKE_SOURCE_DIR}/tools/resize-benchmark-summary-svg.py"
                 --csv "${SGL_TEST_BENCHMARK_CSV}"
                 --validate-only
+                ${SGL_TEST_BENCHMARK_VALIDATE_SIMD_ARGS}
+                ${SGL_TEST_BENCHMARK_VALIDATE_EXTERNAL_ARGS}
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
                 "${SGL_TEST_BENCHMARK_CSV}"
                 "${SGL_TEST_BENCHMARK_SNAPSHOT_CSV}"

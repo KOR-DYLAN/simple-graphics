@@ -49,9 +49,11 @@ OPTIONAL_CHART_BACKENDS = [
 ]
 EXTERNAL_BACKEND_NAMES = {"cairo", "ne10", "ne10-c", "ne10-neon"}
 EXTERNAL_METHODS = ["nearest", "bilinear"]
-REQUIRED_EXTERNAL_ROWS = [
+REQUIRED_CAIRO_ROWS = [
     ("cairo", "nearest", "cairo"),
     ("cairo", "bilinear", "cairo"),
+]
+REQUIRED_NE10_ROWS = [
     ("ne10-c", "bilinear", "ne10 C"),
     ("ne10-neon", "bilinear", "ne10 NEON"),
 ]
@@ -86,6 +88,26 @@ def parse_args():
         "--validate-only",
         action="store_true",
         help="validate required benchmark rows without writing SVG files",
+    )
+    parser.add_argument(
+        "--require-external",
+        action="store_true",
+        help="also require Cairo and NE10 external comparison rows",
+    )
+    parser.add_argument(
+        "--require-cairo",
+        action="store_true",
+        help="also require Cairo external comparison rows",
+    )
+    parser.add_argument(
+        "--require-ne10",
+        action="store_true",
+        help="also require NE10 external comparison rows",
+    )
+    parser.add_argument(
+        "--require-simd",
+        action="store_true",
+        help="also require SIMD resize backend rows",
     )
     return parser.parse_args()
 
@@ -187,8 +209,24 @@ def find_row(
     return found
 
 
-def validate_sgl_rows(rows):
+def validate_sgl_rows(rows, require_simd):
     missing = []
+    required_backends = [
+        ("generic", 1, "generic 1t"),
+        ("generic", 8, "generic 8t"),
+        ("generic-lut", 1, "generic-lut 1t"),
+        ("generic-lut", 8, "generic-lut 8t"),
+    ]
+
+    if require_simd:
+        required_backends.extend(
+            [
+                ("simd", 1, "simd 1t"),
+                ("simd", 8, "simd 8t"),
+                ("simd-lut", 1, "simd-lut 1t"),
+                ("simd-lut", 8, "simd-lut 8t"),
+            ]
+        )
 
     for method in METHODS:
         sizes = {
@@ -208,7 +246,7 @@ def validate_sgl_rows(rows):
 
         for channel in REQUIRED_CHANNELS:
             for size in sorted(sizes, key=size_pixels):
-                for backend, threads, label in TABLE_BACKENDS:
+                for backend, threads, label in required_backends:
                     if find_row(
                         rows,
                         method,
@@ -228,10 +266,10 @@ def validate_sgl_rows(rows):
         )
 
 
-def validate_external_rows(rows):
+def validate_external_rows(rows, required_rows, description):
     missing = []
 
-    for backend, method, label in REQUIRED_EXTERNAL_ROWS:
+    for backend, method, label in required_rows:
         sizes = {
             row["size"]
             for row in rows
@@ -252,7 +290,7 @@ def validate_external_rows(rows):
 
     if len(missing) > 0:
         raise ValueError(
-            "required Cairo/NE10 benchmark rows are missing: "
+            f"required {description} benchmark rows are missing: "
             + ", ".join(missing)
         )
 
@@ -283,6 +321,18 @@ def external_methods(rows, method=None):
     }
 
     return [item for item in EXTERNAL_METHODS if item in methods]
+
+
+def comparison_baseline(rows, method, size, channel=REPRESENTATIVE_CHANNEL):
+    for backend, threads, label in (
+        ("simd-lut", 8, "simd-lut 8t"),
+        ("generic-lut", 8, "generic-lut 8t"),
+    ):
+        row = find_row(rows, method, backend, threads, size, channel)
+        if row is not None:
+            return row, label
+
+    return None, "baseline"
 
 
 def append_external_comparison(lines, rows, top, height, method=None):
@@ -316,6 +366,17 @@ def append_external_comparison(lines, rows, top, height, method=None):
         lines.append(svg_text("muted", 78, top + 112, message, font_size="15", font_weight="700"))
     else:
         y = top + 146
+        baseline_label = "simd-lut 8t"
+        for size in sizes:
+            for item_method in methods:
+                _baseline, candidate_label = comparison_baseline(rows, item_method, size)
+                if _baseline is not None:
+                    baseline_label = candidate_label
+                    break
+            else:
+                continue
+            break
+
         lines.extend(
             [
                 svg_rect("header", 48, top + 82, 1184, 36, rx="6"),
@@ -325,14 +386,14 @@ def append_external_comparison(lines, rows, top, height, method=None):
                 svg_text("head", 660, top + 106, "simd-lut 8t", text_anchor="end"),
                 svg_text("head", 810, top + 106, "cairo 1t", text_anchor="end"),
                 svg_text("head", 960, top + 106, "ne10 NEON 1t", text_anchor="end"),
-                svg_text("head", 1200, top + 106, "best external / simd-lut 8t", text_anchor="end"),
+                svg_text("head", 1200, top + 106, f"best external / {baseline_label}", text_anchor="end"),
             ]
         )
 
         for size in sizes:
             for item_method in methods:
-                if find_row(rows, item_method, "simd-lut", 8, size) is not None:
-                    l8 = find_row(rows, item_method, "simd-lut", 8, size)
+                baseline, _baseline_label = comparison_baseline(rows, item_method, size)
+                if baseline is not None:
                     external = [
                         find_row(rows, item_method, backend, threads, size)
                         for backend, threads in (
@@ -360,7 +421,7 @@ def append_external_comparison(lines, rows, top, height, method=None):
 
                     if len(external) > 0:
                         best_external = min(external, key=lambda row: row["median_us"])
-                        ratio = relative_label(best_external["median_us"], l8["median_us"])
+                        ratio = relative_label(best_external["median_us"], baseline["median_us"])
                     else:
                         ratio = "n/a"
 
@@ -701,9 +762,17 @@ def build_summary_svg(
 ):
     sizes = method_sizes(rows, METHODS[0], channel)
     cases = [(size, method) for size in sizes for method in METHODS]
+    summary_target = ("simd-lut", 8, "simd-lut 8t")
+    if any(
+        find_row(rows, method, summary_target[0], summary_target[1], size, channel)
+        is None
+        for size, method in cases
+    ):
+        summary_target = ("generic-lut", 8, "generic-lut 8t")
+
     max_value = max(
         find_row(
-            rows, method, "simd-lut", 8, size, channel
+            rows, method, summary_target[0], summary_target[1], size, channel
         )["median_us"]
         for size, method in cases
     )
@@ -745,15 +814,15 @@ def build_summary_svg(
         svg_text("muted", 36, 102, f"{channel}-channel SGL rows; 640x480 downscale and 2560x1440 upscale are shown together.", font_size="13"),
         svg_rect("panel", 28, 132, 1224, 430, rx="8"),
         svg_text("text", 58, 172, "SGL path comparison by resize case", font_size="22", font_weight="800"),
-        svg_text("muted", 58, 194, "The ratio compares generic 1-thread latency against SIMD LUT with 8 threads.", font_size="13"),
+        svg_text("muted", 58, 194, f"The ratio compares generic 1-thread latency against {summary_target[2]}.", font_size="13"),
         svg_rect("header", 48, 216, 1184, 38, rx="6"),
         svg_text("head", 70, 240, "resize case"),
         svg_text("head", 240, 240, "method"),
         svg_text("head", 430, 240, "generic 1t", text_anchor="end"),
         svg_text("head", 580, 240, "simd 1t", text_anchor="end"),
         svg_text("head", 760, 240, "simd-lut 1t", text_anchor="end"),
-        svg_text("head", 930, 240, "simd-lut 8t", text_anchor="end"),
-        svg_text("head", 1200, 240, "generic / simd-lut 8t", text_anchor="end"),
+        svg_text("head", 930, 240, summary_target[2], text_anchor="end"),
+        svg_text("head", 1200, 240, f"generic / {summary_target[2]}", text_anchor="end"),
     ]
     y = 244
 
@@ -763,22 +832,25 @@ def build_summary_svg(
             for backend, threads, _label, _color in SUMMARY_BACKENDS
         ]
         generic = values[0]
-        lut8 = values[3]
+        target = find_row(
+            rows, method, summary_target[0], summary_target[1], size, channel
+        )
 
         y += 48
         lines.append(f'  <line class="line" x1="48" y1="{y - 28}" x2="1232" y2="{y - 28}"/>')
         lines.append(svg_text("cell", 70, y, resize_case_label(size)))
         lines.append(svg_text("cell", 240, y, method))
         lines.append(svg_text("cell", 430, y, ms(generic["median_us"]), text_anchor="end"))
-        lines.append(svg_text("cell", 580, y, ms(values[1]["median_us"]), text_anchor="end"))
-        lines.append(svg_text("cell", 760, y, ms(values[2]["median_us"]), text_anchor="end"))
-        lines.append(svg_text("cell", 930, y, ms(lut8["median_us"]), text_anchor="end"))
+        for x, row in ((580, values[1]), (760, values[2]), (930, target)):
+            css_class = "cell" if row is not None else "muted"
+            value = ms(row["median_us"]) if row is not None else "n/a"
+            lines.append(svg_text(css_class, x, y, value, text_anchor="end"))
         lines.append(
             svg_text(
                 "speed",
                 1200,
                 y,
-                ratio_label(generic["median_us"], lut8["median_us"]),
+                ratio_label(generic["median_us"], target["median_us"]),
                 text_anchor="end",
             )
         )
@@ -786,8 +858,8 @@ def build_summary_svg(
     lines.extend(
         [
             svg_rect("panel", 28, 600, 1224, 360, rx="8"),
-            svg_text("text", 58, 640, "Threaded SIMD LUT latency by interpolation", font_size="22", font_weight="800"),
-            svg_text("muted", 58, 662, "Bars show SIMD LUT with 8 threads; each bar is normalized to the slowest displayed case.", font_size="13"),
+            svg_text("text", 58, 640, f"Threaded {summary_target[2]} latency by interpolation", font_size="22", font_weight="800"),
+            svg_text("muted", 58, 662, f"Bars show {summary_target[2]}; each bar is normalized to the slowest displayed case.", font_size="13"),
             svg_rect("down", 58, 684, 14, 10, rx="2"),
             svg_text("small", 80, 694, "downscale 640x480"),
             svg_rect("up", 218, 684, 14, 10, rx="2"),
@@ -798,7 +870,7 @@ def build_summary_svg(
 
     for size, method in cases:
         value_us = find_row(
-            rows, method, "simd-lut", 8, size, channel
+            rows, method, summary_target[0], summary_target[1], size, channel
         )["median_us"]
         width = max(4, round((value_us / max_value) * 820))
         css_class = "down" if size_pixels(size) < SOURCE_PIXELS else "up"
@@ -888,18 +960,38 @@ def main():
     csv_path = Path(args.csv)
     output_dir = Path(args.output_dir)
     rows = read_rows(csv_path)
+    require_cairo = args.require_cairo or args.require_external
+    require_ne10 = args.require_ne10 or args.require_external
 
     try:
-        validate_sgl_rows(rows)
-        validate_external_rows(rows)
+        validate_sgl_rows(rows, args.require_simd)
+        if require_cairo:
+            validate_external_rows(rows, REQUIRED_CAIRO_ROWS, "Cairo")
+        if require_ne10:
+            validate_external_rows(rows, REQUIRED_NE10_ROWS, "NE10")
     except ValueError as error:
         raise SystemExit(f"error: {error}") from error
 
     if args.validate_only:
-        print(
-            "validated required 1/2/3/4-channel SGL and "
-            f"Cairo/NE10 rows: {csv_path}"
-        )
+        message = f"validated required generic 1/2/3/4-channel SGL rows: {csv_path}"
+        if args.require_simd:
+            message = f"validated required generic and SIMD SGL rows: {csv_path}"
+        if require_cairo and require_ne10:
+            message = (
+                "validated required 1/2/3/4-channel SGL and "
+                f"Cairo/NE10 rows: {csv_path}"
+            )
+        elif require_cairo:
+            message = (
+                "validated required 1/2/3/4-channel SGL and "
+                f"Cairo rows: {csv_path}"
+            )
+        elif require_ne10:
+            message = (
+                "validated required 1/2/3/4-channel SGL and "
+                f"NE10 rows: {csv_path}"
+            )
+        print(message)
         return
 
     output_dir.mkdir(parents=True, exist_ok=True)

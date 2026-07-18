@@ -107,8 +107,13 @@ if(WITH_BENCHMARK_COMPARE)
         "test dependency pixman tag: ${SGL_TEST_PIXMAN_TAG}")
     message(STATUS
         "test dependency cairo tag: ${SGL_TEST_CAIRO_TAG}")
-    message(STATUS
-        "test dependency NE10 tag: ${SGL_TEST_NE10_TAG}")
+    if(SGL_CFG_IS_ARM64)
+        message(STATUS
+            "test dependency NE10 tag: ${SGL_TEST_NE10_TAG}")
+    else()
+        message(STATUS
+            "test dependency NE10: disabled (requires AArch64 target)")
+    endif()
 endif()
 
 set(SGL_TEST_ZLIB_NG_URL
@@ -228,19 +233,13 @@ set(SGL_TEST_HAS_CAIRO_DEPENDENCY FALSE)
 set(SGL_TEST_HAS_NE10_DEPENDENCY FALSE)
 
 if(WITH_BENCHMARK_COMPARE)
-    if(NOT SGL_CFG_IS_ARM64)
-        message(FATAL_ERROR
-            "WITH_BENCHMARK_COMPARE requires an AArch64 target because the "
-            "NE10 benchmark builds its AArch64 image-processing backend")
-    endif()
-
     find_program(SGL_TEST_MESON_EXECUTABLE meson)
     find_program(SGL_TEST_NINJA_EXECUTABLE ninja)
 
     if(NOT SGL_TEST_MESON_EXECUTABLE OR NOT SGL_TEST_NINJA_EXECUTABLE)
         message(FATAL_ERROR
             "WITH_BENCHMARK_COMPARE requires both meson and ninja so "
-            "Cairo benchmark rows cannot be omitted")
+            "Cairo benchmark rows can be built")
     endif()
 
     set(SGL_TEST_CAIRO_MESON_CROSS_ARGS)
@@ -304,35 +303,40 @@ endian = 'little'
             --cross-file "${SGL_TEST_CAIRO_MESON_CROSS_FILE}")
     endif()
 
-    # Build the AArch64 image-processing module; this compiles both the scalar
-    # NE10_resize.c and ASIMD NE10_resize.neon.c implementations.
-    ExternalProject_Add(sgl-test-ne10
-        URL ${SGL_TEST_NE10_URL}
-        DOWNLOAD_DIR "${SGL_TEST_DEPS_DOWNLOAD_DIR}"
-        DOWNLOAD_NAME "${SGL_TEST_NE10_ARCHIVE_NAME}"
-        PREFIX "${CMAKE_BINARY_DIR}/test-deps/ne10"
-        BINARY_DIR "${CMAKE_BINARY_DIR}/test-deps/ne10/src/sgl-test-ne10-build"
-        CMAKE_ARGS
-            ${SGL_TEST_DEPS_CMAKE_ARGS}
-            -DGNULINUX_PLATFORM=ON
-            -DNE10_LINUX_TARGET_ARCH=aarch64
-            -DNE10_BUILD_EXAMPLES=OFF
-            -DNE10_BUILD_UNIT_TEST=OFF
-            -DNE10_BUILD_SHARED=OFF
-            -DNE10_BUILD_STATIC=ON
-            -DNE10_ENABLE_DSP=OFF
-            -DNE10_ENABLE_IMGPROC=ON
-        INSTALL_COMMAND
-            ${CMAKE_COMMAND} -E copy_directory
-                <SOURCE_DIR>/inc
-                ${SGL_TEST_DEPS_INSTALL_DIR}/include/ne10
-            COMMAND
-            ${CMAKE_COMMAND} -E copy
-                <BINARY_DIR>/modules/${CMAKE_STATIC_LIBRARY_PREFIX}NE10${CMAKE_STATIC_LIBRARY_SUFFIX}
-                ${SGL_TEST_NE10_LIBRARY}
-    )
-    list(APPEND SGL_TEST_OPTIONAL_DEPENDENCIES sgl-test-ne10)
-    set(SGL_TEST_HAS_NE10_DEPENDENCY TRUE)
+    if(SGL_CFG_IS_ARM64)
+        # Build the AArch64 image-processing module; this compiles both the
+        # scalar NE10_resize.c and ASIMD NE10_resize.neon.c implementations.
+        ExternalProject_Add(sgl-test-ne10
+            URL ${SGL_TEST_NE10_URL}
+            DOWNLOAD_DIR "${SGL_TEST_DEPS_DOWNLOAD_DIR}"
+            DOWNLOAD_NAME "${SGL_TEST_NE10_ARCHIVE_NAME}"
+            PREFIX "${CMAKE_BINARY_DIR}/test-deps/ne10"
+            BINARY_DIR "${CMAKE_BINARY_DIR}/test-deps/ne10/src/sgl-test-ne10-build"
+            CMAKE_ARGS
+                ${SGL_TEST_DEPS_CMAKE_ARGS}
+                -DGNULINUX_PLATFORM=ON
+                -DNE10_LINUX_TARGET_ARCH=aarch64
+                -DNE10_BUILD_EXAMPLES=OFF
+                -DNE10_BUILD_UNIT_TEST=OFF
+                -DNE10_BUILD_SHARED=OFF
+                -DNE10_BUILD_STATIC=ON
+                -DNE10_ENABLE_DSP=OFF
+                -DNE10_ENABLE_IMGPROC=ON
+            INSTALL_COMMAND
+                ${CMAKE_COMMAND} -E copy_directory
+                    <SOURCE_DIR>/inc
+                    ${SGL_TEST_DEPS_INSTALL_DIR}/include/ne10
+                COMMAND
+                ${CMAKE_COMMAND} -E copy
+                    <BINARY_DIR>/modules/${CMAKE_STATIC_LIBRARY_PREFIX}NE10${CMAKE_STATIC_LIBRARY_SUFFIX}
+                    ${SGL_TEST_NE10_LIBRARY}
+        )
+        list(APPEND SGL_TEST_OPTIONAL_DEPENDENCIES sgl-test-ne10)
+        set(SGL_TEST_HAS_NE10_DEPENDENCY TRUE)
+    else()
+        message(STATUS
+            "resize benchmark NE10 comparison: disabled (requires AArch64 target)")
+    endif()
 
     # Generate a Cairo Meson wrap file that points at the cached pixman tarball.
     file(WRITE "${SGL_TEST_CAIRO_PIXMAN_WRAP_SCRIPT}"
