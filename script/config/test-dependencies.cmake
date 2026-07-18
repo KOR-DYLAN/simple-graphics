@@ -137,6 +137,19 @@ set(SGL_TEST_NE10_ARCHIVE_NAME
     "NE10-${SGL_TEST_NE10_TAG}.tar.gz")
 set(SGL_TEST_CAIRO_PIXMAN_WRAP_SCRIPT
     "${CMAKE_BINARY_DIR}/test-deps/write-cairo-pixman-wrap.cmake")
+set(SGL_TEST_CAIRO_MESON_CROSS_FILE
+    "${CMAKE_BINARY_DIR}/test-deps/cairo-cross.ini")
+
+function(sgl_make_meson_string_array OUTPUT_VAR)
+    set(SGL_MESON_ARRAY)
+    foreach(SGL_MESON_VALUE IN LISTS ARGN)
+        string(REPLACE "\\" "\\\\" SGL_MESON_VALUE "${SGL_MESON_VALUE}")
+        string(REPLACE "'" "\\'" SGL_MESON_VALUE "${SGL_MESON_VALUE}")
+        list(APPEND SGL_MESON_ARRAY "'${SGL_MESON_VALUE}'")
+    endforeach()
+    string(REPLACE ";" ", " SGL_MESON_ARRAY "${SGL_MESON_ARRAY}")
+    set(${OUTPUT_VAR} "[${SGL_MESON_ARRAY}]" PARENT_SCOPE)
+endfunction()
 
 set(SGL_TEST_DEPS_CMAKE_ARGS
     -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
@@ -230,6 +243,67 @@ if(WITH_BENCHMARK_COMPARE)
             "Cairo benchmark rows cannot be omitted")
     endif()
 
+    set(SGL_TEST_CAIRO_MESON_CROSS_ARGS)
+    if(CMAKE_CROSSCOMPILING)
+        set(SGL_TEST_CAIRO_MESON_CPU_FAMILY "${CMAKE_SYSTEM_PROCESSOR}")
+        set(SGL_TEST_CAIRO_MESON_CPU "${CMAKE_SYSTEM_PROCESSOR}")
+        if(SGL_CFG_IS_ARM64)
+            set(SGL_TEST_CAIRO_MESON_CPU_FAMILY "aarch64")
+            set(SGL_TEST_CAIRO_MESON_CPU "aarch64")
+        endif()
+
+        set(SGL_TEST_CAIRO_C_ARGS)
+        set(SGL_TEST_CAIRO_C_LINK_ARGS)
+        if(CMAKE_C_COMPILER_TARGET)
+            list(APPEND SGL_TEST_CAIRO_C_ARGS
+                "--target=${CMAKE_C_COMPILER_TARGET}")
+            list(APPEND SGL_TEST_CAIRO_C_LINK_ARGS
+                "--target=${CMAKE_C_COMPILER_TARGET}")
+        endif()
+        if(CMAKE_SYSROOT)
+            list(APPEND SGL_TEST_CAIRO_C_ARGS "--sysroot=${CMAKE_SYSROOT}")
+            list(APPEND SGL_TEST_CAIRO_C_LINK_ARGS "--sysroot=${CMAKE_SYSROOT}")
+        endif()
+        separate_arguments(SGL_TEST_CAIRO_CMAKE_C_FLAGS
+            UNIX_COMMAND "${CMAKE_C_FLAGS}")
+        separate_arguments(SGL_TEST_CAIRO_CMAKE_EXE_LINKER_FLAGS
+            UNIX_COMMAND "${CMAKE_EXE_LINKER_FLAGS}")
+        list(APPEND SGL_TEST_CAIRO_C_ARGS
+            ${SGL_TEST_CAIRO_CMAKE_C_FLAGS})
+        list(APPEND SGL_TEST_CAIRO_C_LINK_ARGS
+            ${SGL_TEST_CAIRO_CMAKE_C_FLAGS}
+            ${SGL_TEST_CAIRO_CMAKE_EXE_LINKER_FLAGS})
+        list(REMOVE_DUPLICATES SGL_TEST_CAIRO_C_ARGS)
+        list(REMOVE_DUPLICATES SGL_TEST_CAIRO_C_LINK_ARGS)
+        sgl_make_meson_string_array(SGL_TEST_CAIRO_MESON_C_ARGS
+            ${SGL_TEST_CAIRO_C_ARGS})
+        sgl_make_meson_string_array(SGL_TEST_CAIRO_MESON_C_LINK_ARGS
+            ${SGL_TEST_CAIRO_C_LINK_ARGS})
+
+        file(WRITE "${SGL_TEST_CAIRO_MESON_CROSS_FILE}"
+"[binaries]
+c = '${CMAKE_C_COMPILER}'
+cpp = '${CMAKE_CXX_COMPILER}'
+ar = '${CMAKE_AR}'
+strip = '${CMAKE_STRIP}'
+
+[built-in options]
+c_args = ${SGL_TEST_CAIRO_MESON_C_ARGS}
+c_link_args = ${SGL_TEST_CAIRO_MESON_C_LINK_ARGS}
+
+[properties]
+needs_exe_wrapper = true
+
+[host_machine]
+system = 'linux'
+cpu_family = '${SGL_TEST_CAIRO_MESON_CPU_FAMILY}'
+cpu = '${SGL_TEST_CAIRO_MESON_CPU}'
+endian = 'little'
+")
+        list(APPEND SGL_TEST_CAIRO_MESON_CROSS_ARGS
+            --cross-file "${SGL_TEST_CAIRO_MESON_CROSS_FILE}")
+    endif()
+
     # Build the AArch64 image-processing module; this compiles both the scalar
     # NE10_resize.c and ASIMD NE10_resize.neon.c implementations.
     ExternalProject_Add(sgl-test-ne10
@@ -314,8 +388,10 @@ pixman-1 = idep_pixman
             ${CMAKE_COMMAND} -E env
                 PKG_CONFIG_PATH=${SGL_TEST_DEPS_INSTALL_DIR}/lib/pkgconfig
                 ${SGL_TEST_MESON_EXECUTABLE} setup
+                    --wipe
                     <BINARY_DIR>
                     <SOURCE_DIR>
+                    ${SGL_TEST_CAIRO_MESON_CROSS_ARGS}
                     --force-fallback-for=pixman-1
                     --prefix=${SGL_TEST_DEPS_INSTALL_DIR}
                     --libdir=lib
