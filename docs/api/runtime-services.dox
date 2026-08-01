@@ -1,0 +1,60 @@
+/**
+@page runtime_services Memory, Queue, and Threading
+
+@section runtime_memory Memory Pool
+
+sgl_memory_pool_initialize() registers one caller-owned region. The allocator
+uses aligned first-fit blocks, coalesces adjacent free blocks, and serializes
+allocation metadata. It never calls `malloc`, `calloc`, or `free` from the C
+runtime.
+
+The following operations allocate SGL memory:
+
+- resize and rotate LUT creation;
+- queue and thread-pool creation;
+- parallel operation descriptors and selected resize scratch buffers;
+- one-shot resize calls that receive a NULL LUT.
+
+sgl_memory_pool_deinitialize() returns #SGL_FAILURE while any allocation is
+live. Destroy thread pools, queues, and LUTs before deinitialization.
+
+@section runtime_queue Queue Ownership
+
+sgl_queue_t stores non-owning, non-NULL object pointers in FIFO order. Destroying
+a queue releases only queue storage; it never releases enqueued objects.
+sgl_queue_enqueue(), sgl_queue_dequeue(), and sgl_queue_peek() lock the queue.
+sgl_queue_unsafe_enqueue() is intended for single-threaded queue preparation.
+
+@code{.c}
+sgl_queue_t *operations;
+operation_t items[4];
+sgl_size_t index;
+
+operations = sgl_queue_create(4U);
+if (operations != SGL_NULL) {
+    for (index = 0U; index < 4U; ++index) {
+        (void)sgl_queue_unsafe_enqueue(operations, &items[index]);
+    }
+}
+@endcode
+
+@section runtime_threadpool Thread-Pool Submission
+
+sgl_threadpool_attach_routine() is synchronous: it returns after all callbacks
+finish and restores operation pointers to the queue in completion order. The
+submitting thread participates in processing. Use
+sgl_threadpool_attach_routine_consuming() when the queue may be left empty; it
+avoids the temporary completion queue allocation.
+
+Callbacks can execute concurrently and must not assume a stable worker index.
+Each operation object must remain alive until the attach call returns. The
+cookie may be NULL, but any shared mutable state reachable through it requires
+caller-provided synchronization.
+
+@section runtime_image_pool Image Operation Pool Argument
+
+Passing a valid pool allows an operation to divide sufficiently large images
+into row ranges. Small workloads can still execute on the submitting thread to
+avoid dispatch overhead. Passing #SGL_NULL always requests the single-thread
+path and is the correct choice for callers that do not need a thread pool.
+*/

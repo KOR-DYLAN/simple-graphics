@@ -16,6 +16,20 @@ Environment Setup
 -----------------
 - [Python package-manager and pyenv setup](python-setup.md)
 
+User Manual and API Reference
+-----------------------------
+- Run `make docs` to generate the Doxygen manual at
+  `build/<toolchain>/docs/html/index.html`.
+- Run `make package-docs` to generate versioned `.tar.gz` and `.zip` release
+  archives plus SHA-256 checksums under `package/`.
+- When the manual has been generated before `make install` or CPack packaging,
+  it is installed under `share/doc/sgl/html`.
+- [Doxygen manual sources](api/mainpage.dox)
+- [Getting started](api/getting-started.dox)
+- [Image operations](api/image-operations.dox)
+- [Pixel formats and buffer sizes](api/pixel-formats.dox)
+- [Memory, queue, and threading](api/runtime-services.dox)
+
 Core Internals
 --------------
 - [Memory pool allocator](animations/core/memory-allocator.html)

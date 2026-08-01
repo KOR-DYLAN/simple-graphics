@@ -9,6 +9,15 @@
 #ifndef SGL_FIXED_POINT__H__
 #define SGL_FIXED_POINT__H__
 
+/**
+ * @file sgl-fixed_point.h
+ * @brief Fixed-point scalar helpers and optional NEON equivalents.
+ *
+ * Application code normally includes sgl-core.h. This header is provided for
+ * low-level code that must use the same Q11 and Q16 arithmetic as SGL image
+ * kernels.
+ */
+
 #include <sgl-compiler.h>
 #include <sgl-type.h>
 #include <sgl-config.h>

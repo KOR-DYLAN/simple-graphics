@@ -1,0 +1,11 @@
+SGL @SGL_DOCS_VERSION@ Documentation
+===================================
+
+This archive contains the generated Simple Graphics Library user manual and
+public API reference.
+
+Open `html/index.html` in a web browser. The HTML tree is self-contained and
+does not require a web server or an internet connection.
+
+The documentation describes the public headers and behavior released with SGL
+version @SGL_DOCS_VERSION@. See `LICENSE` for distribution terms.

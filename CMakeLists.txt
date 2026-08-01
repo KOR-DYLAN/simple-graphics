@@ -43,6 +43,7 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 
 # Build the library first, then optional test applications that link against it.
 add_subdirectory(library)
+add_subdirectory(docs)
 if (WITH_TEST_APP)
     add_subdirectory(test)
 endif()

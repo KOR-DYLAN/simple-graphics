@@ -323,6 +323,8 @@ def execute_target_command(
             if context.verbose:
                 command.append("-v")
             result = run_process(command)
+    elif target in ("docs", "package-docs"):
+        result = configure_and_build(context, target)
     elif target in ("package", "package-source"):
         result = configure_and_build(context)
         if result == 0:

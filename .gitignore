@@ -9,6 +9,9 @@
 build/**
 downloads/*
 
+# CPack and documentation release archives are generated from tagged sources.
+package/
+
 # Menu configuration is local to each developer and build environment.
 .config
 

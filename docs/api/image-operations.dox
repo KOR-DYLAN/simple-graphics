@@ -1,0 +1,117 @@
+/**
+@page image_operations Image Operations
+
+@section image_common Common Buffer Rules
+
+Resize, crop, and rotate operate on packed pixels with a caller-supplied
+positive byte count per pixel. Their source size is `width * height * bpp`.
+Conversion uses the FourCC-specific formulas in @ref pixel_formats. All image
+buffers are caller-owned and source/destination ranges must not overlap.
+
+@section image_resize Resize
+
+Create one LUT when the same source and destination dimensions are used for
+multiple frames. The LUT does not depend on pixel channel order or `bpp`.
+
+@code{.c}
+sgl_bilinear_lookup_t *lut;
+sgl_result_t result;
+
+lut = sgl_generic_create_bilinear_lut(
+    dst_width, dst_height, src_width, src_height);
+if (lut == SGL_NULL) {
+    result = SGL_ERROR_MEMORY_ALLOCATION;
+}
+else {
+    result = sgl_generic_resize_bilinear(
+        pool, lut,
+        dst, dst_width, dst_height,
+        src, src_width, src_height,
+        SGL_BPP32);
+    sgl_generic_destroy_bilinear_lut(lut);
+}
+@endcode
+
+Pass `SGL_NULL` as the LUT for one-shot work. SGL then allocates and destroys a
+temporary table. Nearest-neighbor is fastest and preserves exact source pixel
+values; bilinear smooths a 2x2 neighborhood; bicubic uses a 4x4 neighborhood.
+
+@section image_crop Crop
+
+Crop coordinates are zero-based and the complete rectangle must fit inside the
+source image. The destination has no source stride or padding:
+
+@code{.c}
+result = sgl_generic_crop(
+    pool,
+    src, src_width, src_height,
+    dst,
+    crop_x, crop_y, crop_width, crop_height,
+    SGL_BPP32);
+@endcode
+
+Allocate at least `crop_width * crop_height * bpp` destination bytes.
+
+@section image_rotate Rotate
+
+Query dimensions before allocating the caller-owned destination. Positive
+angles rotate clockwise. Output pixels outside the source footprint are zero.
+
+@code{.c}
+sgl_int32_t dst_width;
+sgl_int32_t dst_height;
+sgl_int32_t dst_bytes;
+
+result = sgl_get_rotated_dimensions(
+    src_width, src_height, angle,
+    &dst_width, &dst_height);
+dst_bytes = sgl_get_rotated_size(
+    src_width, src_height, SGL_BPP32, angle);
+if ((result == SGL_SUCCESS) && (dst_bytes > 0)) {
+    result = sgl_generic_rotate(
+        pool, rotate_lut,
+        src, src_width, src_height,
+        dst, SGL_BPP32, angle);
+}
+@endcode
+
+A rotation LUT can be shared by generic and SIMD calls and reused across
+frames only when source dimensions and normalized angle are identical.
+
+@section image_convert Convert
+
+Choose the entry point from the source and destination format categories:
+
+| Source | Destination | Generic API | SIMD API |
+| --- | --- | --- | --- |
+| RGB | RGB | sgl_generic_rgb2rgb() | sgl_simd_rgb2rgb() |
+| RGB | YUV | sgl_generic_rgb2yuv() | sgl_simd_rgb2yuv() |
+| YUV | RGB | sgl_generic_yuv2rgb() | sgl_simd_yuv2rgb() |
+| YUV | YUV | sgl_generic_yuv2yuv() | sgl_simd_yuv2yuv() |
+
+@code{.c}
+result = sgl_generic_rgb2yuv(
+    pool,
+    rgba, SGL_FOURCC_RGBA,
+    nv12, SGL_FOURCC_NV12,
+    width, height);
+@endcode
+
+Every supported source format can be converted to every supported destination
+format in the selected category. When adding alpha to RGB, SGL writes 255;
+when removing alpha or converting to YUV, it discards alpha.
+
+@section image_backend Generic and SIMD Backends
+
+Generic functions are always declared. SIMD functions are declared only when
+`SGL_CFG_HAS_SIMD` is enabled in the generated `sgl-config.h`. Keep portable
+fallback selection at compile time:
+
+@code{.c}
+#if defined(SGL_CFG_HAS_SIMD)
+result = sgl_simd_crop(pool, src, width, height, dst, x, y, cw, ch, bpp);
+#else
+result = sgl_generic_crop(pool, src, width, height, dst, x, y, cw, ch, bpp);
+#endif
+@endcode
+*/

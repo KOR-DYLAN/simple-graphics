@@ -1,0 +1,89 @@
+/**
+@page getting_started Getting Started
+
+@section start_config Configure and Build
+
+Select build options through the curses menu, then build and install:
+
+@code{.sh}
+make menu
+make build
+make install INSTALL_PREFIX=/opt/sgl
+@endcode
+
+The package installs public headers, the `sgl-core` library, pkg-config
+metadata, and a CMake package. A direct CMake consumer can use:
+
+@code{.cmake}
+find_package(sgl-core-package CONFIG REQUIRED)
+target_link_libraries(application PRIVATE sgl-core::sgl-core)
+@endcode
+
+@section start_include Include and Link
+
+Application code normally needs only:
+
+@code{.c}
+#include <sgl-core.h>
+@endcode
+
+`sgl-fixed_point.h` and `sgl-compiler.h` are low-level support headers for code
+that intentionally shares SGL's arithmetic or compiler abstractions.
+
+@section start_lifecycle Runtime Lifecycle
+
+SGL allocations come from one caller-owned process-wide pool. The pool's
+backing array must remain alive and unchanged until deinitialization succeeds.
+Objects must be destroyed in reverse order before detaching the pool.
+
+@code{.c}
+#include <sgl-core.h>
+
+#define APP_SGL_POOL_BYTES (8U * 1024U * 1024U)
+
+static sgl_uint8_t app_sgl_pool[APP_SGL_POOL_BYTES];
+
+static sgl_result_t app_run(void)
+{
+    sgl_threadpool_t *workers;
+    sgl_result_t result;
+
+    workers = SGL_NULL;
+    result = sgl_memory_pool_initialize(
+        app_sgl_pool,
+        (sgl_size_t)sizeof(app_sgl_pool));
+
+#if defined(SGL_CFG_HAS_THREAD)
+    if (result == SGL_SUCCESS) {
+        workers = sgl_threadpool_create(
+            4U,
+            SGL_THREADPOOL_DEFAULT_MAX_ROUTINE_LISTS,
+            "sgl-app");
+        if (workers == SGL_NULL) {
+            result = SGL_ERROR_MEMORY_ALLOCATION;
+        }
+    }
+#endif
+
+    /* Invoke image operations here. A NULL workers value is also valid. */
+
+#if defined(SGL_CFG_HAS_THREAD)
+    if (workers != SGL_NULL) {
+        result = sgl_threadpool_destroy(workers);
+    }
+#endif
+    if (sgl_memory_pool_deinitialize() != SGL_SUCCESS) {
+        result = SGL_FAILURE;
+    }
+
+    return result;
+}
+@endcode
+
+@section start_errors Error Handling
+
+Image functions return #sgl_result_t. Treat every value other than
+#SGL_SUCCESS as a failed operation. Pointer-returning creation functions report
+invalid input and allocation failure as #SGL_NULL. Size-query functions return
+zero for invalid or overflowing geometry.
+*/

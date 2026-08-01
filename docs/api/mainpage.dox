@@ -1,0 +1,51 @@
+/**
+@mainpage SGL User Manual
+
+Simple Graphics Library (SGL) provides packed-image resize, crop and rotation,
+RGB/YUV pixel-format conversion, and runtime services without using the C
+standard library in the core implementation.
+
+@section manual_start Start Here
+
+- @ref getting_started explains configuration, linking, initialization, and
+  shutdown.
+- @ref image_operations describes resize, crop, rotate, and conversion calls.
+- @ref pixel_formats defines byte layouts and buffer-size formulas.
+- @ref runtime_services covers the memory pool, queue, and thread pool.
+- The **Modules** and **Files** views contain the complete public API reference.
+
+@section manual_contract Common Contract
+
+- Include `<sgl-core.h>` for application-facing APIs.
+- Image rows are tightly packed; public image functions do not accept stride.
+- `SGL_RESTRICT` source and destination ranges must not overlap.
+- The caller allocates all source and destination image buffers.
+- Passing `SGL_NULL` as an image operation's pool selects single-thread
+  execution.
+- Initialize the global SGL memory pool before creating any LUT, queue, or
+  thread pool, or before using an operation that requires temporary storage.
+
+@section manual_build Build This Manual
+
+From the repository root:
+
+@code{.sh}
+make docs
+@endcode
+
+The generated entry point is `build/<toolchain>/docs/html/index.html`. Doxygen
+is an optional host dependency and is not required for a normal library build.
+
+@section manual_release Release This Manual
+
+Create self-contained, versioned documentation archives with:
+
+@code{.sh}
+make package-docs
+@endcode
+
+The `package/` directory receives `.tar.gz` and `.zip` archives plus a
+`SHA256SUMS.txt` file. Each archive contains `html/index.html`, a release
+README, and the project license. A generated manual is also installed under
+`share/doc/sgl/html` by subsequent install and CPack operations.
+*/

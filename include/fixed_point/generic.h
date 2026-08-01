@@ -9,31 +9,51 @@
 #ifndef SGL_FIXED_POINT_GENERIC_H_
 #define SGL_FIXED_POINT_GENERIC_H_
 
+/** @defgroup sgl_fixed_point Fixed-point arithmetic
+ *  @brief Saturating scalar helpers for Q11 and Q16 values.
+ *  @{
+ */
+/** Signed Q11 value stored in 16 bits. */
 typedef sgl_int16_t     sgl_q11_t;
+/** Extended signed Q11 value stored in 32 bits. */
 typedef sgl_int32_t     sgl_q11_ext_t;
+/** Signed Q16 value stored in 32 bits. */
 typedef sgl_int32_t     sgl_q16_t;
+/** Extended signed Q16 value stored in 64 bits. */
 typedef sgl_int64_t     sgl_q16_ext_t;
 
+/** Number of fractional bits in a Q11 value. */
 #define SGL_Q11_FRAC_BITS    (11U)
-/* 2048 is 1U << 11 and represents 1.0 in Q11. */
+/** Q11 representation of 1.0 (`1 << 11`). */
 #define SGL_Q11_ONE          (2048)
-/* 1024 is one half of the Q11 unit. */
+/** Q11 representation of 0.5. */
 #define SGL_Q11_HALF         (1024)
-/* 2047 masks the eleven Q11 fractional bits. */
+/** Mask selecting all eleven Q11 fractional bits. */
 #define SGL_Q11_MASK         (2047U)
+/** Number of fractional bits in a Q16 value. */
 #define SGL_Q16_FRAC_BITS    (16U)
-/* 65536 is 1U << 16 and represents 1.0 in Q16. */
+/** Q16 representation of 1.0 (`1 << 16`). */
 #define SGL_Q16_ONE          (65536)
-/* 32768 is one half of the Q16 unit. */
+/** Q16 representation of 0.5. */
 #define SGL_Q16_HALF         (32768)
-/* 65535 masks the sixteen Q16 fractional bits. */
+/** Mask selecting all sixteen Q16 fractional bits. */
 #define SGL_Q16_MASK         (65535U)
+/** Bit width used by the portable signed-division helpers. */
 #define SGL_FIXED_I64_BITS   (64U)
+/** Maximum signed 32-bit value without standard-library constants. */
 #define SGL_FIXED_INT32_MAX  (2147483647)
+/** Minimum signed 32-bit value without standard-library constants. */
 #define SGL_FIXED_INT32_MIN  (-2147483647 - 1)
+/** Maximum signed 16-bit value without standard-library constants. */
 #define SGL_FIXED_INT16_MAX  (32767)
+/** Minimum signed 16-bit value without standard-library constants. */
 #define SGL_FIXED_INT16_MIN  (-32767 - 1)
 
+/**
+ * @brief Saturates a signed 64-bit value to the signed 32-bit range.
+ * @param[in] value Value to clamp.
+ * @return Saturated signed 32-bit value.
+ */
 static SGL_ALWAYS_INLINE sgl_int32_t sgl_fixed_clamp_i64_to_i32(
     sgl_int64_t value)
 {
@@ -52,6 +72,11 @@ static SGL_ALWAYS_INLINE sgl_int32_t sgl_fixed_clamp_i64_to_i32(
     return result;
 }
 
+/**
+ * @brief Saturates a signed 32-bit value to the signed 16-bit range.
+ * @param[in] value Value to clamp.
+ * @return Saturated signed 16-bit value.
+ */
 static SGL_ALWAYS_INLINE sgl_int16_t sgl_fixed_clamp_i32_to_i16(
     sgl_int32_t value)
 {
@@ -70,9 +95,14 @@ static SGL_ALWAYS_INLINE sgl_int16_t sgl_fixed_clamp_i32_to_i16(
     return result;
 }
 
-/*
- * Divide by 2^shift with C99 signed-division semantics.
- * The shift is applied only to an unsigned magnitude, avoiding the
+/**
+ * @brief Divides by a power of two with C99 signed-division semantics.
+ * @param[in] value Dividend.
+ * @param[in] shift Base-two exponent in the range 0 through 63.
+ * @return `value / (1 << shift)`, truncated toward zero, or 0 when @p shift
+ *         is outside the supported range.
+ *
+ * The shift is applied only to an unsigned magnitude, avoiding an
  * implementation-defined right shift of a negative signed integer.
  */
 static SGL_ALWAYS_INLINE sgl_int64_t sgl_fixed_div_pow2_i64(
@@ -100,9 +130,11 @@ static SGL_ALWAYS_INLINE sgl_int64_t sgl_fixed_div_pow2_i64(
     return result;
 }
 
-/*
- * Divide by 2^shift while rounding toward negative infinity.
- * This is the portable equivalent of an arithmetic signed right shift.
+/**
+ * @brief Divides by a power of two while rounding toward negative infinity.
+ * @param[in] value Dividend.
+ * @param[in] shift Base-two exponent.
+ * @return Portable equivalent of an arithmetic signed right shift.
  */
 static SGL_ALWAYS_INLINE sgl_int64_t sgl_fixed_floor_pow2_i64(
     sgl_int64_t value,
@@ -137,6 +169,11 @@ static SGL_ALWAYS_INLINE sgl_int64_t sgl_fixed_floor_pow2_i64(
     return result;
 }
 
+/**
+ * @brief Converts an integer to extended Q11 with saturation.
+ * @param[in] value Integer value.
+ * @return Q11 value equal to `value * 2048`, saturated to 32 bits.
+ */
 static SGL_ALWAYS_INLINE sgl_q11_ext_t sgl_int_to_q11(sgl_q11_ext_t value)
 {
     sgl_int64_t scaled;
@@ -148,6 +185,11 @@ static SGL_ALWAYS_INLINE sgl_q11_ext_t sgl_int_to_q11(sgl_q11_ext_t value)
     return result;
 }
 
+/**
+ * @brief Extracts the integer part of an extended Q11 value.
+ * @param[in] value Extended Q11 value.
+ * @return Integer part truncated toward zero.
+ */
 static SGL_ALWAYS_INLINE sgl_q11_ext_t sgl_q11_get_int_part(sgl_q11_ext_t value)
 {
     sgl_q11_ext_t result;
@@ -159,6 +201,11 @@ static SGL_ALWAYS_INLINE sgl_q11_ext_t sgl_q11_get_int_part(sgl_q11_ext_t value)
     return result;
 }
 
+/**
+ * @brief Extracts the signed fractional part of an extended Q11 value.
+ * @param[in] value Extended Q11 value.
+ * @return Fractional numerator in the range -2047 through 2047.
+ */
 static SGL_ALWAYS_INLINE sgl_q11_ext_t sgl_q11_get_frac_part(sgl_q11_ext_t value)
 {
     sgl_q11_ext_t integer_part;
@@ -170,6 +217,11 @@ static SGL_ALWAYS_INLINE sgl_q11_ext_t sgl_q11_get_frac_part(sgl_q11_ext_t value
     return result;
 }
 
+/**
+ * @brief Adds the Q11 half-unit used before rounded conversion.
+ * @param[in] value Extended Q11 value.
+ * @return `value + 1024`, saturated to signed 32 bits.
+ */
 static SGL_ALWAYS_INLINE sgl_q11_ext_t sgl_q11_round_up(sgl_q11_ext_t value)
 {
     sgl_int64_t rounded;
@@ -181,6 +233,11 @@ static SGL_ALWAYS_INLINE sgl_q11_ext_t sgl_q11_round_up(sgl_q11_ext_t value)
     return result;
 }
 
+/**
+ * @brief Removes Q11 fractional bits while rounding toward negative infinity.
+ * @param[in] value Extended Q11 value.
+ * @return Integer result of a portable arithmetic 11-bit right shift.
+ */
 static SGL_ALWAYS_INLINE sgl_q11_ext_t sgl_q11_shift_down(sgl_q11_ext_t value)
 {
     sgl_q11_ext_t result;
@@ -204,6 +261,12 @@ static SGL_ALWAYS_INLINE sgl_q11_ext_t sgl_q11_shift_down(sgl_q11_ext_t value)
     return result;
 }
 
+/**
+ * @brief Multiplies two Q11 values with rounding and saturation.
+ * @param[in] a First Q11 factor.
+ * @param[in] b Second Q11 factor.
+ * @return Saturated Q11 product.
+ */
 static SGL_ALWAYS_INLINE sgl_q11_t sgl_q11_mul(sgl_q11_t a, sgl_q11_t b)
 {
     sgl_q11_ext_t prod;
@@ -219,6 +282,12 @@ static SGL_ALWAYS_INLINE sgl_q11_t sgl_q11_mul(sgl_q11_t a, sgl_q11_t b)
     return result;
 }
 
+/**
+ * @brief Multiplies two extended Q11 values with rounding and saturation.
+ * @param[in] a First Q11 factor.
+ * @param[in] b Second Q11 factor.
+ * @return Saturated extended Q11 product.
+ */
 static SGL_ALWAYS_INLINE sgl_q11_ext_t sgl_q11_ext_mul(sgl_q11_ext_t a, sgl_q11_ext_t b)
 {
     sgl_int64_t prod;
@@ -234,6 +303,11 @@ static SGL_ALWAYS_INLINE sgl_q11_ext_t sgl_q11_ext_mul(sgl_q11_ext_t a, sgl_q11_
     return result;
 }
 
+/**
+ * @brief Converts a signed 32-bit integer to extended Q16.
+ * @param[in] value Integer value.
+ * @return Exact 64-bit Q16 representation.
+ */
 static SGL_ALWAYS_INLINE sgl_q16_ext_t sgl_int_to_q16(sgl_int32_t value)
 {
     sgl_q16_ext_t result;
@@ -243,6 +317,11 @@ static SGL_ALWAYS_INLINE sgl_q16_ext_t sgl_int_to_q16(sgl_int32_t value)
     return result;
 }
 
+/**
+ * @brief Rounds an extended Q16 value to the nearest signed 32-bit integer.
+ * @param[in] value Extended Q16 value.
+ * @return Rounded and saturated integer.
+ */
 static SGL_ALWAYS_INLINE sgl_int32_t sgl_q16_round_to_int32(
     sgl_q16_ext_t value)
 {
@@ -277,6 +356,11 @@ static SGL_ALWAYS_INLINE sgl_int32_t sgl_q16_round_to_int32(
     return result;
 }
 
+/**
+ * @brief Saturates a signed 32-bit channel value to 0 through 255.
+ * @param[in] val Channel value.
+ * @return Saturated unsigned byte.
+ */
 static SGL_ALWAYS_INLINE sgl_uint8_t sgl_clamp_u8_i32(sgl_int32_t val)
 {
     sgl_uint8_t u8_val = (sgl_uint8_t)val;
@@ -293,5 +377,7 @@ static SGL_ALWAYS_INLINE sgl_uint8_t sgl_clamp_u8_i32(sgl_int32_t val)
 
     return u8_val;
 }
+
+/** @} */
 
 #endif  /* !SGL_FIXED_POINT_GENERIC_H_ */

@@ -11,12 +11,19 @@
 
 #include <arm_neon.h>
 
+/** @addtogroup sgl_fixed_point
+ *  @{
+ */
+/** Eight signed 16-bit Q11 lanes. */
 typedef int16x8_t   sgl_simd_q11_t;
+/** Four signed 32-bit extended Q11 lanes. */
 typedef int32x4_t   sgl_simd_q11_ext_t;
 
 /**
- * Optimized Q11 Multiplication: (a * b) >> 11
- * Uses Rounding Shift Right for better precision and performance.
+ * @brief Multiplies eight Q11 lane pairs with rounding and saturation.
+ * @param[in] a First Q11 vector.
+ * @param[in] b Second Q11 vector.
+ * @return Q11 vector equivalent to `(a * b) >> 11` per lane.
  */
 static SGL_ALWAYS_INLINE sgl_simd_q11_t sgl_simd_q11_mul(
     sgl_simd_q11_t a,
@@ -42,11 +49,17 @@ static SGL_ALWAYS_INLINE sgl_simd_q11_t sgl_simd_q11_mul(
 }
 
 /**
- * Extended Q11 Multiplication: (a * b) >> 11
+ * @brief Multiplies four extended Q11 lane pairs.
+ * @param[in] a First extended Q11 vector.
+ * @param[in] b Second extended Q11 vector.
+ * @return Rounded and saturated extended Q11 products.
+ *
  * Each 32-bit lane stores one Q11 value. Multiplication creates a Q22
  * intermediate, then a rounding right shift restores the Q11 scale.
  */
-static SGL_ALWAYS_INLINE sgl_simd_q11_ext_t sgl_simd_q11_ext_mul(sgl_simd_q11_ext_t a, sgl_simd_q11_ext_t b)
+static SGL_ALWAYS_INLINE sgl_simd_q11_ext_t sgl_simd_q11_ext_mul(
+    sgl_simd_q11_ext_t a,
+    sgl_simd_q11_ext_t b)
 {
     int64x2_t prod0;
     int64x2_t prod1;
@@ -66,10 +79,14 @@ static SGL_ALWAYS_INLINE sgl_simd_q11_ext_t sgl_simd_q11_ext_mul(sgl_simd_q11_ex
 }
 
 /**
- * Optimized Clamp: int32x4_t (low/high) -> uint8x8_t
- * Performs saturating narrowing from 32-bit signed to 8-bit unsigned.
+ * @brief Saturates eight signed 32-bit channel lanes to unsigned bytes.
+ * @param[in] lo First four signed channel values.
+ * @param[in] hi Last four signed channel values.
+ * @return Eight values saturated to the range 0 through 255.
  */
-static SGL_ALWAYS_INLINE uint8x8_t sgl_simd_clamp_u8_i32(int32x4_t lo, int32x4_t hi)
+static SGL_ALWAYS_INLINE uint8x8_t sgl_simd_clamp_u8_i32(
+    int32x4_t lo,
+    int32x4_t hi)
 {
     uint16x4_t u16_lo;
     uint16x4_t u16_hi;
@@ -81,5 +98,7 @@ static SGL_ALWAYS_INLINE uint8x8_t sgl_simd_clamp_u8_i32(int32x4_t lo, int32x4_t
 
     return result;
 }
+
+/** @} */
 
 #endif  /* !SGL_FIXED_POINT_NEON_H_ */

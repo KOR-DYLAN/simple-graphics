@@ -9,12 +9,16 @@
 #ifndef SGL_COMPILER_H_
 #define SGL_COMPILER_H_
 
-/*
- *******************************************************************
- *                          COMPILER
- *******************************************************************
+/**
+ * @file sgl-compiler.h
+ * @brief Portable compiler attributes, branch hints, and prefetch helpers.
  */
-/*
+
+/** @defgroup sgl_compiler Compiler portability
+ *  @brief Source-level abstraction over supported compiler extensions.
+ *  @{
+ */
+/**
  * Prefetch contract
  * -----------------
  * byte_distance is the look-ahead offset from address, not a byte count to
@@ -23,13 +27,63 @@
  * optional performance hint and unsupported compilers keep this API as a no-op.
  * rw and locality must be compile-time constants for GCC and Clang.
  */
+/** Read intent passed to #SGL_PREFETCH. */
 #define SGL_PREFETCH_RW_READ                  (0)
+/** Write intent passed to #SGL_PREFETCH. */
 #define SGL_PREFETCH_RW_WRITE                 (1)
 
+/** Prefetched data is unlikely to be reused. */
 #define SGL_PREFETCH_LOCALITY_NON_TEMPORAL    (0)
+/** Prefetched data has low temporal locality. */
 #define SGL_PREFETCH_LOCALITY_LOW             (1)
+/** Prefetched data has moderate temporal locality. */
 #define SGL_PREFETCH_LOCALITY_MODERATE        (2)
+/** Prefetched data has high temporal locality. */
 #define SGL_PREFETCH_LOCALITY_HIGH            (3)
+
+/** @def SGL_ALWAYS_INLINE
+ *  @brief Requests compiler-enforced inlining.
+ */
+/** @def SGL_NOINLINE
+ *  @brief Prevents compiler inlining.
+ */
+/** @def SGL_RESTRICT
+ *  @brief Declares a non-aliasing pointer contract.
+ */
+/** @def SGL_ALIGNED
+ *  @brief Requests alignment of @p n bytes.
+ */
+/** @def SGL_PACKED
+ *  @brief Requests packed aggregate layout.
+ */
+/** @def SGL_NORETURN
+ *  @brief Marks a function that never returns.
+ */
+/** @def SGL_DEPRECATED
+ *  @brief Marks an API deprecated with @p message.
+ */
+/** @def SGL_WARN_UNUSED_RESULT
+ *  @brief Warns when a function result is ignored.
+ */
+/** @def SGL_LIKELY
+ *  @brief Marks @p expression as the expected branch outcome.
+ */
+/** @def SGL_UNLIKELY
+ *  @brief Marks @p expression as an unexpected branch outcome.
+ */
+/** @def SGL_FALLTHROUGH
+ *  @brief Marks intentional switch fallthrough.
+ */
+/** @def SGL_UNREACHABLE
+ *  @brief Declares the current control path unreachable.
+ */
+/** @def SGL_CPU_RELAX
+ *  @brief Emits a target-specific spin-wait hint.
+ */
+/**
+ * @def SGL_PREFETCH
+ * @brief Prefetches the address at @p byte_distance using @p rw and @p locality.
+ */
 
 /*
  * Branch prediction contract
@@ -104,6 +158,7 @@
 
 #endif
 
+/** Prefetches a high-locality read at @p byte_distance from @p address. */
 #define SGL_PREFETCH_READ(address, byte_distance) \
     SGL_PREFETCH( \
         address, \
@@ -111,6 +166,7 @@
         SGL_PREFETCH_RW_READ, \
         SGL_PREFETCH_LOCALITY_HIGH)
 
+/** Prefetches a high-locality write at @p byte_distance from @p address. */
 #define SGL_PREFETCH_WRITE(address, byte_distance) \
     SGL_PREFETCH( \
         address, \
@@ -118,6 +174,8 @@
         SGL_PREFETCH_RW_WRITE, \
         SGL_PREFETCH_LOCALITY_HIGH)
 
+/** Evaluates @p value and explicitly discards it. */
 #define SGL_UNUSED(value)             ((void)(value))
+/** @} */
 
 #endif  /* SGL_COMPILER_H_ */

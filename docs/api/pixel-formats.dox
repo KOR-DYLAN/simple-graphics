@@ -1,0 +1,63 @@
+/**
+@page pixel_formats Pixel Formats and Buffer Sizes
+
+@section format_notation Size Notation
+
+For image width `W` and height `H`, define:
+
+- `P = W * H`
+- `CW = (W + 1) / 2`
+- `CH = (H + 1) / 2`
+
+The rounded chroma dimensions allow odd `W` and `H`. Applications must perform
+checked multiplication before allocating buffers from untrusted dimensions.
+
+@section format_rgb RGB Layouts
+
+| FourCC | Exact byte or plane order | Bytes |
+| --- | --- | --- |
+| #SGL_FOURCC_RGBA | packed `R, G, B, A` | `4P` |
+| #SGL_FOURCC_ARGB | packed `A, R, G, B` | `4P` |
+| #SGL_FOURCC_BGRA | packed `B, G, R, A` | `4P` |
+| #SGL_FOURCC_ABGR | packed `A, B, G, R` | `4P` |
+| #SGL_FOURCC_RGB | packed `R, G, B` | `3P` |
+| #SGL_FOURCC_BGR | packed `B, G, R` | `3P` |
+| #SGL_FOURCC_RGBA_PLANAR | planes `R, G, B, A` | `4P` |
+| #SGL_FOURCC_ARGB_PLANAR | planes `A, R, G, B` | `4P` |
+| #SGL_FOURCC_BGRA_PLANAR | planes `B, G, R, A` | `4P` |
+| #SGL_FOURCC_ABGR_PLANAR | planes `A, B, G, R` | `4P` |
+| #SGL_FOURCC_RGB_PLANAR | planes `R, G, B` | `3P` |
+| #SGL_FOURCC_BGR_PLANAR | planes `B, G, R` | `3P` |
+
+The planar RGB identifiers are SGL extensions because DRM/V4L2 do not define
+equivalent RGB-only planar FourCC values.
+
+@section format_yuv YUV Layouts
+
+| FourCC | Exact byte or plane order | Bytes |
+| --- | --- | --- |
+| #SGL_FOURCC_YUV444_PACKED | packed `Y, Cb, Cr` | `3P` |
+| #SGL_FOURCC_YUV444_PLANAR | planes `Y, Cb, Cr` | `3P` |
+| #SGL_FOURCC_YUYV | groups `Y0, Cb0, Y1, Cr0` | `4 * CW * H` |
+| #SGL_FOURCC_YVYU | groups `Y0, Cr0, Y1, Cb0` | `4 * CW * H` |
+| #SGL_FOURCC_UYVY | groups `Cb0, Y0, Cr0, Y1` | `4 * CW * H` |
+| #SGL_FOURCC_VYUY | groups `Cr0, Y0, Cb0, Y1` | `4 * CW * H` |
+| #SGL_FOURCC_YUV422_PLANAR | `Y` plane, then `Cb`, `Cr` at half width | `P + 2 * CW * H` |
+| #SGL_FOURCC_YUV420_PLANAR | `Y` plane, then `Cb`, `Cr` at half width/height | `P + 2 * CW * CH` |
+| #SGL_FOURCC_NV12 | `Y` plane, then interleaved `Cb, Cr` | `P + 2 * CW * CH` |
+| #SGL_FOURCC_NV21 | `Y` plane, then interleaved `Cr, Cb` | `P + 2 * CW * CH` |
+
+@section format_view Viewing Raw Output
+
+Use ffplay's `rawvideo` demuxer with matching dimensions and pixel format. For
+example:
+
+@code{.sh}
+ffplay -f rawvideo -pixel_format rgba -video_size 1280x720 frame.raw
+ffplay -f rawvideo -pixel_format nv12 -video_size 1280x720 frame.raw
+ffplay -f rawvideo -pixel_format yuyv422 -video_size 1280x720 frame.raw
+@endcode
+
+ffplay does not expose names for every SGL planar RGB layout. Convert such a
+file to a viewer-supported packed layout before display.
+*/

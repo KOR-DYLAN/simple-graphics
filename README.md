@@ -137,6 +137,7 @@ Required for normal test builds:
 | Git and network access | Used during configure when resolving test dependency release tags. |
 | `gawk` | Required while building the test libpng dependency. |
 | gnuplot | Required to generate benchmark SVG charts after benchmark tests. |
+| Doxygen | Required only to generate or package the HTML user manual and public API reference. |
 | `cppcheck` | Required only when `WITH_CPPCHECK=ON`. |
 | `qemu-aarch64-static` or `qemu-aarch64` | Required only for AArch64 cross-run execution. |
 | LTTng-UST, LTTng tools, and Babeltrace 2 with `bt2` | Required only for Linux tracing with `WITH_LTTNG=ON`; install the distribution's Python binding. |
@@ -148,10 +149,10 @@ Install the host-side packages for your platform:
 
 | Platform | Command |
 | --- | --- |
-| Ubuntu / WSL | `sudo apt update`<br>`sudo apt install -y python3 python3-pip python3-venv build-essential cmake make git gawk gnuplot-nox clang llvm cppcheck qemu-user-static` |
-| Fedora | `sudo dnf install -y python3 python3-pip gcc gcc-c++ cmake make git gawk gnuplot clang llvm cppcheck qemu-user-static` |
-| Arch Linux | `sudo pacman -S --needed python python-pip base-devel cmake git gawk gnuplot clang llvm cppcheck qemu-user-static` |
-| macOS / Homebrew | `brew install python cmake make git gawk gnuplot llvm cppcheck qemu coreutils` |
+| Ubuntu / WSL | `sudo apt update`<br>`sudo apt install -y python3 python3-pip python3-venv build-essential cmake make git gawk gnuplot-nox doxygen clang llvm cppcheck qemu-user-static` |
+| Fedora | `sudo dnf install -y python3 python3-pip gcc gcc-c++ cmake make git gawk gnuplot doxygen clang llvm cppcheck qemu-user-static` |
+| Arch Linux | `sudo pacman -S --needed python python-pip base-devel cmake git gawk gnuplot doxygen clang llvm cppcheck qemu-user-static` |
+| macOS / Homebrew | `brew install python cmake make git gawk gnuplot doxygen llvm cppcheck qemu coreutils` |
 
 See the [Python environment setup guide](docs/python-setup.md) for standalone
 package-manager installation, pyenv build dependencies, project-local Python
@@ -288,6 +289,8 @@ Build Targets
 | `benchmark-update` | Run crop, convert, rotate, and resize benchmarks and refresh repo snapshots. | `make benchmark-update` |
 | `profile-lttng` | Build an LTTng-UST resize binary and record a CTF trace. | `make profile-lttng BUILD_TYPE=RelWithDebInfo` |
 | `install` | Install headers, library, and package metadata. | `make install` |
+| `docs` | Generate the Doxygen HTML user manual and public API reference. | `make docs` |
+| `package-docs` | Create versioned HTML manual archives and SHA-256 checksums under `package/`. | `make package-docs` |
 | `package` | Build binary CPack archives. | `make package` |
 | `package-source` | Build source CPack archives. | `make package-source` |
 | `clean` | Clean generated build outputs while keeping CMake cache. | `make clean` |

@@ -35,6 +35,14 @@ phony+=install
 install:
 	$(PYTHON) "$(TOPDIR)/script/menuconfig.py" execute --root "$(TOPDIR)" --target install
 
+phony+=docs
+docs:
+	$(PYTHON) "$(TOPDIR)/script/menuconfig.py" execute --root "$(TOPDIR)" --target docs
+
+phony+=package-docs
+package-docs:
+	$(PYTHON) "$(TOPDIR)/script/menuconfig.py" execute --root "$(TOPDIR)" --target package-docs
+
 phony+=package
 package:
 	$(PYTHON) "$(TOPDIR)/script/menuconfig.py" execute --root "$(TOPDIR)" --target package
