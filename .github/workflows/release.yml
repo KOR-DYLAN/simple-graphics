@@ -1,0 +1,203 @@
+# SPDX-License-Identifier: MIT
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v[0-9]*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  binary:
+    name: Binary (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Validate release tag
+        run: python3 script/release/version.py --check-tag "${GITHUB_REF_NAME}"
+
+      - name: Configure release build
+        run: |
+          cmake -S . -B build/release \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DWITH_BENCHMARK_COMPARE=OFF \
+            -DWITH_CPPCHECK=OFF \
+            -DWITH_CPPCHECK_MISRA=OFF \
+            -DWITH_SIMD=ON \
+            -DWITH_TEST_APP=OFF \
+            -DWITH_THREAD=ON
+
+      - name: Build library
+        run: cmake --build build/release --config Release --parallel
+
+      - name: Create binary archives
+        run: cpack --config build/release/CPackConfig.cmake
+
+      - name: Verify binary archives
+        env:
+          TARGET_ARCH: ${{ matrix.arch }}
+        run: |
+          version="$(python3 script/release/version.py)"
+          test -f "package/sgl-${version}-linux-${TARGET_ARCH}.tar.gz"
+          test -f "package/sgl-${version}-linux-${TARGET_ARCH}.zip"
+
+      - name: Upload binary archives
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: binary-${{ matrix.arch }}
+          path: package/sgl-*-linux-${{ matrix.arch }}.*
+          if-no-files-found: error
+          retention-days: 7
+
+  portable:
+    name: Source and documentation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Validate release tag
+        id: version
+        run: |
+          version="$(python3 script/release/version.py \
+            --check-tag "${GITHUB_REF_NAME}")"
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+
+      - name: Install Doxygen
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends doxygen
+
+      - name: Configure portable artifacts
+        run: |
+          cmake -S . -B build/release-portable \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DWITH_BENCHMARK_COMPARE=OFF \
+            -DWITH_CPPCHECK=OFF \
+            -DWITH_CPPCHECK_MISRA=OFF \
+            -DWITH_SIMD=OFF \
+            -DWITH_TEST_APP=OFF \
+            -DWITH_THREAD=OFF
+
+      - name: Create documentation archives
+        run: cmake --build build/release-portable --target package-docs --parallel
+
+      - name: Create source archives
+        run: cpack --config build/release-portable/CPackSourceConfig.cmake
+
+      - name: Verify portable archives
+        run: |
+          version="$(python3 script/release/version.py)"
+          test -f "package/sgl-${version}-Source.tar.gz"
+          test -f "package/sgl-${version}-Source.zip"
+          test -f "package/sgl-docs-${version}.tar.gz"
+          test -f "package/sgl-docs-${version}.zip"
+          test -f "package/sgl-docs-${version}-SHA256SUMS.txt"
+
+      - name: Upload portable archives
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: portable
+          path: |
+            package/sgl-*-Source.*
+            package/sgl-docs-*
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish GitHub Release
+    needs:
+      - binary
+      - portable
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+
+    steps:
+      - name: Download release archives
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Verify assets and create checksums
+        env:
+          VERSION: ${{ needs.portable.outputs.version }}
+        run: |
+          expected=(
+            "sgl-${VERSION}-linux-aarch64.tar.gz"
+            "sgl-${VERSION}-linux-aarch64.zip"
+            "sgl-${VERSION}-linux-x86_64.tar.gz"
+            "sgl-${VERSION}-linux-x86_64.zip"
+            "sgl-${VERSION}-Source.tar.gz"
+            "sgl-${VERSION}-Source.zip"
+            "sgl-docs-${VERSION}.tar.gz"
+            "sgl-docs-${VERSION}.zip"
+            "sgl-docs-${VERSION}-SHA256SUMS.txt"
+          )
+
+          for asset in "${expected[@]}"; do
+            test -f "release-assets/${asset}"
+          done
+
+          (
+            cd release-assets
+            find . -maxdepth 1 -type f -printf '%f\n' |
+              LC_ALL=C sort |
+              xargs sha256sum
+          ) > release-assets/SHA256SUMS.txt
+
+      - name: Attest release assets
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-path: release-assets/*
+
+      - name: Create draft release and publish it
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.portable.outputs.version }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" release-assets/* \
+            --draft \
+            --generate-notes \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "SGL ${VERSION}" \
+            --verify-tag
+          gh release edit "${GITHUB_REF_NAME}" \
+            --draft=false \
+            --latest \
+            --repo "${GITHUB_REPOSITORY}"

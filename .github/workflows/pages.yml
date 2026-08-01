@@ -1,0 +1,78 @@
+# SPDX-License-Identifier: MIT
+
+name: Documentation
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build documentation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    permissions:
+      contents: read
+      pages: write
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Doxygen
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends doxygen
+
+      - name: Configure documentation build
+        run: |
+          cmake -S . -B build/pages \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DWITH_BENCHMARK_COMPARE=OFF \
+            -DWITH_CPPCHECK=OFF \
+            -DWITH_CPPCHECK_MISRA=OFF \
+            -DWITH_SIMD=OFF \
+            -DWITH_TEST_APP=OFF \
+            -DWITH_THREAD=OFF
+
+      - name: Build documentation
+        run: cmake --build build/pages --target docs --parallel
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: build/pages/docs/html
+
+  deploy:
+    name: Deploy documentation
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    permissions:
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0

@@ -15,6 +15,7 @@ SGL Documentation
 Environment Setup
 -----------------
 - [Python package-manager and pyenv setup](python-setup.md)
+- [GitHub Pages and Release publishing](github-publishing.md)
 
 User Manual and API Reference
 -----------------------------

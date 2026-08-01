@@ -190,11 +190,49 @@ set(CPACK_SOURCE_GENERATOR
     ZIP
     TGZ
 )
-set(CPACK_SOURCE_IGNORE_FILES .git/ _CPack_Packages/ package .vscode .gitignore downloads "${CMAKE_BINARY_DIR}/")
+# Source packages must not capture repository metadata, local configuration,
+# generated artifacts, Python bytecode, or malformed filesystem entries.  The
+# final expression rejects a path component containing bytes outside printable
+# ASCII; such names are not portable archive members and can make libarchive
+# fail while staging the source tree.
+set(CPACK_SOURCE_IGNORE_FILES
+    "/[.]git/"
+    "/[.]agents/"
+    "/[.]codex/"
+    "/[.]config$"
+    "/[.]vscode/"
+    "/_CPack_Packages/"
+    "/build/"
+    "/downloads/"
+    "/package/"
+    "/report/"
+    "/__pycache__/"
+    "[.]py[cod]$"
+    "/[^/]*[^ -~][^/]*$"
+    "${CMAKE_BINARY_DIR}/"
+)
 
 set(CPACK_PACKAGE_NAME "sgl")
 set(CPACK_PACKAGE_VERSION ${SGL_FULL_VERSION})
 set(CPACK_PACKAGE_DIRECTORY "${CMAKE_SOURCE_DIR}/package")
+
+# Binary archives contain target machine code.  Include the normalized target
+# OS and architecture in their names so native and cross-compiled artifacts can
+# coexist in the package directory without overwriting one another.
+string(TOLOWER "${CMAKE_SYSTEM_NAME}" SGL_PACKAGE_SYSTEM_NAME)
+string(REGEX REPLACE "[^a-z0-9_+-]+" "-" SGL_PACKAGE_SYSTEM_NAME
+    "${SGL_PACKAGE_SYSTEM_NAME}")
+if(SGL_PACKAGE_SYSTEM_NAME STREQUAL "")
+    set(SGL_PACKAGE_SYSTEM_NAME "unknown-os")
+endif()
+set(CPACK_PACKAGE_FILE_NAME
+    "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${SGL_PACKAGE_SYSTEM_NAME}-${SGL_TARGET_ARCH}")
+
+# Source archives contain no target machine code and remain architecture-neutral.
+set(CPACK_SOURCE_PACKAGE_FILE_NAME
+    "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-Source")
+
+message(STATUS "Binary package name: ${CPACK_PACKAGE_FILE_NAME}")
 
 if("${PROJECT_BINARY_DIR}" STREQUAL "${PROJECT_SOURCE_DIR}")
     message(WARNING "Building to source folder is not recommended. Cpack will be unable to generate source package.")

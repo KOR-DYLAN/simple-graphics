@@ -10,6 +10,12 @@ For conditions of distribution and use, see the LICENSE file.
 Project Build and Run Guide
 ===========================
 
+[![Documentation](https://github.com/KOR-DYLAN/simple-graphics/actions/workflows/pages.yml/badge.svg)](https://github.com/KOR-DYLAN/simple-graphics/actions/workflows/pages.yml)
+[![Release](https://github.com/KOR-DYLAN/simple-graphics/actions/workflows/release.yml/badge.svg)](https://github.com/KOR-DYLAN/simple-graphics/actions/workflows/release.yml)
+
+[User Manual](https://kor-dylan.github.io/simple-graphics/) |
+[Releases](https://github.com/KOR-DYLAN/simple-graphics/releases)
+
 Overview
 --------
 Simple Graphics Library (SGL) is a small C graphics-processing library focused
@@ -37,6 +43,7 @@ Contents
 - [Running the Application](#running-the-application)
 - [Linux Profiling](docs/profiling-lttng.md)
 - [Documentation](docs/README.md)
+- [GitHub Pages and Release Publishing](docs/github-publishing.md)
 - [Operation Benchmarks](#operation-benchmarks)
 - [Resize Benchmark](#resize-benchmark)
 - [Detailed Benchmark Reports](benchmark/README.md)
@@ -291,14 +298,21 @@ Build Targets
 | `install` | Install headers, library, and package metadata. | `make install` |
 | `docs` | Generate the Doxygen HTML user manual and public API reference. | `make docs` |
 | `package-docs` | Create versioned HTML manual archives and SHA-256 checksums under `package/`. | `make package-docs` |
-| `package` | Build binary CPack archives. | `make package` |
-| `package-source` | Build source CPack archives. | `make package-source` |
+| `package` | Build target-specific binary CPack archives. | `make package` |
+| `package-source` | Build architecture-neutral source CPack archives. | `make package-source` |
 | `clean` | Clean generated build outputs while keeping CMake cache. | `make clean` |
 | `distclean` | Remove the entire build directory. | `make distclean` |
 | `run` | Build and run the selected test application. | `make run` |
 | `run-direct` | Non-interactive run using `TARGET` and `ARGS`. | `make run-direct TARGET=memory ARGS=` |
 | `list-tests` | Print runnable test applications and their arguments. | `make list-tests` |
 | `cppcheck-report` | Generate the standalone cppcheck report under `report/<date>-<commit>/`. | `make cppcheck-report` |
+
+Binary package filenames use
+`sgl-<version>-<target-os>-<target-architecture>.<archive>`, for example
+`sgl-1.0.0.0-linux-aarch64.tar.gz`. The architecture comes from
+`CMAKE_SYSTEM_PROCESSOR`, so cross-compiled archives identify the target rather
+than the build host. Source and documentation archives remain architecture
+independent.
 
 `cppcheck-report` runs the standalone report script with exhaustive checking,
 inconclusive findings, library checks, CTU analysis, and the optional MISRA
