@@ -14,6 +14,7 @@ from .build import (
     run_process,
     selected_test,
     split_environment_arguments,
+    update_clangd_compile_database,
 )
 from .cli import main, parse_arguments
 from .commands import (
@@ -134,4 +135,5 @@ __all__ = (
     "symbols_command",
     "sync_command",
     "synchronize_config",
+    "update_clangd_compile_database",
 )

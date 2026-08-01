@@ -266,6 +266,39 @@ config ENABLED
             context.build,
         )
 
+    def test_clangd_database_tracks_active_build(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            llvm_build = root / "build" / "llvm"
+            gnu_build = root / "build" / "gnu"
+            llvm_build.mkdir(parents=True)
+            gnu_build.mkdir(parents=True)
+            (llvm_build / "compile_commands.json").write_text(
+                "llvm\n", encoding="utf-8"
+            )
+            (gnu_build / "compile_commands.json").write_text(
+                "gnu\n", encoding="utf-8"
+            )
+
+            MENUCONFIG.update_clangd_compile_database(root, llvm_build)
+            database = root / "build" / "compile_commands.json"
+            self.assertEqual("llvm\n", database.read_text(encoding="utf-8"))
+
+            MENUCONFIG.update_clangd_compile_database(root, gnu_build)
+            self.assertEqual("gnu\n", database.read_text(encoding="utf-8"))
+
+    def test_clangd_database_requires_cmake_output(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+
+            with self.assertRaisesRegex(
+                MENUCONFIG.KconfigError,
+                "CMake did not generate compilation database",
+            ):
+                MENUCONFIG.update_clangd_compile_database(
+                    root, root / "build" / "llvm"
+                )
+
     def test_dialog_layout_requires_usable_terminal_size(self) -> None:
         class Window:
             def __init__(self, height: int, width: int) -> None:

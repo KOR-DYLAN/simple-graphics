@@ -118,6 +118,12 @@ Default behavior:
 AArch64 toolchains, such as `aarch64-none-linux-llvm`, run target binaries
 through QEMU when QEMU is available.
 
+`make config`, `make build`, and other configure-based targets update
+`build/compile_commands.json` to reference the compilation database for the
+currently selected toolchain. The checked-in `.clangd` reads that stable path,
+so changing `TOOLCHAIN` through `make menu` takes effect after the next
+configure without editor-specific path changes.
+
 Directory Layout
 ----------------
 | Path | Purpose |

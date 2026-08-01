@@ -109,6 +109,39 @@ def split_environment_arguments(name: str, default: str = "") -> list[str]:
     return result
 
 
+def update_clangd_compile_database(root: Path, build: Path) -> None:
+    """Point clangd at the compilation database from the active build tree."""
+    source = build / "compile_commands.json"
+    destination = root / "build" / "compile_commands.json"
+
+    if not source.is_file():
+        raise KconfigError(
+            "CMake did not generate compilation database: " + str(source)
+        )
+    if source.absolute() == destination.absolute():
+        return
+
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary = destination.with_name(".compile_commands.json.tmp")
+    temporary.unlink(missing_ok=True)
+
+    try:
+        relative_source = Path(os.path.relpath(source, destination.parent))
+        temporary.symlink_to(relative_source)
+    except OSError:
+        # Some filesystems do not permit symlink creation.  A configure-time
+        # copy still gives clangd an up-to-date database on those systems.
+        shutil.copyfile(source, temporary)
+
+    try:
+        temporary.replace(destination)
+    except OSError as error:
+        temporary.unlink(missing_ok=True)
+        raise KconfigError(
+            "cannot update clangd compilation database: {}".format(error)
+        ) from error
+
+
 def configure_project(
     context: BuildContext,
     build: Path,
@@ -135,7 +168,11 @@ def configure_project(
         "-S" + str(context.root),
         "-B" + str(build),
     ))
-    return run_process(command)
+    result = run_process(command)
+    if result == 0 and build == context.build:
+        update_clangd_compile_database(context.root, build)
+
+    return result
 
 
 def build_project_target(
