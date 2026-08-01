@@ -69,8 +69,14 @@ static SGL_ALWAYS_INLINE sgl_bool_t sgl_osal_spinlock_try_lock(
 {
     sgl_bool_t is_locked;
 
-    is_locked = (pthread_spin_trylock(spinlock) == 0) ?
-        SGL_TRUE : SGL_FALSE;
+    switch (pthread_spin_trylock(spinlock)) {
+    case 0:
+        is_locked = SGL_TRUE;
+        break;
+    default:
+        is_locked = SGL_FALSE;
+        break;
+    }
 
     return is_locked;
 }

@@ -54,7 +54,7 @@ if(WITH_LTTNG)
         message(FATAL_ERROR
             "WITH_LTTNG=ON requires LTTng-UST development files. "
             "On Ubuntu install: sudo apt install lttng-tools "
-            "liblttng-ust-dev babeltrace2")
+            "liblttng-ust-dev babeltrace2 python3-bt2")
     endif()
 
     set(SGL_CFG_HAS_LTTNG ON)

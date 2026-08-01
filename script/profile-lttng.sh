@@ -68,7 +68,7 @@ trap cleanup EXIT HUP INT TERM
 
 if ! command -v "$lttng_command" >/dev/null 2>&1; then
     echo "error: lttng command not found: $lttng_command" >&2
-    echo "Ubuntu: sudo apt install lttng-tools liblttng-ust-dev babeltrace2" >&2
+    echo "Ubuntu: sudo apt install lttng-tools liblttng-ust-dev babeltrace2 python3-bt2" >&2
     exit 1
 fi
 

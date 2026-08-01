@@ -19,6 +19,7 @@ extern "C" {
  */
 #include <sgl-compiler.h>
 #include <sgl-type.h>
+#include <sgl-fourcc.h>
 #include <sgl-config.h>
 
 /*
@@ -59,6 +60,7 @@ typedef enum {
 typedef struct sgl_nearest_neighbor_lookup_table    sgl_nearest_neighbor_lookup_t;
 typedef struct sgl_bilinear_lookup_table            sgl_bilinear_lookup_t;
 typedef struct sgl_bicubic_lookup_table             sgl_bicubic_lookup_t;
+typedef struct sgl_rotate_lookup_table              sgl_rotate_lookup_t;
 typedef struct sgl_queue                            sgl_queue_t;
 typedef struct sgl_threadpool                       sgl_threadpool_t;
 typedef void(*sgl_threadpool_routine_t)(void *SGL_RESTRICT current, void *SGL_RESTRICT cookie);
@@ -160,6 +162,106 @@ sgl_result_t sgl_simd_resize_bicubic(
                 sgl_uint8_t *SGL_RESTRICT dst, sgl_int32_t d_width, sgl_int32_t d_height,
                 sgl_uint8_t *SGL_RESTRICT src, sgl_int32_t s_width, sgl_int32_t s_height,
                 sgl_int32_t bpp);
+#endif  /* !SGL_CFG_HAS_SIMD */
+
+/*******************************************************************
+ *                          Crop
+ *******************************************************************/
+/* A NULL pool selects the single-thread path. */
+/* Generic Crop */
+sgl_result_t sgl_generic_crop(
+    sgl_threadpool_t *SGL_RESTRICT pool,
+    const sgl_uint8_t *SGL_RESTRICT src, sgl_int32_t src_width, sgl_int32_t src_height,
+    sgl_uint8_t *SGL_RESTRICT dst, sgl_int32_t x, sgl_int32_t y, sgl_int32_t crop_width, sgl_int32_t crop_height,
+    sgl_int32_t bpp);
+/* SIMD Crop */
+#if defined(SGL_CFG_HAS_SIMD)
+sgl_result_t sgl_simd_crop(
+    sgl_threadpool_t *SGL_RESTRICT pool,
+    const sgl_uint8_t *SGL_RESTRICT src, sgl_int32_t src_width, sgl_int32_t src_height,
+    sgl_uint8_t *SGL_RESTRICT dst, sgl_int32_t x, sgl_int32_t y, sgl_int32_t crop_width, sgl_int32_t crop_height,
+    sgl_int32_t bpp);
+#endif  /* !SGL_CFG_HAS_SIMD */
+
+
+/*******************************************************************
+ *                          Rotate
+ *******************************************************************/
+sgl_result_t sgl_get_rotated_dimensions(
+    sgl_int32_t src_width, sgl_int32_t src_height, sgl_float64_t angle,
+    sgl_int32_t *dst_width, sgl_int32_t *dst_height);
+sgl_int32_t sgl_get_rotated_size(sgl_int32_t src_width, sgl_int32_t src_height, sgl_int32_t bpp, sgl_float64_t angle);
+/*
+ * A rotate LUT is independent of bpp and may be reused only with the source
+ * dimensions and angle used at creation. A NULL pool or LUT is valid.
+ */
+sgl_rotate_lookup_t *sgl_generic_create_rotate_lut(
+    sgl_int32_t src_width, sgl_int32_t src_height, sgl_float64_t angle);
+void sgl_generic_destroy_rotate_lut(sgl_rotate_lookup_t *lut);
+
+/* Generic Rotate */
+sgl_result_t sgl_generic_rotate(
+    sgl_threadpool_t *SGL_RESTRICT pool,
+    sgl_rotate_lookup_t *SGL_RESTRICT ext_lut,
+    const sgl_uint8_t *SGL_RESTRICT src, sgl_int32_t src_width, sgl_int32_t src_height,
+    sgl_uint8_t *SGL_RESTRICT dst, sgl_int32_t bpp, sgl_float64_t angle);
+/* SIMD Rotate */
+#if defined(SGL_CFG_HAS_SIMD)
+sgl_result_t sgl_simd_rotate(
+    sgl_threadpool_t *SGL_RESTRICT pool,
+    sgl_rotate_lookup_t *SGL_RESTRICT ext_lut,
+    const sgl_uint8_t *SGL_RESTRICT src, sgl_int32_t src_width, sgl_int32_t src_height,
+    sgl_uint8_t *SGL_RESTRICT dst, sgl_int32_t bpp, sgl_float64_t angle);
+#endif  /* !SGL_CFG_HAS_SIMD */
+
+
+/*******************************************************************
+ *                          Convert
+ *******************************************************************/
+/* A NULL pool selects the single-thread path. */
+/* Generic Convert */
+sgl_result_t sgl_generic_rgb2yuv(
+    sgl_threadpool_t *SGL_RESTRICT pool,
+    const sgl_uint8_t *SGL_RESTRICT src, sgl_fourcc_t src_format,
+    sgl_uint8_t *SGL_RESTRICT dst, sgl_fourcc_t dst_format,
+    sgl_int32_t width, sgl_int32_t height);
+sgl_result_t sgl_generic_rgb2rgb(
+    sgl_threadpool_t *SGL_RESTRICT pool,
+    const sgl_uint8_t *SGL_RESTRICT src, sgl_fourcc_t src_format,
+    sgl_uint8_t *SGL_RESTRICT dst, sgl_fourcc_t dst_format,
+    sgl_int32_t width, sgl_int32_t height);
+sgl_result_t sgl_generic_yuv2rgb(
+    sgl_threadpool_t *SGL_RESTRICT pool,
+    const sgl_uint8_t *SGL_RESTRICT src, sgl_fourcc_t src_format,
+    sgl_uint8_t *SGL_RESTRICT dst, sgl_fourcc_t dst_format,
+    sgl_int32_t width, sgl_int32_t height);
+sgl_result_t sgl_generic_yuv2yuv(
+    sgl_threadpool_t *SGL_RESTRICT pool,
+    const sgl_uint8_t *SGL_RESTRICT src, sgl_fourcc_t src_format,
+    sgl_uint8_t *SGL_RESTRICT dst, sgl_fourcc_t dst_format,
+    sgl_int32_t width, sgl_int32_t height);
+/* SIMD Convert */
+#if defined(SGL_CFG_HAS_SIMD)
+sgl_result_t sgl_simd_rgb2yuv(
+    sgl_threadpool_t *SGL_RESTRICT pool,
+    const sgl_uint8_t *SGL_RESTRICT src, sgl_fourcc_t src_format,
+    sgl_uint8_t *SGL_RESTRICT dst, sgl_fourcc_t dst_format,
+    sgl_int32_t width, sgl_int32_t height);
+sgl_result_t sgl_simd_rgb2rgb(
+    sgl_threadpool_t *SGL_RESTRICT pool,
+    const sgl_uint8_t *SGL_RESTRICT src, sgl_fourcc_t src_format,
+    sgl_uint8_t *SGL_RESTRICT dst, sgl_fourcc_t dst_format,
+    sgl_int32_t width, sgl_int32_t height);
+sgl_result_t sgl_simd_yuv2rgb(
+    sgl_threadpool_t *SGL_RESTRICT pool,
+    const sgl_uint8_t *SGL_RESTRICT src, sgl_fourcc_t src_format,
+    sgl_uint8_t *SGL_RESTRICT dst, sgl_fourcc_t dst_format,
+    sgl_int32_t width, sgl_int32_t height);
+sgl_result_t sgl_simd_yuv2yuv(
+    sgl_threadpool_t *SGL_RESTRICT pool,
+    const sgl_uint8_t *SGL_RESTRICT src, sgl_fourcc_t src_format,
+    sgl_uint8_t *SGL_RESTRICT dst, sgl_fourcc_t dst_format,
+    sgl_int32_t width, sgl_int32_t height);
 #endif  /* !SGL_CFG_HAS_SIMD */
 
 

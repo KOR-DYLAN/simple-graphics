@@ -33,13 +33,17 @@
 #define SGL_TEST_WARMUP_COUNT               (3)
 #endif
 #define SGL_TEST_MEMORY_POOL_SIZE           (64U * 1024U * 1024U)
+#ifndef SGL_TEST_BENCHMARK_DIR
 #define SGL_TEST_BENCHMARK_DIR              "benchmark"
+#endif
+#ifndef SGL_TEST_BENCHMARK_CSV
 #define SGL_TEST_BENCHMARK_CSV              SGL_TEST_BENCHMARK_DIR "/resize-benchmark.csv"
+#endif
 #ifndef SGL_TEST_BUILD_DIR
 #define SGL_TEST_BUILD_DIR                  "."
 #endif
 #ifndef SGL_TEST_OUTPUT_DIR
-#define SGL_TEST_OUTPUT_DIR                 SGL_TEST_BUILD_DIR "/output"
+#define SGL_TEST_OUTPUT_DIR                 SGL_TEST_BUILD_DIR "/resize-output"
 #endif
 #define SGL_TEST_SAMPLE_BASE_NAME           "sample.png"
 #define SGL_TEST_THREADPOOL_UNSUPPORTED     (0)
@@ -76,8 +80,8 @@ static const char *sgl_test_output_dir = SGL_TEST_OUTPUT_DIR;
  * The text table is optimized for reading in a terminal.  The CSV file is
  * stable and can be diffed or imported into a spreadsheet for benchmark
  * comparison between commits, compiler options, SIMD modes, or thread counts.
- * Resized PNG files are written separately under build/output for visual
- * debugging and result inspection.
+ * Resized PNG files are written under the active CMake build tree's
+ * resize-output directory for visual debugging and result inspection.
  */
 
 typedef sgl_result_t (*sgl_test_resize_runner_t)(

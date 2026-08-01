@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: MIT
+
+menu "Profiling"
+
+config WITH_LTTNG
+	bool "LTTng profiling"
+	default n
+	cmake
+	help
+	  Enable Linux LTTng-UST trace instrumentation.
+
+config LTTNG_UST_ROOT
+	string "LTTng-UST root"
+	default ""
+	depends on WITH_LTTNG
+	cmake
+	help
+	  Optional non-system LTTng-UST installation prefix.
+
+endmenu

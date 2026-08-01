@@ -10,7 +10,10 @@ project(test-util
     LANGUAGES C CXX
 )
 
-list(APPEND SRC util.c)
+list(APPEND SRC
+    benchmark.c
+    util.c
+)
 
 # Static helper library for test PNG load/save and common utility functions.
 add_library(${PROJECT_NAME} ${SRC})

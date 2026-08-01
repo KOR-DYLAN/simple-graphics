@@ -1,0 +1,51 @@
+# SPDX-License-Identifier: MIT
+
+menu "Analysis"
+
+config WITH_COMPILER_WARNINGS
+	bool "Compiler warnings"
+	default y
+	cmake
+	help
+	  Enable common compiler warnings.
+
+config WITH_CPPCHECK
+	bool "Cppcheck"
+	default y
+	cmake
+	help
+	  Enable cppcheck analysis for library sources.
+
+config WITH_CPPCHECK_MISRA
+	bool "Cppcheck MISRA"
+	default y
+	depends on WITH_CPPCHECK
+	cmake
+	help
+	  Enable the cppcheck MISRA C:2012 addon.
+
+config WITH_CPPCHECK_WARNINGS_AS_ERRORS
+	bool "Cppcheck errors"
+	default y
+	depends on WITH_CPPCHECK
+	cmake
+	help
+	  Fail the build when cppcheck reports findings.
+
+config CPPCHECK_MISRA_RULE_TEXTS
+	string "MISRA rule texts"
+	default ""
+	depends on WITH_CPPCHECK && WITH_CPPCHECK_MISRA
+	cmake
+	help
+	  Optional licensed MISRA rule-headlines file.
+
+config CPPCHECK_MAX_CTU_DEPTH
+	int "Cppcheck CTU depth"
+	default "4"
+	minimum 1
+	depends on WITH_CPPCHECK
+	help
+	  Maximum CTU depth for cppcheck-report.
+
+endmenu

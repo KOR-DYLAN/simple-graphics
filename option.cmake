@@ -7,12 +7,13 @@
 
 # Build hygiene toggles exposed as CMake cache options.
 option(WITH_COMPILER_WARNINGS           "Enable common compiler warnings"                       ON)
+option(WITH_AUTO_VECTORIZATION          "Enable compiler automatic loop and SLP vectorization"  ON)
 option(WITH_CPPCHECK                    "Enable cppcheck static analysis"                       ON)
 option(WITH_CPPCHECK_MISRA              "Enable cppcheck MISRA C:2012 addon"                    ON)
 option(WITH_CPPCHECK_WARNINGS_AS_ERRORS "Treat cppcheck findings as build errors"               ON)
 option(WITH_SANITIZER                   "Enable compiler sanitizer instrumentation"             OFF)
 option(WITH_STACK_PROTECTOR             "Enable compiler stack protector instrumentation"       OFF)
-option(WITH_LTTNG                       "Enable Linux LTTng-UST profiling instrumentation"        OFF)
+option(WITH_LTTNG                       "Enable Linux LTTng-UST profiling instrumentation"      OFF)
 
 # Feature toggles that decide which project targets and optimized code paths are built.
 option(WITH_TEST_APP                    "Enable Test Application Feature"                       ON)

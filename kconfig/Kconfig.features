@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: MIT
+
+menu "Features"
+
+config WITH_TEST_APP
+	bool "Test applications"
+	default y
+	cmake
+	help
+	  Build the applications and CTest entries under test/.
+
+config WITH_BENCHMARK_COMPARE
+	bool "Benchmark comparison"
+	default y
+	depends on WITH_TEST_APP
+	cmake
+	help
+	  Build Cairo and available NE10 resize comparison backends.
+
+config WITH_SIMD
+	bool "SIMD"
+	default y
+	cmake
+	help
+	  Enable architecture-specific SIMD detection and sources.
+
+config WITH_THREAD
+	bool "Thread support"
+	default y
+	cmake
+	help
+	  Enable the platform thread backend and threadpool.
+
+endmenu

@@ -5,12 +5,56 @@
 # This file is released under the MIT License.
 # For conditions of distribution and use, see the LICENSE file.
 
+# Build trees and downloaded third-party source archives are reproducible.
 build/**
 downloads/*
+
+# Menu configuration is local to each developer and build environment.
+.config
+
+# Python creates interpreter-specific bytecode and cache directories.
+__pycache__/
+*.py[cod]
+
+# Python version selection and virtual environments are developer-local.
+.python-version
+.venv/
+
+# Cppcheck intermediate files are generated while producing analysis reports.
 report/*/cppcheck-build/*
+
+# Keep curated benchmark CSV, Markdown, and SVG snapshots only. Other files
+# below benchmark/ are generated outputs and can consume substantial storage.
 benchmark/*
 !benchmark/
 !benchmark/README.md
+
+# Convert benchmark index, source matrix, and generated charts.
+!benchmark/convert/
+benchmark/convert/*
+!benchmark/convert/README.md
+!benchmark/convert/benchmark.csv
+!benchmark/convert/*.svg
+!benchmark/convert/*/
+benchmark/convert/*/*
+!benchmark/convert/*/README.md
+!benchmark/convert/*/*.svg
+
+# Crop benchmark snapshot and latency chart.
+!benchmark/crop/
+benchmark/crop/*
+!benchmark/crop/README.md
+!benchmark/crop/benchmark.csv
+!benchmark/crop/*.svg
+
+# Rotate benchmark snapshot and latency chart.
+!benchmark/rotate/
+benchmark/rotate/*
+!benchmark/rotate/README.md
+!benchmark/rotate/benchmark.csv
+!benchmark/rotate/*.svg
+
+# Resize benchmark index and per-channel reports and charts.
 !benchmark/resize/
 benchmark/resize/*
 !benchmark/resize/README.md

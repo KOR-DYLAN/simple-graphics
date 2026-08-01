@@ -10,6 +10,7 @@ include(${CMAKE_SOURCE_DIR}/option.cmake)
 
 # Configure build hygiene, package metadata, platform feature detection, and test runners.
 include(${CMAKE_CURRENT_LIST_DIR}/compiler-warnings.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/compiler-optimization.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/runtime-checks.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/cppcheck/cppcheck.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/package/load-version.cmake)

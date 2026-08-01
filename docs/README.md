@@ -12,6 +12,10 @@ SGL Documentation
 
 [Main README](../README.md)
 
+Environment Setup
+-----------------
+- [Python package-manager and pyenv setup](python-setup.md)
+
 Core Internals
 --------------
 - [Memory pool allocator](animations/core/memory-allocator.html)

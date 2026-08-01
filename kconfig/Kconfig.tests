@@ -1,0 +1,95 @@
+# SPDX-License-Identifier: MIT
+
+menu "Tests"
+
+config SGL_TEST_CROP_REPEAT_COUNT
+	int "Crop repeats"
+	default "10"
+	minimum 1
+	depends on WITH_TEST_APP
+	cmake
+	help
+	  Measured crop benchmark iterations.
+
+config SGL_TEST_CROP_WARMUP_COUNT
+	int "Crop warm-ups"
+	default "3"
+	minimum 0
+	depends on WITH_TEST_APP
+	cmake
+	help
+	  Untimed crop benchmark warm-up iterations.
+
+config SGL_TEST_CONVERT_REPEAT_COUNT
+	int "Convert repeats"
+	default "10"
+	minimum 1
+	depends on WITH_TEST_APP
+	cmake
+	help
+	  Measured convert benchmark iterations.
+
+config SGL_TEST_CONVERT_WARMUP_COUNT
+	int "Convert warm-ups"
+	default "3"
+	minimum 0
+	depends on WITH_TEST_APP
+	cmake
+	help
+	  Untimed convert benchmark warm-up iterations.
+
+config SGL_TEST_CONVERT_MATRIX_WIDTH
+	int "Convert image width"
+	default "1280"
+	minimum 2
+	depends on WITH_TEST_APP
+	cmake
+	help
+	  Width used by the convert benchmark and complete FourCC matrix.
+
+config SGL_TEST_CONVERT_MATRIX_HEIGHT
+	int "Convert image height"
+	default "720"
+	minimum 2
+	depends on WITH_TEST_APP
+	cmake
+	help
+	  Height used by the convert benchmark and complete FourCC matrix.
+
+config SGL_TEST_ROTATE_REPEAT_COUNT
+	int "Rotate repeats"
+	default "10"
+	minimum 1
+	depends on WITH_TEST_APP
+	cmake
+	help
+	  Measured rotate benchmark iterations.
+
+config SGL_TEST_ROTATE_WARMUP_COUNT
+	int "Rotate warm-ups"
+	default "3"
+	minimum 0
+	depends on WITH_TEST_APP
+	cmake
+	help
+	  Untimed rotate benchmark warm-up iterations.
+
+config SGL_TEST_RESIZE_REPEAT_COUNT
+	int "Resize repeats"
+	default "10"
+	minimum 1
+	depends on WITH_TEST_APP
+	cmake
+	help
+	  Measured resize benchmark iterations.
+
+config SGL_TEST_RESIZE_WARMUP_COUNT
+	int "Resize warm-ups"
+	default "3"
+	minimum 0
+	depends on WITH_TEST_APP
+	cmake
+	help
+	  Untimed resize benchmark warm-up iterations.
+
+endmenu

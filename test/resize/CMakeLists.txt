@@ -33,12 +33,15 @@ if(NOT SGL_TEST_RESIZE_WARMUP_COUNT MATCHES "^[0-9]+$")
 endif()
 
 set(SGL_TEST_DEFAULT_INPUT "${CMAKE_SOURCE_DIR}/resource/sample.png")
-set(SGL_TEST_DEFAULT_OUTPUT_DIR "${CMAKE_SOURCE_DIR}/build/output")
+set(SGL_TEST_DEFAULT_OUTPUT_DIR "${CMAKE_BINARY_DIR}/resize-output")
+file(MAKE_DIRECTORY "${SGL_TEST_DEFAULT_OUTPUT_DIR}")
 
 # Resize benchmark executable; runtime arguments can override both paths.
 add_executable(${PROJECT_NAME} ${SRC})
 target_compile_definitions(${PROJECT_NAME} PRIVATE
     "SGL_TEST_BUILD_DIR=\"${CMAKE_BINARY_DIR}\""
+    "SGL_TEST_BENCHMARK_DIR=\"${CMAKE_BINARY_DIR}/benchmark\""
+    "SGL_TEST_BENCHMARK_CSV=\"${CMAKE_BINARY_DIR}/benchmark/resize-benchmark.csv\""
     "SGL_TEST_OUTPUT_DIR=\"${SGL_TEST_DEFAULT_OUTPUT_DIR}\""
     "SGL_TEST_REPEAT_COUNT=${SGL_TEST_RESIZE_REPEAT_COUNT}"
     "SGL_TEST_WARMUP_COUNT=${SGL_TEST_RESIZE_WARMUP_COUNT}"
@@ -76,8 +79,6 @@ else()
     message(STATUS "resize benchmark external comparison: disabled")
 endif()
 
-find_package(Python3 COMPONENTS Interpreter REQUIRED)
-
 set(SGL_TEST_BENCHMARK_CSV
     "${CMAKE_BINARY_DIR}/benchmark/resize-benchmark.csv")
 set(SGL_TEST_BENCHMARK_SNAPSHOT_DIR
@@ -99,7 +100,7 @@ else()
     endif()
 
     # Run from the build tree because the benchmark writes its CSV relative to
-    # the process working directory, then publish the validated repo snapshot.
+    # the process working directory, then publish the validated repo report.
     add_custom_target(benchmark-update
         COMMAND ${CMAKE_COMMAND} -E make_directory
                 "${SGL_TEST_BENCHMARK_SNAPSHOT_DIR}"
@@ -109,8 +110,15 @@ else()
                 "${SGL_TEST_DEFAULT_INPUT}"
                 "${SGL_TEST_DEFAULT_OUTPUT_DIR}"
         COMMAND "${Python3_EXECUTABLE}"
-                "${CMAKE_SOURCE_DIR}/tools/resize-benchmark-summary-svg.py"
+                "${SGL_BENCHMARK_REPORT_SCRIPT}"
+                --benchmark resize
                 --csv "${SGL_TEST_BENCHMARK_CSV}"
+                --output-dir "${SGL_TEST_BENCHMARK_SNAPSHOT_DIR}"
+                --metadata "${SGL_BENCHMARK_METADATA_FILE}"
+                --source-root "${CMAKE_SOURCE_DIR}"
+                --input "${SGL_TEST_DEFAULT_INPUT}"
+                --warmup "${SGL_TEST_RESIZE_WARMUP_COUNT}"
+                --repeat "${SGL_TEST_RESIZE_REPEAT_COUNT}"
                 --validate-only
                 ${SGL_TEST_BENCHMARK_VALIDATE_SIMD_ARGS}
                 ${SGL_TEST_BENCHMARK_VALIDATE_EXTERNAL_ARGS}
@@ -118,12 +126,23 @@ else()
                 "${SGL_TEST_BENCHMARK_CSV}"
                 "${SGL_TEST_BENCHMARK_SNAPSHOT_CSV}"
         COMMAND "${Python3_EXECUTABLE}"
-                "${CMAKE_SOURCE_DIR}/tools/resize-benchmark-summary-svg.py"
-                --csv "benchmark/resize/benchmark.csv"
-                --output-dir "benchmark/resize"
+                "${SGL_BENCHMARK_REPORT_SCRIPT}"
+                --benchmark resize
+                --csv "${SGL_TEST_BENCHMARK_SNAPSHOT_CSV}"
+                --output-dir "${SGL_TEST_BENCHMARK_SNAPSHOT_DIR}"
+                --metadata "${SGL_BENCHMARK_METADATA_FILE}"
+                --compile-commands
+                    "${CMAKE_BINARY_DIR}/compile_commands.json"
+                --source-root "${CMAKE_SOURCE_DIR}"
+                --input "${SGL_TEST_DEFAULT_INPUT}"
+                --warmup "${SGL_TEST_RESIZE_WARMUP_COUNT}"
+                --repeat "${SGL_TEST_RESIZE_REPEAT_COUNT}"
+                --gnuplot "${SGL_GNUPLOT_EXECUTABLE}"
+                ${SGL_TEST_BENCHMARK_VALIDATE_SIMD_ARGS}
+                ${SGL_TEST_BENCHMARK_VALIDATE_EXTERNAL_ARGS}
         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
         DEPENDS ${PROJECT_NAME}
-        COMMENT "Updating representative and channel-specific benchmark SVGs"
+        COMMENT "Updating resize benchmark charts and Markdown tables"
         USES_TERMINAL
         VERBATIM
     )
@@ -146,3 +165,11 @@ else()
                 ${SGL_TEST_DEFAULT_OUTPUT_DIR}
     )
 endif()
+
+sgl_add_benchmark_report_test(
+    ${PROJECT_NAME}
+    "${SGL_TEST_BENCHMARK_CSV}"
+    "${SGL_TEST_DEFAULT_INPUT}"
+    "${SGL_TEST_RESIZE_WARMUP_COUNT}"
+    "${SGL_TEST_RESIZE_REPEAT_COUNT}"
+)

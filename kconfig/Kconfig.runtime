@@ -1,0 +1,55 @@
+# SPDX-License-Identifier: MIT
+
+menu "Runtime"
+
+config WITH_RUNTIME_TEST
+	bool "Runtime-test preset"
+	default n
+	select WITH_TEST_APP
+	select WITH_SANITIZER
+	select WITH_STACK_PROTECTOR
+	set BUILD_TYPE "Debug"
+	set STACK_PROTECTOR_MODE "all"
+	set SGL_TEST_CROP_REPEAT_COUNT "1"
+	set SGL_TEST_CROP_WARMUP_COUNT "0"
+	set SGL_TEST_CONVERT_REPEAT_COUNT "1"
+	set SGL_TEST_CONVERT_WARMUP_COUNT "0"
+	set SGL_TEST_ROTATE_REPEAT_COUNT "1"
+	set SGL_TEST_ROTATE_WARMUP_COUNT "0"
+	set SGL_TEST_RESIZE_REPEAT_COUNT "1"
+	set SGL_TEST_RESIZE_WARMUP_COUNT "0"
+	help
+	  Enable the Debug sanitizer and stack-protector preset.
+
+config WITH_SANITIZER
+	bool "Sanitizer"
+	default n
+	cmake
+	help
+	  Enable compiler sanitizer instrumentation.
+
+config SANITIZERS
+	string "Sanitizer list"
+	default "address,undefined"
+	depends on WITH_SANITIZER
+	cmake
+	help
+	  Comma-separated sanitizers; thread requires a separate build.
+
+config WITH_STACK_PROTECTOR
+	bool "Stack protector"
+	default n
+	cmake
+	help
+	  Enable compiler stack-protector instrumentation.
+
+config STACK_PROTECTOR_MODE
+	enum "Stack protector mode"
+	values "basic" "strong" "all"
+	default "strong"
+	depends on WITH_STACK_PROTECTOR
+	cmake
+	help
+	  Stack-protector coverage level.
+
+endmenu

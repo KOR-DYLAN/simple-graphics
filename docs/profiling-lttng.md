@@ -34,12 +34,12 @@ resize_end
 
 Installation
 ------------
-Install the LTTng command-line tools, UST development package, and Babeltrace 2
-on Ubuntu or WSL:
+Install the LTTng command-line tools, UST development package, Babeltrace 2,
+and its Python binding on Ubuntu or WSL:
 
 ```sh
 sudo apt update
-sudo apt install lttng-tools liblttng-ust-dev babeltrace2
+sudo apt install lttng-tools liblttng-ust-dev babeltrace2 python3-bt2
 ```
 
 The project traces user-space code by default. `lttng-modules-dkms` is not
@@ -135,6 +135,10 @@ any retained trace without recording the workload again:
 tools/lttng-resize-report.py \
   build/profile-lttng/<toolchain>/profile/lttng/sgl-<timestamp>-<pid>
 ```
+
+When pyenv is active, use `PYENV_VERSION=system make profile-lttng` so the
+report tool can load the distribution-provided `bt2` binding. See the
+[Python environment setup guide](python-setup.md#optional-lttng-python-binding).
 
 The report groups dispatch latency, worker-start delay, completion wait, queue
 contention, and work distribution by requested thread count. A worker slot can

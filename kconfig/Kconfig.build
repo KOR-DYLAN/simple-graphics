@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: MIT
+
+menu "Build"
+
+config TOOLCHAIN
+	enum "Toolchain"
+	values "llvm" "gnu" "aarch64-none-linux-llvm" "aarch64-none-linux-gnu"
+	default "llvm"
+	help
+	  Compiler toolchain and matching CMake toolchain file.
+
+config BUILD_TYPE
+	enum "Build type"
+	values "Debug" "Release" "RelWithDebInfo" "MinSizeRel"
+	default "Release"
+	help
+	  CMake optimization and debug-information profile.
+
+config WITH_AUTO_VECTORIZATION
+	bool "Compiler auto-vectorization"
+	default y
+	cmake
+	help
+	  Allow the compiler to vectorize scalar loops automatically. Disabling
+	  this option does not disable explicitly selected SIMD or NEON sources.
+
+config NPROC
+	int "Parallel jobs"
+	default "${CPU_COUNT}"
+	minimum 1
+	help
+	  Maximum number of parallel build jobs.
+
+config V
+	enum "Verbose build"
+	values "0" "1"
+	default "0"
+	help
+	  Print verbose compiler and linker commands.
+
+config INSTALL_PREFIX
+	string "Install prefix"
+	default ""
+	cmake CMAKE_INSTALL_PREFIX
+	help
+	  Optional installation prefix; empty uses the build-tree default.
+
+endmenu

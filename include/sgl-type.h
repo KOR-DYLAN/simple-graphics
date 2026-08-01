@@ -71,6 +71,9 @@ typedef signed long         sgl_ptrdiff_t;
 #error "Unsupported compiler: fixed-width predefined types are unavailable"
 #endif
 
+typedef float               sgl_float32_t;
+typedef double              sgl_float64_t;
+
 #if defined(__cplusplus)
 typedef bool                sgl_bool_t;
 #elif defined(_MSC_VER) && !defined(__clang__)
@@ -81,7 +84,8 @@ typedef _Bool               sgl_bool_t;
 
 #define SGL_FALSE           ((sgl_bool_t)0)
 #define SGL_TRUE            ((sgl_bool_t)1)
-#define SGL_SIZE_MAX        ((sgl_size_t)-1)
+/* Inverting zero sets every bit of the unsigned size type. */
+#define SGL_SIZE_MAX        (~(sgl_size_t)0U)
 
 #if defined(__cplusplus)
 #define SGL_NULL            0
