@@ -64,7 +64,7 @@ jobs:
           test -f "package/sgl-${version}-linux-${TARGET_ARCH}.zip"
 
       - name: Upload binary archives
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: binary-${{ matrix.arch }}
           path: package/sgl-*-linux-${{ matrix.arch }}.*
@@ -124,7 +124,7 @@ jobs:
           test -f "package/sgl-docs-${version}-SHA256SUMS.txt"
 
       - name: Upload portable archives
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: portable
           path: |
@@ -149,7 +149,7 @@ jobs:
 
     steps:
       - name: Download release archives
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           path: release-assets
           merge-multiple: true
@@ -182,7 +182,7 @@ jobs:
           ) > release-assets/SHA256SUMS.txt
 
       - name: Attest release assets
-        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: release-assets/*
 
